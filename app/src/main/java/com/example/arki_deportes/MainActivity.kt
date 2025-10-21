@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,7 +24,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.arki_deportes.data.Repository
 import com.example.arki_deportes.data.local.ConfigManager
+import com.example.arki_deportes.ui.home.HomeRoute
+import com.example.arki_deportes.ui.home.HomeViewModel
+import com.example.arki_deportes.ui.home.HomeViewModelFactory
 import com.example.arki_deportes.ui.theme.Arki_DeportesTheme
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.auth.FirebaseAuth
@@ -564,48 +568,15 @@ class MainActivity : ComponentActivity() {
      */
     @Composable
     fun PantallaBienvenida() {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "✅",
-                    fontSize = 64.sp
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "¡Bienvenido!",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Acceso autorizado",
-                    fontSize = 16.sp,
-                    color = Color.Gray
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Text(
-                    text = "Próximamente: Navegación a pantallas",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-            }
+        val repository = remember(database, configManager) {
+            Repository(database, configManager)
         }
+
+        val homeViewModel: HomeViewModel = viewModel(
+            factory = HomeViewModelFactory(repository)
+        )
+
+        HomeRoute(viewModel = homeViewModel)
     }
 
     /**

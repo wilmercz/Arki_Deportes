@@ -79,6 +79,11 @@ data class PartidoActual(
     val ESTADO: String = "NoIniciado",
 
     /**
+     * Indica si el partido está siendo transmitido en vivo
+     */
+    val EN_TRANSMISION: Boolean = false,
+
+    /**
      * Cantidad de tarjetas amarillas del equipo 1
      * Ejemplo: 2
      */
@@ -127,6 +132,13 @@ data class PartidoActual(
      */
     fun estaEnJuego(): Boolean {
         return ESTADO == "EnJuego"
+    }
+
+    /**
+     * Verifica si el partido se encuentra en transmisión en vivo.
+     */
+    fun estaEnTransmision(): Boolean {
+        return EN_TRANSMISION || estaEnJuego()
     }
 
     /**
