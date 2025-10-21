@@ -188,7 +188,7 @@ private fun LiveMatchCard(partido: PartidoActual) {
                         fontWeight = FontWeight.Black
                     )
                     Text(
-                        text = partido.TIEMPO_TRANSCURRIDO.ifBlank { "00:00" },
+                        text = partido.getTiempoNormalizado(),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
