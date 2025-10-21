@@ -31,12 +31,19 @@ import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.ui.home.HomeRoute
 import com.example.arki_deportes.ui.home.HomeViewModel
 import com.example.arki_deportes.ui.home.HomeViewModelFactory
+import com.example.arki_deportes.ui.menciones.MencionesRoute
+import com.example.arki_deportes.ui.menciones.MencionesViewModel
+import com.example.arki_deportes.ui.menciones.MencionesViewModelFactory
 import androidx.navigation.compose.rememberNavController
 import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.navigation.AppNavGraph
 import com.example.arki_deportes.navigation.AppNavigator
 
+import com.example.arki_deportes.ui.produccion.EquipoProduccionRoute
+import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModel
+import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModelFactory
 import com.example.arki_deportes.ui.theme.Arki_DeportesTheme
+import com.example.arki_deportes.ui.tiemporeal.TiempoRealScreen
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
@@ -134,88 +141,36 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun PantallaTiempoReal(navigator: AppNavigator) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "📡",
-                    fontSize = 64.sp
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Panel de tiempo real",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Aquí se mostrarán los eventos en vivo del partido.",
-                    fontSize = 16.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                OutlinedButton(onClick = { navigator.navigateToHybridHome() }) {
-                    Text("Volver al inicio", fontSize = 16.sp)
-                }
-            }
-        }
+        TiempoRealScreen(
+            modifier = Modifier.fillMaxSize(),
+            onNavigateBack = { navigator.navigateToHybridHome() }
+        )
     }
 
     @Composable
     fun PantallaCatalogos(navigator: AppNavigator) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "🗂️",
-                    fontSize = 64.sp
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Catálogos",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Accede a la información de equipos, jugadores y más.",
-                    fontSize = 16.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                OutlinedButton(onClick = { navigator.navigateToHybridHome() }) {
-                    Text("Volver al inicio", fontSize = 16.sp)
-                }
-            }
+        val repository = remember(database, configManager) {
+            Repository(database, configManager)
         }
+
+
+        val viewModel: MencionesViewModel = viewModel(
+            factory = MencionesViewModelFactory(repository)
+        )
+
+        MencionesRoute(
+            viewModel = viewModel,
+            onNavigateBack = { navigator.navigateBack() }
+
+        val viewModel: EquipoProduccionViewModel = viewModel(
+            factory = EquipoProduccionViewModelFactory(repository)
+        )
+
+        EquipoProduccionRoute(
+            viewModel = viewModel,
+            onBack = { navigator.navigateBack() }
+
+        )
     }
 
     // ═══════════════════════════════════════════════════════════════════════

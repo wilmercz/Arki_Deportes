@@ -75,7 +75,17 @@ data class PartidoActual(
     val TIEMPO_TRANSCURRIDO: String = "00:00",
 
     /**
+
      * Estado actual del partido heredado del backend clásico.
+
+     * Indica si el cronómetro del partido está en marcha
+     * true cuando el software de transmisión mantiene corriendo el tiempo
+     */
+    val CRONOMETRANDO: Boolean = false,
+
+    /**
+     * Estado actual del partido
+
      * Valores posibles:
      * - "EnJuego": Partido en curso
      * - "Finalizado": Partido terminado
