@@ -104,6 +104,7 @@ object Constants {
         const val EQUIPOS = "EQUIPOS"
         const val PARTIDOS = "PARTIDOS"
         const val PARTIDO_ACTUAL = "PartidoActual"
+        const val MENCIONES = "Menciones"
     }
 
     /** Campos de la colección Acceso */
