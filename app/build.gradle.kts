@@ -58,6 +58,8 @@ dependencies {
     // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose.base)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
     // Firebase
     implementation(platform(libs.firebaseBom))
@@ -92,6 +94,7 @@ dependencies {
     //#Dependencia de Coroutines
     implementation(libs.kotlinxcoroutinescore)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     //#Logs con Timber
     implementation(libs.timber)

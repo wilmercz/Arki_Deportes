@@ -1,12 +1,18 @@
 package com.example.arki_deportes.data
 
 import com.example.arki_deportes.data.local.ConfigManager
+
 import com.example.arki_deportes.data.model.Mencion
+
+import com.example.arki_deportes.data.model.Campeonato
+import com.example.arki_deportes.data.model.EquipoProduccion
+
 import com.example.arki_deportes.data.model.Partido
 import com.example.arki_deportes.data.model.PartidoActual
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.channels.awaitClose
@@ -163,6 +169,7 @@ class Repository(
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
     /**
+
      * Actualiza una mención existente en Firebase.
      */
     suspend fun actualizarMencion(mencion: Mencion) {
@@ -224,6 +231,100 @@ class Repository(
             }
 
             continuation.invokeOnCancellation { task.cancel() }
+
+     * Obtiene la lista completa de campeonatos registrados en Firebase.
+     */
+    suspend fun obtenerCampeonatos(): List<Campeonato> = suspendCancellableCoroutine { continuation ->
+        val reference = database.reference
+            .child(nodoRaiz)
+            .child(Constants.FirebaseCollections.CAMPEONATOS)
+
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val campeonatos = snapshot.children
+                    .mapNotNull { it.getValue(Campeonato::class.java) }
+                    .sortedBy { it.CAMPEONATO.uppercase(Locale.getDefault()) }
+
+                if (!continuation.isCompleted) {
+                    continuation.resume(campeonatos)
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                if (!continuation.isCompleted) {
+                    continuation.resumeWithException(error.toException())
+                }
+            }
+        }
+
+        reference.addListenerForSingleValueEvent(listener)
+        continuation.invokeOnCancellation { reference.removeEventListener(listener) }
+    }
+
+    /**
+     * Obtiene la configuración del equipo de producción. Si no existe retorna
+     * un objeto vacío.
+     */
+    suspend fun obtenerEquipoProduccion(campeonatoCodigo: String? = null): EquipoProduccion =
+        suspendCancellableCoroutine { continuation ->
+            val reference = equipoProduccionReference(campeonatoCodigo)
+
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val equipo = snapshot.getValue(EquipoProduccion::class.java)
+                        ?: EquipoProduccion.empty()
+
+                    if (!continuation.isCompleted) {
+                        continuation.resume(equipo)
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    if (!continuation.isCompleted) {
+                        continuation.resumeWithException(error.toException())
+                    }
+                }
+            }
+
+            reference.addListenerForSingleValueEvent(listener)
+            continuation.invokeOnCancellation { reference.removeEventListener(listener) }
+        }
+
+    /**
+     * Guarda la configuración del equipo de producción en el nodo indicado.
+     */
+    suspend fun guardarEquipoProduccion(
+        equipo: EquipoProduccion,
+        campeonatoCodigo: String? = null
+    ) = suspendCancellableCoroutine { continuation ->
+        val reference = equipoProduccionReference(campeonatoCodigo)
+        val data = equipo.normalized().copy(timestamp = System.currentTimeMillis())
+
+        reference.setValue(data)
+            .addOnSuccessListener {
+                if (!continuation.isCompleted) {
+                    continuation.resume(Unit)
+                }
+            }
+            .addOnFailureListener { error ->
+                if (!continuation.isCompleted) {
+                    continuation.resumeWithException(error)
+                }
+            }
+    }
+
+    private fun equipoProduccionReference(campeonatoCodigo: String?): DatabaseReference {
+        val baseReference = database.reference
+            .child(nodoRaiz)
+            .child(Constants.FirebaseCollections.EQUIPO_PRODUCCION)
+
+        return if (campeonatoCodigo.isNullOrBlank()) {
+            baseReference.child(Constants.EquipoProduccionPaths.DEFAULT)
+        } else {
+            baseReference
+                .child(Constants.EquipoProduccionPaths.CAMPEONATOS)
+                .child(campeonatoCodigo)
+
         }
     }
 }
