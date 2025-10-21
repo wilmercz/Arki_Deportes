@@ -2,6 +2,7 @@
 
 package com.example.arki_deportes.data.model
 
+import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
 import java.util.Locale
 
@@ -160,7 +161,12 @@ data class PartidoActual(
      * Timestamp de la última actualización (en milisegundos)
      * Generado por VB.NET cada vez que actualiza los datos
      */
-    val ULTIMA_ACTUALIZACION: Long = 0
+    val ULTIMA_ACTUALIZACION: Long = 0,
+
+    /**
+     * Deporte del partido en vivo.
+     */
+    val DEPORTE: String = SportType.FUTBOL.id
 ) {
     /**
      * Verifica si hay un partido en curso
@@ -205,6 +211,23 @@ data class PartidoActual(
     fun getMarcador(): String {
         return "$GOLES1 - $GOLES2"
     }
+
+    /** Obtiene la etiqueta del marcador según el deporte. */
+    fun getMarcadorLabel(): String = sportType().scoreboardLabel
+
+    /** Obtiene la etiqueta para las anotaciones individuales. */
+    fun getAnotacionesLabel(): String = sportType().teamScoreLabel
+
+    /** Obtiene el texto para el tiempo mostrado en vivo. */
+    fun getTiempoLabel(): String = sportType().liveTimeLabel
+
+    /** Indica si se deben mostrar estadísticas disciplinarias. */
+    fun muestraEstadisticasDisciplina(): Boolean = sportType().showDisciplinaryStats
+
+    /** Nombre legible del deporte. */
+    fun getDeporteTexto(): String = sportType().displayName
+
+    private fun sportType(): SportType = SportType.fromId(DEPORTE)
 
     /**
      * Obtiene el texto del estado en español amigable

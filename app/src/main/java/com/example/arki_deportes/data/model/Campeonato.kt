@@ -2,6 +2,7 @@
 
 package com.example.arki_deportes.data.model
 
+import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
 
 /**
@@ -100,7 +101,13 @@ data class Campeonato(
      * Valores: "MOBILE" o "DESKTOP"
      * Indica desde qué aplicación se creó el registro
      */
-    val ORIGEN: String = "MOBILE"
+    val ORIGEN: String = "MOBILE",
+
+    /**
+     * Deporte al que pertenece el campeonato
+     * Ejemplo: "FUTBOL", "BALONCESTO"
+     */
+    val DEPORTE: String = SportType.FUTBOL.id
 ) {
     /**
      * Convierte el objeto a un Map para Firebase
@@ -120,7 +127,8 @@ data class Campeonato(
             "HASTAGEXTRAS" to HASTAGEXTRAS,
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
             "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
-            "ORIGEN" to ORIGEN
+            "ORIGEN" to ORIGEN,
+            "DEPORTE" to DEPORTE.uppercase()
         )
     }
 
@@ -157,6 +165,9 @@ data class Campeonato(
     fun getNombreFormateado(): String {
         return "$CAMPEONATO - $PROVINCIA"
     }
+
+    /** Obtiene el nombre legible del deporte. */
+    fun getDeporteTexto(): String = SportType.fromId(DEPORTE).displayName
 
     /**
      * Compañero para crear instancias vacías

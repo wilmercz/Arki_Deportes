@@ -168,6 +168,12 @@ private fun LiveMatchCard(partido: PartidoActual) {
                 )
             }
 
+            Text(
+                text = partido.getDeporteTexto(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -175,7 +181,8 @@ private fun LiveMatchCard(partido: PartidoActual) {
             ) {
                 TeamScore(
                     nombre = partido.EQUIPO1,
-                    goles = partido.GOLES1,
+                    valor = partido.GOLES1,
+                    etiqueta = partido.getAnotacionesLabel(),
                     modifier = Modifier.weight(1f)
                 )
                 Column(
@@ -183,29 +190,50 @@ private fun LiveMatchCard(partido: PartidoActual) {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
+                        text = partido.getMarcadorLabel(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
                         text = partido.getMarcador(),
                         fontSize = 34.sp,
                         fontWeight = FontWeight.Black
                     )
                     Text(
+
+                        text = partido.getTiempoLabel(),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Text(
+                        text = partido.TIEMPO_TRANSCURRIDO.ifBlank { "00:00" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+
                         text = partido.getTiempoNormalizado(),
                         style = MaterialTheme.typography.bodyMedium
+
                     )
                 }
                 TeamScore(
                     nombre = partido.EQUIPO2,
-                    goles = partido.GOLES2,
+                    valor = partido.GOLES2,
+                    etiqueta = partido.getAnotacionesLabel(),
                     modifier = Modifier.weight(1f)
                 )
             }
 
             SurfaceStatus(text = partido.getEstadoTexto(), icon = partido.getEstadoIcono())
+
+            if (partido.muestraEstadisticasDisciplina()) {
+                Divider(color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.3f))
+                DisciplinaryStats(partido)
+            }
         }
     }
 }
 
 @Composable
-private fun TeamScore(nombre: String, goles: Int, modifier: Modifier = Modifier) {
+private fun TeamScore(nombre: String, valor: Int, etiqueta: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -218,9 +246,14 @@ private fun TeamScore(nombre: String, goles: Int, modifier: Modifier = Modifier)
             textAlign = TextAlign.Center
         )
         Text(
-            text = goles.toString(),
+            text = valor.toString(),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = etiqueta,
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -270,6 +303,12 @@ private fun PartidoCard(partido: Partido) {
                 fontWeight = FontWeight.Bold
             )
 
+            Text(
+                text = partido.getDeporteTexto(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -289,6 +328,15 @@ private fun PartidoCard(partido: Partido) {
                         }
                     },
                     style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            val tiempoJuego = partido.getTiempoJuegoDescripcion()
+            if (tiempoJuego.isNotBlank()) {
+                Text(
+                    text = "${partido.getTiempoJuegoLabel()}: $tiempoJuego",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -316,10 +364,39 @@ private fun PartidoCard(partido: Partido) {
             if (partido.getMarcador() != "vs") {
                 Divider(color = MaterialTheme.colorScheme.surfaceVariant)
                 Text(
-                    text = "Marcador: ${partido.getMarcador()}",
+                    text = "${partido.getMarcadorLabel()}: ${partido.getMarcador()}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DisciplinaryStats(partido: PartidoActual) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Tarjetas",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = partido.EQUIPO1.ifBlank { "Equipo 1" }, fontWeight = FontWeight.SemiBold)
+                Text(text = "🟨 ${partido.TARJETAS_AMARILLAS1}")
+                Text(text = "🟥 ${partido.TARJETAS_ROJAS1}")
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = partido.EQUIPO2.ifBlank { "Equipo 2" }, fontWeight = FontWeight.SemiBold)
+                Text(text = "🟨 ${partido.TARJETAS_AMARILLAS2}")
+                Text(text = "🟥 ${partido.TARJETAS_ROJAS2}")
             }
         }
     }

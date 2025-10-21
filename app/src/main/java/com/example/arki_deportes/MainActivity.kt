@@ -28,14 +28,20 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.arki_deportes.data.Repository
 import com.example.arki_deportes.data.local.ConfigManager
+import com.example.arki_deportes.ui.catalogs.CatalogsRoute
 import com.example.arki_deportes.ui.home.HomeRoute
 import com.example.arki_deportes.ui.home.HomeViewModel
 import com.example.arki_deportes.ui.home.HomeViewModelFactory
+
+import com.example.arki_deportes.ui.realtime.TiempoRealRoute
+import com.example.arki_deportes.ui.realtime.TiempoRealViewModel
+import com.example.arki_deportes.ui.realtime.TiempoRealViewModelFactory
+
 import com.example.arki_deportes.ui.menciones.MencionesRoute
 import com.example.arki_deportes.ui.menciones.MencionesViewModel
 import com.example.arki_deportes.ui.menciones.MencionesViewModelFactory
+
 import androidx.navigation.compose.rememberNavController
-import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.navigation.AppNavGraph
 import com.example.arki_deportes.navigation.AppNavigator
 
@@ -141,14 +147,39 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun PantallaTiempoReal(navigator: AppNavigator) {
+
+        val repository = remember(database, configManager) {
+            Repository(database, configManager)
+        }
+        val viewModel: TiempoRealViewModel = viewModel(
+            factory = TiempoRealViewModelFactory(repository)
+        )
+
+        TiempoRealRoute(
+            viewModel = viewModel,
+            onBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            }
+
         TiempoRealScreen(
             modifier = Modifier.fillMaxSize(),
             onNavigateBack = { navigator.navigateToHybridHome() }
+
         )
     }
 
     @Composable
     fun PantallaCatalogos(navigator: AppNavigator) {
+
+        CatalogsRoute(
+            onBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            }
+
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
@@ -169,6 +200,7 @@ class MainActivity : ComponentActivity() {
         EquipoProduccionRoute(
             viewModel = viewModel,
             onBack = { navigator.navigateBack() }
+
 
         )
     }
@@ -632,53 +664,59 @@ class MainActivity : ComponentActivity() {
      * Pantalla de bienvenida (después de autenticar correctamente)
      */
     @Composable
-
-    fun PantallaBienvenida() {
+    fun PantallaBienvenida(navigator: AppNavigator) {
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
+        val homeViewModel: HomeViewModel = viewModel(
+            factory = HomeViewModelFactory(repository)
+        )
 
-    fun PantallaBienvenida(navigator: AppNavigator) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
                 .padding(24.dp),
-            contentAlignment = Alignment.Center
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     text = "✅",
                     fontSize = 64.sp
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
                 Text(
                     text = "¡Bienvenido!",
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
                 )
-
-
-        val homeViewModel: HomeViewModel = viewModel(
-            factory = HomeViewModelFactory(repository)
-        )
-
-
-        HomeRoute(viewModel = homeViewModel)
 
                 Text(
                     text = "Acceso autorizado",
                     fontSize = 16.sp,
-                    color = Color.Gray
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
                 )
+            }
 
-                Spacer(modifier = Modifier.height(32.dp))
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                HomeRoute(viewModel = homeViewModel)
+            }
 
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Button(
                     onClick = { navigator.navigateToRealTime() },
                     modifier = Modifier.fillMaxWidth()
@@ -686,16 +724,12 @@ class MainActivity : ComponentActivity() {
                     Text("Ir a Tiempo Real", fontSize = 16.sp)
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
                 Button(
                     onClick = { navigator.navigateToCatalogs() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Ir a Catálogos", fontSize = 16.sp)
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedButton(
                     onClick = {
@@ -708,7 +742,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
     }
 
     /**
