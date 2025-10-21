@@ -128,20 +128,13 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 AppNavGraph(
                     navController = navController,
-                    loginRoute = { navigator ->
-                        PantallaInicio(navigator = navigator)
-                    },
-                    hybridHomeRoute = { navigator ->
-                        PantallaBienvenida(navigator = navigator)
-                    },
-                    realTimeRoute = { navigator ->
-                        PantallaTiempoReal(navigator = navigator)
-                    },
-                    catalogsRoute = { navigator ->
-                        PantallaCatalogos(navigator = navigator)
-                    }
+                    loginRoute = { navigator -> PantallaInicio(navigator) },
+                    hybridHomeRoute = { navigator -> PantallaBienvenida(navigator) },
+                    realTimeRoute = { navigator -> PantallaTiempoReal(navigator) },
+                    catalogsRoute = { navigator -> PantallaCatalogos(navigator) }
                 )
             }
+
         }
     }
 
