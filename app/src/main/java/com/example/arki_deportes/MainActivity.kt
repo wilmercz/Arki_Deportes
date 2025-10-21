@@ -24,10 +24,18 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.arki_deportes.data.Repository
+import com.example.arki_deportes.data.local.ConfigManager
+import com.example.arki_deportes.ui.home.HomeRoute
+import com.example.arki_deportes.ui.home.HomeViewModel
+import com.example.arki_deportes.ui.home.HomeViewModelFactory
 import androidx.navigation.compose.rememberNavController
 import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.navigation.AppNavGraph
 import com.example.arki_deportes.navigation.AppNavigator
+
 import com.example.arki_deportes.ui.theme.Arki_DeportesTheme
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.auth.FirebaseAuth
@@ -669,6 +677,12 @@ class MainActivity : ComponentActivity() {
      * Pantalla de bienvenida (después de autenticar correctamente)
      */
     @Composable
+
+    fun PantallaBienvenida() {
+        val repository = remember(database, configManager) {
+            Repository(database, configManager)
+        }
+
     fun PantallaBienvenida(navigator: AppNavigator) {
         Box(
             modifier = Modifier
@@ -694,7 +708,13 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+
+        val homeViewModel: HomeViewModel = viewModel(
+            factory = HomeViewModelFactory(repository)
+        )
+
+
+        HomeRoute(viewModel = homeViewModel)
 
                 Text(
                     text = "Acceso autorizado",
@@ -733,6 +753,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
     }
 
     /**
