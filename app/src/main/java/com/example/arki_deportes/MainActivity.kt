@@ -24,12 +24,18 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.arki_deportes.data.Repository
 import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.ui.home.HomeRoute
 import com.example.arki_deportes.ui.home.HomeViewModel
 import com.example.arki_deportes.ui.home.HomeViewModelFactory
+import androidx.navigation.compose.rememberNavController
+import com.example.arki_deportes.data.local.ConfigManager
+import com.example.arki_deportes.navigation.AppNavGraph
+import com.example.arki_deportes.navigation.AppNavigator
+
 import com.example.arki_deportes.ui.theme.Arki_DeportesTheme
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.auth.FirebaseAuth
@@ -38,7 +44,6 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -107,7 +112,108 @@ class MainActivity : ComponentActivity() {
         // Configurar el contenido de la UI
         setContent {
             Arki_DeportesTheme {
-                PantallaInicio()
+                val navController = rememberNavController()
+                AppNavGraph(
+                    navController = navController,
+                    loginRoute = { navigator ->
+                        PantallaInicio(navigator = navigator)
+                    },
+                    hybridHomeRoute = { navigator ->
+                        PantallaBienvenida(navigator = navigator)
+                    },
+                    realTimeRoute = { navigator ->
+                        PantallaTiempoReal(navigator = navigator)
+                    },
+                    catalogsRoute = { navigator ->
+                        PantallaCatalogos(navigator = navigator)
+                    }
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun PantallaTiempoReal(navigator: AppNavigator) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "📡",
+                    fontSize = 64.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Panel de tiempo real",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Aquí se mostrarán los eventos en vivo del partido.",
+                    fontSize = 16.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                OutlinedButton(onClick = { navigator.navigateToHybridHome() }) {
+                    Text("Volver al inicio", fontSize = 16.sp)
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun PantallaCatalogos(navigator: AppNavigator) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "🗂️",
+                    fontSize = 64.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Catálogos",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Accede a la información de equipos, jugadores y más.",
+                    fontSize = 16.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                OutlinedButton(onClick = { navigator.navigateToHybridHome() }) {
+                    Text("Volver al inicio", fontSize = 16.sp)
+                }
             }
         }
     }
@@ -288,9 +394,8 @@ class MainActivity : ComponentActivity() {
      * Muestra logo, verifica password memorizado y decide qué mostrar
      */
     @Composable
-    fun PantallaInicio() {
+    fun PantallaInicio(navigator: AppNavigator) {
         var estadoApp by remember { mutableStateOf(EstadoApp.CARGANDO) }
-        var passwordGuardado by remember { mutableStateOf<String?>(null) }
         var autenticacionCompleta by remember { mutableStateOf(false) }
 
         // Esperar a que la autenticación anónima complete
@@ -327,7 +432,6 @@ class MainActivity : ComponentActivity() {
 
             if (passwordLocal != null) {
                 Log.d(TAG, "🔑 Hay contraseña memorizada, validando...")
-                passwordGuardado = passwordLocal
 
                 // Validar contra Firebase
                 validarPassword(passwordLocal) { esValida ->
@@ -346,6 +450,12 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        LaunchedEffect(estadoApp) {
+            if (estadoApp == EstadoApp.AUTENTICADO) {
+                navigator.navigateToHybridHome(clearBackStack = true)
+            }
+        }
+
         // Mostrar pantalla según el estado
         when (estadoApp) {
             EstadoApp.CARGANDO -> PantallaCargando()
@@ -356,7 +466,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            EstadoApp.AUTENTICADO -> PantallaBienvenida()
+            EstadoApp.AUTENTICADO -> PantallaCargando()
         }
     }
 
@@ -567,16 +677,83 @@ class MainActivity : ComponentActivity() {
      * Pantalla de bienvenida (después de autenticar correctamente)
      */
     @Composable
+
     fun PantallaBienvenida() {
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
 
+    fun PantallaBienvenida(navigator: AppNavigator) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "✅",
+                    fontSize = 64.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "¡Bienvenido!",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+
         val homeViewModel: HomeViewModel = viewModel(
             factory = HomeViewModelFactory(repository)
         )
 
+
         HomeRoute(viewModel = homeViewModel)
+
+                Text(
+                    text = "Acceso autorizado",
+                    fontSize = 16.sp,
+                    color = Color.Gray
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Button(
+                    onClick = { navigator.navigateToRealTime() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Ir a Tiempo Real", fontSize = 16.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = { navigator.navigateToCatalogs() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Ir a Catálogos", fontSize = 16.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        borrarPasswordLocal()
+                        navigator.navigateToLogin(clearBackStack = true)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cerrar sesión", fontSize = 16.sp)
+                }
+            }
+        }
+
     }
 
     /**
