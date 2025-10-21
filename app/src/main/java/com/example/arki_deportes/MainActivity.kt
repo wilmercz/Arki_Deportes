@@ -147,7 +147,6 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun PantallaTiempoReal(navigator: AppNavigator) {
-
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
@@ -162,28 +161,27 @@ class MainActivity : ComponentActivity() {
                     navigator.navigateToHybridHome()
                 }
             }
+        )
 
         TiempoRealScreen(
             modifier = Modifier.fillMaxSize(),
             onNavigateBack = { navigator.navigateToHybridHome() }
-
         )
     }
 
     @Composable
     fun PantallaCatalogos(navigator: AppNavigator) {
-
         CatalogsRoute(
             onBack = {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToHybridHome()
                 }
             }
+        )
 
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
-
 
         val viewModel: MencionesViewModel = viewModel(
             factory = MencionesViewModelFactory(repository)
@@ -192,18 +190,18 @@ class MainActivity : ComponentActivity() {
         MencionesRoute(
             viewModel = viewModel,
             onNavigateBack = { navigator.navigateBack() }
+        )
 
-        val viewModel: EquipoProduccionViewModel = viewModel(
+        val viewModelEquipo: EquipoProduccionViewModel = viewModel(
             factory = EquipoProduccionViewModelFactory(repository)
         )
 
         EquipoProduccionRoute(
-            viewModel = viewModel,
+            viewModel = viewModelEquipo,
             onBack = { navigator.navigateBack() }
-
-
         )
     }
+
 
     // ═══════════════════════════════════════════════════════════════════════
     // INICIALIZACIÓN

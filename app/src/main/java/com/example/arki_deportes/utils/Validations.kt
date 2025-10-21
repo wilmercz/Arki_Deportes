@@ -75,7 +75,7 @@ object Validations {
                 "La fecha final debe ser posterior a la fecha de inicio"
 
             campeonato.PROVINCIA.isBlank() ->
-                "La provincia es obligatoria",
+                "La provincia es obligatoria"
 
             !esDeporteValido(campeonato.DEPORTE) ->
                 "Selecciona un deporte válido"
@@ -174,7 +174,7 @@ object Validations {
                 "Los goles del equipo 2 deben ser un número"
 
             partido.ETAPA !in 0..3 ->
-                "La etapa debe ser 0 (Ninguno), 1 (Cuartos), 2 (Semifinal) o 3 (Final)",
+                "La etapa debe ser 0 (Ninguno), 1 (Cuartos), 2 (Semifinal) o 3 (Final)"
 
             !esDeporteValido(partido.DEPORTE) ->
                 "Selecciona un deporte válido"

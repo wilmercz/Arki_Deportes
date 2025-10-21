@@ -47,6 +47,7 @@ import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.model.Grupo
 import com.example.arki_deportes.utils.Constants
+import androidx.compose.material3.Icon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

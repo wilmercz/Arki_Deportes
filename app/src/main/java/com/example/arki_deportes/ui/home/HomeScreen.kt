@@ -205,13 +205,9 @@ private fun LiveMatchCard(partido: PartidoActual) {
                         style = MaterialTheme.typography.labelMedium
                     )
                     Text(
-                        text = partido.TIEMPO_TRANSCURRIDO.ifBlank { "00:00" },
+                        text = partido.getTiempoNormalizado(),
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center
-
-                        text = partido.getTiempoNormalizado(),
-                        style = MaterialTheme.typography.bodyMedium
-
                     )
                 }
                 TeamScore(

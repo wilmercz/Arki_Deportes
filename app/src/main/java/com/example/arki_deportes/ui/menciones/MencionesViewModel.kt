@@ -39,6 +39,11 @@ data class MencionItemUiState(
     val isDirty: Boolean = false,
     val isSaving: Boolean = false
 ) {
+
+    // ✅ Agregar esta propiedad calculada
+    val hasChanges: Boolean
+        get() = isDirty
+
     fun toDomain(): Mencion = Mencion(
         texto = texto,
         tipo = tipo,

@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -88,51 +89,36 @@ fun MencionesRoute(
         }
     }
 
-    val onShare: (String) -> Unit = remember(context, snackbarHostState, scope) {
-        { text ->
-            if (text.isBlank()) {
-                scope.launch { snackbarHostState.showSnackbar("No hay texto para compartir") }
-            } else {
-                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, text)
-                    setPackage("com.whatsapp")
-                }
-                val shareIntent = Intent.createChooser(sendIntent, "Compartir mención")
-                try {
-                    context.startActivity(shareIntent)
-                } catch (_: ActivityNotFoundException) {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("WhatsApp no está instalado")
-                    }
-                }
-            }
-        }
-    }
-
-    val onCopy: (String) -> Unit = remember(clipboardManager, snackbarHostState, scope) {
-        {
-            if (it.isBlank()) {
-                scope.launch { snackbarHostState.showSnackbar("No hay texto para copiar") }
-            } else {
-                clipboardManager.setText(AnnotatedString(it))
-                scope.launch { snackbarHostState.showSnackbar("Texto copiado al portapapeles") }
-            }
-        }
-    }
-
     MencionesScreen(
         state = state,
+        onMove = viewModel::onMove,
+        onDragEnd = viewModel::onDragEnd,
         onTextoChange = viewModel::onTextoChange,
         onToggleActivo = viewModel::onToggleActivo,
         onGuardar = viewModel::guardarMencion,
-        onMove = viewModel::onMove,
-        onDragEnd = viewModel::onDragEnd,
-        onShare = onShare,
-        onCopy = onCopy,
+        onShare = { texto ->
+            try {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, texto)
+                    setPackage("com.whatsapp")
+                }
+                context.startActivity(Intent.createChooser(intent, "Compartir por WhatsApp"))
+            } catch (e: ActivityNotFoundException) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("WhatsApp no está instalado")
+                }
+            }
+        },
+        onCopy = { texto ->
+            clipboardManager.setText(AnnotatedString(texto))
+            scope.launch {
+                snackbarHostState.showSnackbar("Texto copiado al portapapeles")
+            }
+        },
         snackbarHostState = snackbarHostState,
-        modifier = modifier,
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
+        modifier = modifier
     )
 }
 
@@ -140,16 +126,16 @@ fun MencionesRoute(
 @Composable
 fun MencionesScreen(
     state: MencionesUiState,
+    onMove: (Int, Int) -> Unit,
+    onDragEnd: () -> Unit,
     onTextoChange: (String, String) -> Unit,
     onToggleActivo: (String, Boolean) -> Unit,
     onGuardar: (String) -> Unit,
-    onMove: (Int, Int) -> Unit,
-    onDragEnd: () -> Unit,
     onShare: (String) -> Unit,
     onCopy: (String) -> Unit,
     snackbarHostState: SnackbarHostState,
-    modifier: Modifier = Modifier,
-    onNavigateBack: (() -> Unit)? = null
+    onNavigateBack: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     val reorderState = rememberReorderableLazyListState(
         onMove = { from, to -> onMove(from.index, to.index) },
@@ -161,9 +147,9 @@ fun MencionesScreen(
         topBar = {
             TopAppBar(
                 title = { Text(text = "Menciones") },
-                navigationIcon = onNavigateBack?.let {
-                    {
-                        IconButton(onClick = it) {
+                navigationIcon = {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Volver"
@@ -193,7 +179,8 @@ fun MencionesScreen(
                 state.isLoading -> {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize(),
+                            .fillMaxSize()
+                            .padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator()
@@ -220,11 +207,11 @@ fun MencionesScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(
-                            state.menciones,
+                            items = state.menciones,
                             key = { it.id }
                         ) { item ->
                             ReorderableItem(
-                                reorderState,
+                                reorderableState = reorderState,
                                 key = item.id
                             ) { isDragging ->
                                 val elevation by animateDpAsState(
@@ -267,7 +254,7 @@ private fun EmptyMencionesState(modifier: Modifier = Modifier) {
             text = "Crea tus menciones desde el panel web para administrarlas aquí.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -280,7 +267,7 @@ private fun MencionCard(
     onGuardar: () -> Unit,
     onShare: () -> Unit,
     onCopy: () -> Unit,
-    elevation: androidx.compose.ui.unit.Dp,
+    elevation: Dp,
     dragHandleModifier: Modifier = Modifier
 ) {
     val backgroundColor = if (item.activo) {
@@ -292,7 +279,7 @@ private fun MencionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultValue = elevation)
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
         Column(
             modifier = Modifier
@@ -300,6 +287,7 @@ private fun MencionCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Header con drag handle y switch
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -343,80 +331,83 @@ private fun MencionCard(
                 }
             }
 
+            // Chip de tipo
             AssistChip(
                 onClick = {},
                 label = { Text(text = item.tipo.ifBlank { "General" }) },
                 enabled = false,
                 border = AssistChipDefaults.assistChipBorder(
-                    borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    enabled = false,
+                    borderColor = MaterialTheme.colorScheme.outline
                 )
             )
 
-            var textFieldValue by remember(item.id) { mutableStateOf(item.texto) }
-            LaunchedEffect(item.texto) {
-                if (textFieldValue != item.texto) {
-                    textFieldValue = item.texto
+            // Campo de texto
+            OutlinedTextField(
+                value = item.texto,
+                onValueChange = onTextoChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Texto de la mención") },
+                minLines = 3,
+                maxLines = 6,
+                enabled = !item.isSaving
+            )
+
+            // Información de timestamp
+            if (item.timestamp > 0) {
+                Text(
+                    text = "Última actualización: ${formatTimestamp(item.timestamp)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Botones de acción
+            AnimatedVisibility(visible = item.hasChanges) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onGuardar,
+                        modifier = Modifier.weight(1f),
+                        enabled = !item.isSaving
+                    ) {
+                        Text("Guardar cambios")
+                    }
                 }
             }
 
-            OutlinedTextField(
-                value = textFieldValue,
-                onValueChange = {
-                    textFieldValue = it
-                    onTextoChange(it)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 6,
-                enabled = !item.isSaving,
-                label = { Text(text = "Texto de la mención") }
-            )
-
-            Text(
-                text = "Última actualización: ${formatTimestamp(item.timestamp)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
+            // Botones de compartir y copiar
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
                     onClick = onCopy,
+                    modifier = Modifier.weight(1f),
                     enabled = item.texto.isNotBlank() && !item.isSaving
                 ) {
-                    Icon(imageVector = Icons.Filled.ContentCopy, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.Filled.ContentCopy,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.size(8.dp))
-                    Text(text = "Copiar")
+                    Text("Copiar")
                 }
-
                 OutlinedButton(
                     onClick = onShare,
+                    modifier = Modifier.weight(1f),
                     enabled = item.texto.isNotBlank() && !item.isSaving
                 ) {
-                    Icon(imageVector = Icons.Filled.Share, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.size(8.dp))
-                    Text(text = "WhatsApp")
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                AnimatedVisibility(visible = item.isDirty || item.isSaving) {
-                    OutlinedButton(
-                        onClick = onGuardar,
-                        enabled = item.isDirty && !item.isSaving
-                    ) {
-                        if (item.isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(text = "Guardar")
-                        }
-                    }
+                    Text("WhatsApp")
                 }
             }
         }
@@ -424,7 +415,7 @@ private fun MencionCard(
 }
 
 private fun formatTimestamp(timestamp: Long): String {
-    if (timestamp <= 0L) return "Sin registros"
-    val formatter = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    return formatter.format(Date(timestamp))
+    val date = Date(timestamp)
+    val format = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+    return format.format(date)
 }

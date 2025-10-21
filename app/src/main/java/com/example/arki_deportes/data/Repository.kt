@@ -1,12 +1,9 @@
 package com.example.arki_deportes.data
 
 import com.example.arki_deportes.data.local.ConfigManager
-
 import com.example.arki_deportes.data.model.Mencion
-
 import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.EquipoProduccion
-
 import com.example.arki_deportes.data.model.Partido
 import com.example.arki_deportes.data.model.PartidoActual
 import com.example.arki_deportes.utils.Constants
@@ -78,13 +75,9 @@ class Repository(
                     .mapNotNull { child ->
                         val mencion = child.getValue(Mencion::class.java)
                         val id = child.key ?: return@mapNotNull null
-                        mencion?.withId(id)
+                        mencion?.copy(id = id)
                     }
-                    .sortedWith(
-                        compareBy<Mencion> { it.orden }
-                            .thenBy { it.timestamp }
-                    )
-
+                    .sortedBy { it.orden }
                 trySend(menciones)
             }
 
@@ -99,113 +92,10 @@ class Repository(
     }
 
     /**
-     * Obtiene la lista de partidos en un rango de días alrededor de la fecha de referencia.
-     */
-    suspend fun obtenerPartidosRango(
-        fechaReferencia: LocalDate = LocalDate.now(),
-        dias: Long = Constants.DIAS_PARTIDOS_PASADOS.toLong()
-    ): List<Partido> = suspendCancellableCoroutine { continuation ->
-        val reference = database.reference
-            .child(nodoRaiz)
-            .child(Constants.FirebaseCollections.PARTIDOS)
-
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val start = fechaReferencia.minusDays(dias)
-                val end = fechaReferencia.plusDays(dias)
-
-                val partidos = snapshot.children
-                    .mapNotNull { it.getValue(Partido::class.java) }
-                    .filter { partido ->
-                        val fecha = parseFecha(partido.FECHA_PARTIDO)
-                        fecha != null && !fecha.isBefore(start) && !fecha.isAfter(end)
-                    }
-                    .sortedWith(
-                        compareBy<Partido> { parseFechaHora(it) ?: LocalDateTime.MAX }
-                            .thenBy { it.CODIGOPARTIDO }
-                    )
-
-                if (!continuation.isCompleted) {
-                    continuation.resume(partidos)
-                }
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                if (!continuation.isCompleted) {
-                    continuation.resumeWithException(error.toException())
-                }
-            }
-        }
-
-        reference.addListenerForSingleValueEvent(listener)
-
-        continuation.invokeOnCancellation { reference.removeEventListener(listener) }
-    }
-
-    private fun parseFecha(fecha: String): LocalDate? = try {
-        if (fecha.isBlank()) {
-            null
-        } else {
-            LocalDate.parse(fecha.trim(), DateTimeFormatter.ISO_LOCAL_DATE)
-        }
-    } catch (_: Exception) {
-        null
-    }
-
-    private fun parseHora(hora: String): LocalTime? = try {
-        if (hora.isBlank()) {
-            null
-        } else {
-            LocalTime.parse(hora.trim(), timeFormatter)
-        }
-    } catch (_: Exception) {
-        null
-    }
-
-    private fun parseFechaHora(partido: Partido): LocalDateTime? {
-        val fecha = parseFecha(partido.FECHA_PARTIDO) ?: return null
-        val hora = parseHora(partido.HORA_PARTIDO) ?: LocalTime.MIDNIGHT
-        return LocalDateTime.of(fecha, hora)
-    }
-
-    private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
-
-    /**
-
-     * Actualiza una mención existente en Firebase.
-     */
-    suspend fun actualizarMencion(mencion: Mencion) {
-        suspendCancellableCoroutine { continuation ->
-            if (mencion.id.isBlank()) {
-                continuation.resumeWithException(IllegalArgumentException("El id de la mención es obligatorio"))
-                return@suspendCancellableCoroutine
-            }
-
-            val reference = database.reference
-                .child(nodoRaiz)
-                .child(Constants.FirebaseCollections.MENCIONES)
-                .child(mencion.id)
-
-            val task = reference.updateChildren(mencion.toMap())
-            task.addOnSuccessListener {
-                if (!continuation.isCompleted) {
-                    continuation.resume(Unit)
-                }
-            }.addOnFailureListener { exception ->
-                if (!continuation.isCompleted) {
-                    continuation.resumeWithException(exception)
-                }
-            }
-
-            continuation.invokeOnCancellation { task.cancel() }
-        }
-    }
-
-    /**
-     * Persiste el orden actual de todas las menciones.
+     * Actualiza el orden de las menciones en Firebase.
      */
     suspend fun actualizarOrdenMenciones(menciones: List<Mencion>) {
-        suspendCancellableCoroutine { continuation ->
+        suspendCancellableCoroutine<Unit> { continuation ->
             val updates = menciones
                 .filter { it.id.isNotBlank() }
                 .associate { mencion ->
@@ -213,7 +103,9 @@ class Repository(
                 }
 
             if (updates.isEmpty()) {
-                continuation.resume(Unit)
+                if (!continuation.isCompleted) {
+                    continuation.resume(Unit)
+                }
                 return@suspendCancellableCoroutine
             }
 
@@ -221,19 +113,25 @@ class Repository(
                 .child(nodoRaiz)
                 .child(Constants.FirebaseCollections.MENCIONES)
 
-            val task = reference.updateChildren(updates)
-            task.addOnSuccessListener {
-                if (!continuation.isCompleted) {
-                    continuation.resume(Unit)
+            reference.updateChildren(updates)
+                .addOnSuccessListener {
+                    if (!continuation.isCompleted) {
+                        continuation.resume(Unit)
+                    }
                 }
-            }.addOnFailureListener { exception ->
-                if (!continuation.isCompleted) {
-                    continuation.resumeWithException(exception)
+                .addOnFailureListener { exception ->
+                    if (!continuation.isCompleted) {
+                        continuation.resumeWithException(exception)
+                    }
                 }
+
+            continuation.invokeOnCancellation {
+                // Cancelación manejada por Firebase internamente
             }
+        }
+    }
 
-            continuation.invokeOnCancellation { task.cancel() }
-
+    /**
      * Obtiene la lista completa de campeonatos registrados en Firebase.
      */
     suspend fun obtenerCampeonatos(): List<Campeonato> = suspendCancellableCoroutine { continuation ->
@@ -298,7 +196,7 @@ class Repository(
     suspend fun guardarEquipoProduccion(
         equipo: EquipoProduccion,
         campeonatoCodigo: String? = null
-    ) = suspendCancellableCoroutine { continuation ->
+    ): Unit = suspendCancellableCoroutine { continuation ->
         val reference = equipoProduccionReference(campeonatoCodigo)
         val data = equipo.normalized().copy(timestamp = System.currentTimeMillis())
 
@@ -313,8 +211,51 @@ class Repository(
                     continuation.resumeWithException(error)
                 }
             }
+
+        continuation.invokeOnCancellation {
+            // Cancelación manejada por Firebase internamente
+        }
     }
 
+    /**
+     * Actualiza una mención individual en Firebase.
+     */
+    suspend fun actualizarMencion(mencion: Mencion): Unit =
+        suspendCancellableCoroutine { continuation ->
+            if (mencion.id.isBlank()) {
+                if (!continuation.isCompleted) {
+                    continuation.resumeWithException(
+                        IllegalArgumentException("El ID de la mención no puede estar vacío")
+                    )
+                }
+                return@suspendCancellableCoroutine
+            }
+
+            val reference = database.reference
+                .child(nodoRaiz)
+                .child(Constants.FirebaseCollections.MENCIONES)
+                .child(mencion.id)
+
+            reference.setValue(mencion)
+                .addOnSuccessListener {
+                    if (!continuation.isCompleted) {
+                        continuation.resume(Unit)
+                    }
+                }
+                .addOnFailureListener { exception ->
+                    if (!continuation.isCompleted) {
+                        continuation.resumeWithException(exception)
+                    }
+                }
+
+            continuation.invokeOnCancellation {
+                // Cancelación manejada por Firebase internamente
+            }
+        }
+
+    /**
+     * Referencia privada al nodo de EquipoProduccion según el campeonato.
+     */
     private fun equipoProduccionReference(campeonatoCodigo: String?): DatabaseReference {
         val baseReference = database.reference
             .child(nodoRaiz)
@@ -326,7 +267,83 @@ class Repository(
             baseReference
                 .child(Constants.EquipoProduccionPaths.CAMPEONATOS)
                 .child(campeonatoCodigo)
-
         }
     }
+
+    /**
+     * Obtiene la lista de partidos en un rango de días alrededor de la fecha de referencia.
+     */
+    suspend fun obtenerPartidosRango(
+        fechaReferencia: LocalDate = LocalDate.now(),
+        dias: Long = 7L
+    ): List<Partido> = suspendCancellableCoroutine { continuation ->
+        val reference = database.reference
+            .child(nodoRaiz)
+            .child(Constants.FirebaseCollections.PARTIDOS)
+
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val start = fechaReferencia.minusDays(dias)
+                val end = fechaReferencia.plusDays(dias)
+
+                val partidos = snapshot.children
+                    .mapNotNull { it.getValue(Partido::class.java) }
+                    .filter { partido ->
+                        val fecha = parseFecha(partido.FECHA_PARTIDO)
+                        fecha != null && !fecha.isBefore(start) && !fecha.isAfter(end)
+                    }
+                    .sortedWith(
+                        compareBy<Partido> { parseFechaHora(it) ?: LocalDateTime.MAX }
+                            .thenBy { it.CODIGOPARTIDO }
+                    )
+
+                if (!continuation.isCompleted) {
+                    continuation.resume(partidos)
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                if (!continuation.isCompleted) {
+                    continuation.resumeWithException(error.toException())
+                }
+            }
+        }
+
+        reference.addListenerForSingleValueEvent(listener)
+        continuation.invokeOnCancellation { reference.removeEventListener(listener) }
+    }
+
+    /**
+     * Parsea una fecha en formato yyyy-MM-dd
+     */
+    private fun parseFecha(fecha: String): LocalDate? {
+        return try {
+            if (fecha.isBlank()) return null
+            LocalDate.parse(fecha.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Parsea fecha y hora de un partido para ordenamiento
+     */
+    private fun parseFechaHora(partido: Partido): LocalDateTime? {
+        val fecha = parseFecha(partido.FECHA_PARTIDO) ?: return null
+        val hora = parseHora(partido.HORA_PARTIDO) ?: LocalTime.MIDNIGHT
+        return LocalDateTime.of(fecha, hora)
+    }
+
+    /**
+     * Parsea una hora en formato HH:mm
+     */
+    private fun parseHora(hora: String): LocalTime? {
+        return try {
+            if (hora.isBlank()) return null
+            LocalTime.parse(hora.trim(), DateTimeFormatter.ofPattern("HH:mm"))
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 }
