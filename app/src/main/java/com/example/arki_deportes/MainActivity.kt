@@ -36,6 +36,9 @@ import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.navigation.AppNavGraph
 import com.example.arki_deportes.navigation.AppNavigator
 
+import com.example.arki_deportes.ui.produccion.EquipoProduccionRoute
+import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModel
+import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModelFactory
 import com.example.arki_deportes.ui.theme.Arki_DeportesTheme
 import com.example.arki_deportes.ui.tiemporeal.TiempoRealScreen
 import com.example.arki_deportes.utils.Constants
@@ -143,45 +146,17 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun PantallaCatalogos(navigator: AppNavigator) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "🗂️",
-                    fontSize = 64.sp
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Catálogos",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Accede a la información de equipos, jugadores y más.",
-                    fontSize = 16.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                OutlinedButton(onClick = { navigator.navigateToHybridHome() }) {
-                    Text("Volver al inicio", fontSize = 16.sp)
-                }
-            }
+        val repository = remember(database, configManager) {
+            Repository(database, configManager)
         }
+        val viewModel: EquipoProduccionViewModel = viewModel(
+            factory = EquipoProduccionViewModelFactory(repository)
+        )
+
+        EquipoProduccionRoute(
+            viewModel = viewModel,
+            onBack = { navigator.navigateBack() }
+        )
     }
 
     // ═══════════════════════════════════════════════════════════════════════

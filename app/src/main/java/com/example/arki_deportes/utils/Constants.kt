@@ -104,6 +104,13 @@ object Constants {
         const val EQUIPOS = "EQUIPOS"
         const val PARTIDOS = "PARTIDOS"
         const val PARTIDO_ACTUAL = "PartidoActual"
+        const val EQUIPO_PRODUCCION = "EquipoProduccion"
+    }
+
+    /** Sub-rutas internas del nodo EquipoProduccion */
+    object EquipoProduccionPaths {
+        const val DEFAULT = "default"
+        const val CAMPEONATOS = "campeonatos"
     }
 
     /** Campos de la colección Acceso */
