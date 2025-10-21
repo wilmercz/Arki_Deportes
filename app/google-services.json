@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "88548687167",
+    "project_id": "futbolwc-cec45",
+    "storage_bucket": "futbolwc-cec45.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:88548687167:android:8d2eb288a1d97e3ee2678a",
+        "android_client_info": {
+          "package_name": "com.example.arki_deportes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGCrzt2oHec-89_EXxKf63xxJ28dF-UAs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
