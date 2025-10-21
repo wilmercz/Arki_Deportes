@@ -4,8 +4,9 @@ package com.example.arki_deportes.utils
 
 import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Equipo
-import com.example.arki_deportes.data.model.Partido
 import com.example.arki_deportes.data.model.Grupo
+import com.example.arki_deportes.data.model.Partido
+import com.example.arki_deportes.utils.SportType
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -74,7 +75,10 @@ object Validations {
                 "La fecha final debe ser posterior a la fecha de inicio"
 
             campeonato.PROVINCIA.isBlank() ->
-                "La provincia es obligatoria"
+                "La provincia es obligatoria",
+
+            !esDeporteValido(campeonato.DEPORTE) ->
+                "Selecciona un deporte válido"
 
             else -> null // Todo está bien
         }
@@ -170,10 +174,17 @@ object Validations {
                 "Los goles del equipo 2 deben ser un número"
 
             partido.ETAPA !in 0..3 ->
-                "La etapa debe ser 0 (Ninguno), 1 (Cuartos), 2 (Semifinal) o 3 (Final)"
+                "La etapa debe ser 0 (Ninguno), 1 (Cuartos), 2 (Semifinal) o 3 (Final)",
+
+            !esDeporteValido(partido.DEPORTE) ->
+                "Selecciona un deporte válido"
 
             else -> null // Todo está bien
         }
+    }
+
+    private fun esDeporteValido(deporte: String): Boolean {
+        return SportType.options().any { it.id.equals(deporte, ignoreCase = true) }
     }
 
     // ═══════════════════════════════════════════════════════════════════════

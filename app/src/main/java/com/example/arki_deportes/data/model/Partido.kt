@@ -2,6 +2,7 @@
 
 package com.example.arki_deportes.data.model
 
+import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
 
 /**
@@ -180,7 +181,12 @@ data class Partido(
      * Valores: "MOBILE" o "DESKTOP"
      * Indica desde qué aplicación se creó el registro
      */
-    val ORIGEN: String = "MOBILE"
+    val ORIGEN: String = "MOBILE",
+
+    /**
+     * Deporte al que pertenece el partido
+     */
+    val DEPORTE: String = SportType.FUTBOL.id
 ) {
     /**
      * Convierte el objeto a un Map para Firebase
@@ -212,7 +218,8 @@ data class Partido(
             "LUGAR" to LUGAR.uppercase(),
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
             "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
-            "ORIGEN" to ORIGEN
+            "ORIGEN" to ORIGEN,
+            "DEPORTE" to DEPORTE.uppercase()
         )
     }
 
@@ -231,13 +238,33 @@ data class Partido(
      *
      * @return String con el marcador o "vs" si no hay resultado
      */
-    fun getMarcador(): String {
-        return if (tieneResultado()) {
-            "$GOLES1 - $GOLES2"
-        } else {
-            "vs"
-        }
+    fun getMarcador(): String = if (tieneResultado()) {
+        "$GOLES1 - $GOLES2"
+    } else {
+        "vs"
     }
+
+    /** Obtiene la etiqueta del marcador de acuerdo al deporte. */
+    fun getMarcadorLabel(): String = sportType().scoreboardLabel
+
+    /** Obtiene la etiqueta para los goles/puntos individuales. */
+    fun getAnotacionesLabel(): String = sportType().teamScoreLabel
+
+    /** Obtiene el nombre legible del deporte. */
+    fun getDeporteTexto(): String = sportType().displayName
+
+    /** Obtiene el texto descriptivo del tiempo de juego configurado. */
+    fun getTiempoJuegoDescripcion(): String {
+        val valor = TIEMPOJUEGO.trim()
+        if (valor.isEmpty()) return ""
+        val sufijo = sportType().durationUnitSuffix
+        return "$valor $sufijo"
+    }
+
+    /** Obtiene la etiqueta del campo de duración según el deporte. */
+    fun getTiempoJuegoLabel(): String = sportType().scheduleDurationLabel
+
+    private fun sportType(): SportType = SportType.fromId(DEPORTE)
 
     /**
      * Obtiene el texto completo del partido
