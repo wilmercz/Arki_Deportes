@@ -41,7 +41,9 @@ class Repository(
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val partido = snapshot.getValue(PartidoActual::class.java) ?: PartidoActual.empty()
+                val partido = snapshot.getValue(PartidoActual::class.java)
+                    ?.normalizado()
+                    ?: PartidoActual.empty()
                 trySend(partido)
             }
 

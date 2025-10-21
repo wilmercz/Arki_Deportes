@@ -83,10 +83,12 @@ class HomeViewModel(
                     }
                 }
                 .collect { partido ->
+                    val partidoNormalizado = partido.normalizado()
+                    val hayPartido = partidoNormalizado.hayPartido()
                     _uiState.update { state ->
                         state.copy(
-                            liveMatch = if (partido.hayPartido()) partido else null,
-                            isLive = partido.hayPartido() && partido.estaEnTransmision(),
+                            liveMatch = if (hayPartido) partidoNormalizado else null,
+                            isLive = hayPartido && partidoNormalizado.estaEnTransmision(),
                             isLoadingLive = false,
                             liveError = null
                         )
