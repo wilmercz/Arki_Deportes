@@ -32,14 +32,24 @@ import com.example.arki_deportes.ui.catalogs.CatalogsRoute
 import com.example.arki_deportes.ui.home.HomeRoute
 import com.example.arki_deportes.ui.home.HomeViewModel
 import com.example.arki_deportes.ui.home.HomeViewModelFactory
+
 import com.example.arki_deportes.ui.realtime.TiempoRealRoute
 import com.example.arki_deportes.ui.realtime.TiempoRealViewModel
 import com.example.arki_deportes.ui.realtime.TiempoRealViewModelFactory
+
+import com.example.arki_deportes.ui.menciones.MencionesRoute
+import com.example.arki_deportes.ui.menciones.MencionesViewModel
+import com.example.arki_deportes.ui.menciones.MencionesViewModelFactory
+
 import androidx.navigation.compose.rememberNavController
 import com.example.arki_deportes.navigation.AppNavGraph
 import com.example.arki_deportes.navigation.AppNavigator
 
+import com.example.arki_deportes.ui.produccion.EquipoProduccionRoute
+import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModel
+import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModelFactory
 import com.example.arki_deportes.ui.theme.Arki_DeportesTheme
+import com.example.arki_deportes.ui.tiemporeal.TiempoRealScreen
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
@@ -137,6 +147,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun PantallaTiempoReal(navigator: AppNavigator) {
+
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
@@ -151,17 +162,46 @@ class MainActivity : ComponentActivity() {
                     navigator.navigateToHybridHome()
                 }
             }
+
+        TiempoRealScreen(
+            modifier = Modifier.fillMaxSize(),
+            onNavigateBack = { navigator.navigateToHybridHome() }
+
         )
     }
 
     @Composable
     fun PantallaCatalogos(navigator: AppNavigator) {
+
         CatalogsRoute(
             onBack = {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToHybridHome()
                 }
             }
+
+        val repository = remember(database, configManager) {
+            Repository(database, configManager)
+        }
+
+
+        val viewModel: MencionesViewModel = viewModel(
+            factory = MencionesViewModelFactory(repository)
+        )
+
+        MencionesRoute(
+            viewModel = viewModel,
+            onNavigateBack = { navigator.navigateBack() }
+
+        val viewModel: EquipoProduccionViewModel = viewModel(
+            factory = EquipoProduccionViewModelFactory(repository)
+        )
+
+        EquipoProduccionRoute(
+            viewModel = viewModel,
+            onBack = { navigator.navigateBack() }
+
+
         )
     }
 

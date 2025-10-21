@@ -4,6 +4,7 @@ package com.example.arki_deportes.data.model
 
 import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
+import java.util.Locale
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -63,14 +64,29 @@ data class PartidoActual(
     val GOLES2: Int = 0,
 
     /**
-     * Tiempo transcurrido del partido
-     * Formato: MM:SS
+     * Tiempo transcurrido del partido.
+     * Formato esperado: `mm:ss`.
+     *
+     * ⚙️ Integración VB.NET:
+     *  - El backend debe escribir el valor con dos dígitos para los minutos y segundos (`00:00`).
+     *  - El parser de la app tolera temporalmente el formato heredado `mmMss`, pero el sistema
+     *    debe dejar de reemplazar `:` por `M` y enviar únicamente `mm:ss`.
      * Ejemplo: "65:45" (65 minutos, 45 segundos)
      */
     val TIEMPO_TRANSCURRIDO: String = "00:00",
 
     /**
+
+     * Estado actual del partido heredado del backend clásico.
+
+     * Indica si el cronómetro del partido está en marcha
+     * true cuando el software de transmisión mantiene corriendo el tiempo
+     */
+    val CRONOMETRANDO: Boolean = false,
+
+    /**
      * Estado actual del partido
+
      * Valores posibles:
      * - "EnJuego": Partido en curso
      * - "Finalizado": Partido terminado
@@ -80,9 +96,30 @@ data class PartidoActual(
     val ESTADO: String = "NoIniciado",
 
     /**
-     * Indica si el partido está siendo transmitido en vivo
+     * Indica si el partido está siendo transmitido en vivo (clave heredada).
      */
     val EN_TRANSMISION: Boolean = false,
+
+    /**
+     * Indica si el partido está siendo transmitido en vivo (nueva nomenclatura camelCase).
+     */
+    val enTransmision: Boolean = false,
+
+    /**
+     * Estado del partido reportado con la nueva nomenclatura camelCase.
+     */
+    val estado: String = "",
+
+    /**
+     * Número del tiempo o periodo actual del encuentro (1 = primer tiempo, 2 = segundo tiempo,
+     * 3 = prórroga, etc.).
+     */
+    val numeroDeTiempo: Int = 0,
+
+    /**
+     * Bandera booleana que indica si la transmisión está pausada.
+     */
+    val pausado: Boolean = false,
 
     /**
      * Cantidad de tarjetas amarillas del equipo 1
@@ -137,14 +174,14 @@ data class PartidoActual(
      * @return true si el estado es "EnJuego", false si no
      */
     fun estaEnJuego(): Boolean {
-        return ESTADO == "EnJuego"
+        return estadoEfectivo() == Estado.EN_JUEGO
     }
 
     /**
      * Verifica si el partido se encuentra en transmisión en vivo.
      */
     fun estaEnTransmision(): Boolean {
-        return EN_TRANSMISION || estaEnJuego()
+        return (enTransmision || EN_TRANSMISION || estadoEfectivo() == Estado.EN_JUEGO) && !estaPausado()
     }
 
     /**
@@ -153,7 +190,7 @@ data class PartidoActual(
      * @return true si el estado es "Finalizado", false si no
      */
     fun haFinalizado(): Boolean {
-        return ESTADO == "Finalizado"
+        return estadoEfectivo() == Estado.FINALIZADO
     }
 
     /**
@@ -162,7 +199,7 @@ data class PartidoActual(
      * @return true si el estado es "Pausado", false si no
      */
     fun estaPausado(): Boolean {
-        return ESTADO == "Pausado"
+        return pausado || estadoEfectivo() == Estado.PAUSADO
     }
 
     /**
@@ -198,11 +235,11 @@ data class PartidoActual(
      * @return String con el estado legible
      */
     fun getEstadoTexto(): String {
-        return when (ESTADO) {
-            "EnJuego" -> "EN JUEGO"
-            "Finalizado" -> "FINALIZADO"
-            "Pausado" -> "PAUSADO"
-            "NoIniciado" -> "NO INICIADO"
+        return when (estadoEfectivo()) {
+            Estado.EN_JUEGO -> "EN JUEGO"
+            Estado.FINALIZADO -> "FINALIZADO"
+            Estado.PAUSADO -> "PAUSADO"
+            Estado.NO_INICIADO -> "NO INICIADO"
             else -> "DESCONOCIDO"
         }
     }
@@ -213,11 +250,11 @@ data class PartidoActual(
      * @return String con el emoji del estado
      */
     fun getEstadoIcono(): String {
-        return when (ESTADO) {
-            "EnJuego" -> "🔴"
-            "Finalizado" -> "✅"
-            "Pausado" -> "⏸️"
-            "NoIniciado" -> "⏱️"
+        return when (estadoEfectivo()) {
+            Estado.EN_JUEGO -> "🔴"
+            Estado.FINALIZADO -> "✅"
+            Estado.PAUSADO -> "⏸️"
+            Estado.NO_INICIADO -> "⏱️"
             else -> "❓"
         }
     }
@@ -238,7 +275,116 @@ data class PartidoActual(
      * @return String con resumen del partido
      */
     fun getResumen(): String {
-        return "$EQUIPO1 $GOLES1 - $GOLES2 $EQUIPO2 ($TIEMPO_TRANSCURRIDO)"
+        return "$EQUIPO1 $GOLES1 - $GOLES2 $EQUIPO2 (${getTiempoNormalizado()})"
+    }
+
+    /**
+     * Obtiene el tiempo transcurrido del partido en formato normalizado (`mm:ss`).
+     */
+    fun getTiempoNormalizado(): String {
+        return TiempoTranscurridoParser.normalizar(TIEMPO_TRANSCURRIDO)
+    }
+
+    /**
+     * Devuelve una copia del modelo con los campos derivados normalizados.
+     */
+    fun normalizado(): PartidoActual {
+        val estadoCanonico = estadoEfectivo()
+        val pausadoEfectivo = pausado || estadoCanonico == Estado.PAUSADO
+        val transmisionEfectiva = (enTransmision || EN_TRANSMISION || estadoCanonico == Estado.EN_JUEGO) && !pausadoEfectivo
+
+        return copy(
+            TIEMPO_TRANSCURRIDO = TiempoTranscurridoParser.normalizar(TIEMPO_TRANSCURRIDO),
+            ESTADO = estadoCanonico,
+            EN_TRANSMISION = transmisionEfectiva,
+            enTransmision = transmisionEfectiva,
+            estado = estadoCanonico,
+            numeroDeTiempo = numeroDeTiempo.coerceAtLeast(0),
+            pausado = pausadoEfectivo
+        )
+    }
+
+    private fun estadoEfectivo(): String {
+        val origen = when {
+            estado.isNotBlank() -> estado
+            ESTADO.isNotBlank() -> ESTADO
+            pausado -> Estado.PAUSADO
+            else -> Estado.NO_INICIADO
+        }
+
+        return Estado.normalizar(origen)
+    }
+
+    private object Estado {
+        const val EN_JUEGO = "EnJuego"
+        const val FINALIZADO = "Finalizado"
+        const val PAUSADO = "Pausado"
+        const val NO_INICIADO = "NoIniciado"
+
+        private val equivalencias = mapOf(
+            "enjuego" to EN_JUEGO,
+            "en_juego" to EN_JUEGO,
+            "juego" to EN_JUEGO,
+            "jugando" to EN_JUEGO,
+            "finalizado" to FINALIZADO,
+            "terminado" to FINALIZADO,
+            "pausado" to PAUSADO,
+            "pausa" to PAUSADO,
+            "noiniciado" to NO_INICIADO,
+            "pendiente" to NO_INICIADO,
+            "no_iniciado" to NO_INICIADO
+        )
+
+        fun normalizar(valor: String): String {
+            val clave = valor
+                .trim()
+                .lowercase(Locale.getDefault())
+                .replace(" ", "")
+            return equivalencias[clave] ?: valor.trim().ifBlank { NO_INICIADO }
+        }
+    }
+
+    private object TiempoTranscurridoParser {
+        private val patron = Regex("""^(?<min>\d{1,3})([:M])(?<seg>\d{2})$""")
+
+        fun normalizar(valor: String): String {
+            val limpio = valor.trim()
+            if (limpio.isEmpty()) {
+                return "00:00"
+            }
+
+            val match = patron.matchEntire(limpio)
+            if (match != null) {
+                val minutos = match.groups["min"]!!.value
+                val segundos = match.groups["seg"]!!.value
+                val minutosNormalizados = if (minutos.length == 1) minutos.padStart(2, '0') else minutos
+                return "$minutosNormalizados:$segundos"
+            }
+
+            // Intento adicional por si vienen símbolos mezclados (p. ej. "45M30")
+            val reemplazado = limpio.replace('M', ':')
+            val fallback = patron.matchEntire(reemplazado)
+            if (fallback != null) {
+                val minutos = fallback.groups["min"]!!.value
+                val segundos = fallback.groups["seg"]!!.value
+                val minutosNormalizados = if (minutos.length == 1) minutos.padStart(2, '0') else minutos
+                return "$minutosNormalizados:$segundos"
+            }
+
+            return limpio
+                .replace('M', ':')
+                .let { valorNormalizado ->
+                    if (valorNormalizado.contains(':')) {
+                        val partes = valorNormalizado.split(":")
+                        if (partes.size == 2 && partes[1].length == 2) {
+                            val minutosNormalizados = partes[0].padStart(2, '0')
+                            return@let "$minutosNormalizados:${partes[1]}"
+                        }
+                    }
+                    valorNormalizado
+                }
+                .ifBlank { "00:00" }
+        }
     }
 
     /**
