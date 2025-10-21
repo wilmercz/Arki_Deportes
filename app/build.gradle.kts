@@ -69,6 +69,7 @@ dependencies {
     // Navigation & UI
     implementation(libs.materialIconsExtended)
     implementation("androidx.navigation:navigation-compose:2.7.6")
+    implementation(libs.compose.reorderable)
 
     //EXOPLAYER -REPRODUCTOR STREAMING
     implementation(libs.bundles.exoplayer.base)

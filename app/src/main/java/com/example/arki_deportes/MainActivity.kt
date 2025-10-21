@@ -31,6 +31,9 @@ import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.ui.home.HomeRoute
 import com.example.arki_deportes.ui.home.HomeViewModel
 import com.example.arki_deportes.ui.home.HomeViewModelFactory
+import com.example.arki_deportes.ui.menciones.MencionesRoute
+import com.example.arki_deportes.ui.menciones.MencionesViewModel
+import com.example.arki_deportes.ui.menciones.MencionesViewModelFactory
 import androidx.navigation.compose.rememberNavController
 import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.navigation.AppNavGraph
@@ -149,6 +152,16 @@ class MainActivity : ComponentActivity() {
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
+
+
+        val viewModel: MencionesViewModel = viewModel(
+            factory = MencionesViewModelFactory(repository)
+        )
+
+        MencionesRoute(
+            viewModel = viewModel,
+            onNavigateBack = { navigator.navigateBack() }
+
         val viewModel: EquipoProduccionViewModel = viewModel(
             factory = EquipoProduccionViewModelFactory(repository)
         )
@@ -156,6 +169,7 @@ class MainActivity : ComponentActivity() {
         EquipoProduccionRoute(
             viewModel = viewModel,
             onBack = { navigator.navigateBack() }
+
         )
     }
 

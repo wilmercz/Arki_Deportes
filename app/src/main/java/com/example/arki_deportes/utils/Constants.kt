@@ -104,6 +104,9 @@ object Constants {
         const val EQUIPOS = "EQUIPOS"
         const val PARTIDOS = "PARTIDOS"
         const val PARTIDO_ACTUAL = "PartidoActual"
+
+        const val MENCIONES = "Menciones"
+
         const val EQUIPO_PRODUCCION = "EquipoProduccion"
     }
 
@@ -111,6 +114,7 @@ object Constants {
     object EquipoProduccionPaths {
         const val DEFAULT = "default"
         const val CAMPEONATOS = "campeonatos"
+
     }
 
     /** Campos de la colección Acceso */
