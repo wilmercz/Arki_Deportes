@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -22,6 +23,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -47,7 +49,8 @@ import com.example.arki_deportes.utils.SportType
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogsRoute(
-    onBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
+    onOpenDrawer: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val topAppBarState = rememberTopAppBarState()
@@ -57,14 +60,26 @@ fun CatalogsRoute(
             TopAppBar(
                 title = { Text(text = "Catálogos") },
                 navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Regresar")
+                    when {
+                        onOpenDrawer != null -> {
+                            IconButton(onClick = onOpenDrawer) {
+                                Icon(
+                                    imageVector = Icons.Filled.Menu,
+                                    contentDescription = "Abrir menú"
+                                )
+                            }
+                        }
+                        onNavigateBack != null -> {
+                            TextButton(onClick = onNavigateBack) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = null
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "Regresar")
+                                }
+                            }
                         }
                     }
                 },

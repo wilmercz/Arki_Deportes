@@ -4,8 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navArgument
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * APP NAVIGATOR - INTERFAZ DE NAVEGACIÓN COMPLETA
@@ -232,12 +234,19 @@ fun rememberAppNavigator(navController: NavHostController): AppNavigator {
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
+    navigator: AppNavigator,
     loginRoute: @Composable (AppNavigator) -> Unit,
     hybridHomeRoute: @Composable (AppNavigator) -> Unit,
     realTimeRoute: @Composable (AppNavigator) -> Unit,
-    catalogsRoute: @Composable (AppNavigator) -> Unit
+    catalogsRoute: @Composable (AppNavigator) -> Unit,
+    mencionesRoute: @Composable (AppNavigator) -> Unit,
+    equipoProduccionRoute: @Composable (AppNavigator) -> Unit,
+    settingsRoute: @Composable (AppNavigator) -> Unit,
+    campeonatoFormRoute: @Composable (AppNavigator, String?) -> Unit,
+    grupoFormRoute: @Composable (AppNavigator, String?) -> Unit,
+    equipoFormRoute: @Composable (AppNavigator, String?) -> Unit,
+    partidoFormRoute: @Composable (AppNavigator, String?) -> Unit
 ) {
-    val navigator = rememberAppNavigator(navController)
 
     NavHost(
         navController = navController,
@@ -247,5 +256,52 @@ fun AppNavGraph(
         composable(AppDestinations.HYBRID_HOME) { hybridHomeRoute(navigator) }
         composable(AppDestinations.REAL_TIME) { realTimeRoute(navigator) }
         composable(AppDestinations.CATALOGS) { catalogsRoute(navigator) }
+        composable(AppDestinations.MENCIONES) { mencionesRoute(navigator) }
+        composable(AppDestinations.EQUIPO_PRODUCCION) { equipoProduccionRoute(navigator) }
+        composable(AppDestinations.SETTINGS) { settingsRoute(navigator) }
+        composable(AppDestinations.CAMPEONATO_FORM) { campeonatoFormRoute(navigator, null) }
+        composable(
+            route = "${AppDestinations.CAMPEONATO_FORM}/{codigoCampeonato}",
+            arguments = listOf(navArgument("codigoCampeonato") {
+                type = NavType.StringType
+                nullable = true
+            })
+        ) { backStackEntry ->
+            val codigo = backStackEntry.arguments?.getString("codigoCampeonato")
+            campeonatoFormRoute(navigator, codigo)
+        }
+        composable(AppDestinations.GRUPO_FORM) { grupoFormRoute(navigator, null) }
+        composable(
+            route = "${AppDestinations.GRUPO_FORM}/{codigoGrupo}",
+            arguments = listOf(navArgument("codigoGrupo") {
+                type = NavType.StringType
+                nullable = true
+            })
+        ) { backStackEntry ->
+            val codigo = backStackEntry.arguments?.getString("codigoGrupo")
+            grupoFormRoute(navigator, codigo)
+        }
+        composable(AppDestinations.EQUIPO_FORM) { equipoFormRoute(navigator, null) }
+        composable(
+            route = "${AppDestinations.EQUIPO_FORM}/{codigoEquipo}",
+            arguments = listOf(navArgument("codigoEquipo") {
+                type = NavType.StringType
+                nullable = true
+            })
+        ) { backStackEntry ->
+            val codigo = backStackEntry.arguments?.getString("codigoEquipo")
+            equipoFormRoute(navigator, codigo)
+        }
+        composable(AppDestinations.PARTIDO_FORM) { partidoFormRoute(navigator, null) }
+        composable(
+            route = "${AppDestinations.PARTIDO_FORM}/{codigoPartido}",
+            arguments = listOf(navArgument("codigoPartido") {
+                type = NavType.StringType
+                nullable = true
+            })
+        ) { backStackEntry ->
+            val codigo = backStackEntry.arguments?.getString("codigoPartido")
+            partidoFormRoute(navigator, codigo)
+        }
     }
 }
