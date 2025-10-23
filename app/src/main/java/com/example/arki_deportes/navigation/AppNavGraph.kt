@@ -7,7 +7,7 @@ import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.navArgument
+import androidx.navigation.navArgument
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * APP NAVIGATOR - INTERFAZ DE NAVEGACIÓN COMPLETA
@@ -57,6 +57,11 @@ interface AppNavigator {
      */
     fun navigateToCatalogs()
 
+    // Listas de catálogos
+    fun navigateToCampeonatoList()
+    fun navigateToGrupoList()
+    fun navigateToEquipoList()
+    fun navigateToPartidoList()
     // ═══════════════════════════════════════════════════════════════════════
     // FORMULARIOS CRUD
     // ═══════════════════════════════════════════════════════════════════════
@@ -154,6 +159,33 @@ private class DefaultAppNavigator(
         }
     }
 
+
+    // Implementación de navegación a listas
+    override fun navigateToCampeonatoList() {
+        navController.navigate(AppDestinations.CAMPEONATO_LIST) {
+            launchSingleTop = true
+        }
+    }
+
+    override fun navigateToGrupoList() {
+        navController.navigate(AppDestinations.GRUPO_LIST) {
+            launchSingleTop = true
+        }
+    }
+
+    override fun navigateToEquipoList() {
+        navController.navigate(AppDestinations.EQUIPO_LIST) {
+            launchSingleTop = true
+        }
+    }
+
+    override fun navigateToPartidoList() {
+        navController.navigate(AppDestinations.PARTIDO_LIST) {
+            launchSingleTop = true
+        }
+    }
+
+
     override fun navigateToCampeonatoForm(codigoCampeonato: String?) {
         val route = if (codigoCampeonato != null) {
             "${AppDestinations.CAMPEONATO_FORM}/$codigoCampeonato"
@@ -243,6 +275,7 @@ fun AppNavGraph(
     equipoProduccionRoute: @Composable (AppNavigator) -> Unit,
     settingsRoute: @Composable (AppNavigator) -> Unit,
     campeonatoFormRoute: @Composable (AppNavigator, String?) -> Unit,
+    campeonatoListRoute: @Composable (AppNavigator) -> Unit,
     grupoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     equipoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     partidoFormRoute: @Composable (AppNavigator, String?) -> Unit
@@ -259,6 +292,7 @@ fun AppNavGraph(
         composable(AppDestinations.MENCIONES) { mencionesRoute(navigator) }
         composable(AppDestinations.EQUIPO_PRODUCCION) { equipoProduccionRoute(navigator) }
         composable(AppDestinations.SETTINGS) { settingsRoute(navigator) }
+        composable(AppDestinations.CAMPEONATO_LIST) { campeonatoListRoute(navigator) }
         composable(AppDestinations.CAMPEONATO_FORM) { campeonatoFormRoute(navigator, null) }
         composable(
             route = "${AppDestinations.CAMPEONATO_FORM}/{codigoCampeonato}",

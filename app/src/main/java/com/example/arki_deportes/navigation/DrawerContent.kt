@@ -14,6 +14,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import com.example.arki_deportes.R
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+
 
 private fun String?.matchesRoute(route: String): Boolean {
     return this == route || this?.startsWith("$route/") == true
@@ -31,12 +40,12 @@ fun DrawerContent(
     currentRoute: String? = null,
     onLogout: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+    // ✅ El drawer DEBE usar ModalDrawerSheet, no un Column de ancho completo.
+    ModalDrawerSheet(
+        drawerContainerColor = MaterialTheme.colorScheme.surface, // opcional
+        drawerTonalElevation = 0.dp                              // opcional
     ) {
-        // Header del Drawer
+        // Header
         DrawerHeader()
 
         Divider()
@@ -51,7 +60,6 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
-
         DrawerMenuItem(
             icon = Icons.Default.VideoLibrary,
             label = "Tiempo Real",
@@ -61,7 +69,6 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
-
         DrawerMenuItem(
             icon = Icons.Default.Category,
             label = "Catálogos",
@@ -74,7 +81,8 @@ fun DrawerContent(
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-        // Sección de gestión
+
+        // SECCIÓN DE GESTIÓN
         Text(
             text = "GESTIÓN",
             style = MaterialTheme.typography.labelSmall,
@@ -85,13 +93,66 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.EmojiEvents,
             label = "Campeonatos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.CAMPEONATO_LIST) ||
+                    currentRoute.matchesRoute(AppDestinations.CAMPEONATO_FORM),
+            onClick = {
+                navigator.navigateToCampeonatoList()
+                onCloseDrawer()
+            }
+        )
+
+        DrawerMenuItem(
+            icon = Icons.Default.Shield,
+            label = "Equipos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_LIST) ||
+                    currentRoute.matchesRoute(AppDestinations.EQUIPO_FORM),
+            onClick = {
+                navigator.navigateToEquipoList()
+                onCloseDrawer()
+            }
+        )
+
+        DrawerMenuItem(
+            icon = Icons.Default.SportsScore,
+            label = "Partidos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_LIST) ||
+                    currentRoute.matchesRoute(AppDestinations.PARTIDO_FORM),
+            onClick = {
+                navigator.navigateToPartidoList()
+                onCloseDrawer()
+            }
+        )
+
+        DrawerMenuItem(
+            icon = Icons.Default.Group,
+            label = "Grupos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_LIST) ||
+                    currentRoute.matchesRoute(AppDestinations.GRUPO_FORM),
+            onClick = {
+                navigator.navigateToGrupoList()
+                onCloseDrawer()
+            }
+        )
+
+        Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+
+        //ELIMINAR ESTE BLOQUE
+        /*Text(
+            text = "GESTIÓN",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        DrawerMenuItem(
+            icon = Icons.Default.EmojiEvents,
+            label = "Campeonatos",
             isSelected = currentRoute.matchesRoute(AppDestinations.CAMPEONATO_FORM),
             onClick = {
                 navigator.navigateToCampeonatoForm()
                 onCloseDrawer()
             }
         )
-
         DrawerMenuItem(
             icon = Icons.Default.Group,
             label = "Grupos",
@@ -101,7 +162,6 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
-
         DrawerMenuItem(
             icon = Icons.Default.Shield,
             label = "Equipos",
@@ -111,7 +171,6 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
-
         DrawerMenuItem(
             icon = Icons.Default.SportsScore,
             label = "Partidos",
@@ -121,17 +180,16 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
+*/
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-        // Otras opciones
         Text(
             text = "OTRAS OPCIONES",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
-
         DrawerMenuItem(
             icon = Icons.Default.Mic,
             label = "Menciones",
@@ -141,7 +199,6 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
-
         DrawerMenuItem(
             icon = Icons.Default.People,
             label = "Equipo Producción",
@@ -156,7 +213,6 @@ fun DrawerContent(
 
         Divider()
 
-        // Configuración y Cerrar Sesión
         DrawerMenuItem(
             icon = Icons.Default.Settings,
             label = "Configuración",
@@ -166,7 +222,6 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
-
         DrawerMenuItem(
             icon = Icons.Default.ExitToApp,
             label = "Cerrar Sesión",
@@ -191,23 +246,25 @@ private fun DrawerHeader() {
             .padding(24.dp)
     ) {
         Column {
-            Icon(
-                imageVector = Icons.Default.SportsSoccer,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
+            // Logo blanco más pequeño (48dp -> 46dp)
+            Image(
+                painter = painterResource(id = R.drawable.logo_blanco),
+                contentDescription = "Logo ARKI Deportes",
+                modifier = Modifier.size(46.dp),
+                contentScale = ContentScale.Fit,
+                colorFilter = ColorFilter.tint(Color.White)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Arki Deportes",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = Color.White
             )
             Text(
                 text = "Sistema de Transmisión",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                color = Color.White.copy(alpha = 0.7f)
             )
         }
     }

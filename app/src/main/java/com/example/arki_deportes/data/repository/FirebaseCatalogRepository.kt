@@ -149,6 +149,12 @@ class FirebaseCatalogRepository(
         return snapshot.getValue(Campeonato::class.java)
     }
 
+    suspend fun getAllCampeonatos(): List<Campeonato> {
+        val snapshot = campeonatosReference().get().await()
+        return snapshot.children.mapNotNull { child ->
+            child.getValue(Campeonato::class.java)
+        }
+    }
     suspend fun getGrupo(codigoGrupo: String): Grupo? {
         val snapshot = gruposReference().child(codigoGrupo).get().await()
         return snapshot.getValue(Grupo::class.java)

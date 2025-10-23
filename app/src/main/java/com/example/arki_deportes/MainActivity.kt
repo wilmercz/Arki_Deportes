@@ -2,6 +2,10 @@
 
 package com.example.arki_deportes
 
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -70,6 +74,7 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.example.arki_deportes.ui.campeonatos.CampeonatoListRoute
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -200,6 +205,9 @@ class MainActivity : ComponentActivity() {
                         campeonatoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
                             PantallaCampeonatoForm(navigatorParam, codigo)
                         },
+                        campeonatoListRoute = { navigatorParam: AppNavigator ->
+                            PantallaCampeonatoList(navigatorParam, openDrawer = openDrawer)
+                        },
                         grupoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
                             PantallaGrupoForm(navigatorParam, codigo)
                         },
@@ -249,6 +257,24 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    fun PantallaCampeonatoList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        CampeonatoListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer,
+            onCreateCampeonato = {
+                navigator.navigateToCampeonatoForm(null)
+            },
+            onEditCampeonato = { codigo ->
+                navigator.navigateToCampeonatoForm(codigo)
+            }
+        )
+    }
+
+    @Composable
     fun PantallaMenciones(navigator: AppNavigator, openDrawer: () -> Unit) {
         val repository = remember(database, configManager) {
             Repository(database, configManager)
@@ -287,6 +313,7 @@ class MainActivity : ComponentActivity() {
             onOpenDrawer = openDrawer
         )
     }
+
 
     @Composable
     fun PantallaCampeonatoForm(navigator: AppNavigator, codigo: String?) {
@@ -634,30 +661,21 @@ class MainActivity : ComponentActivity() {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Placeholder del logo
-                Card(
-                    modifier = Modifier.size(120.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "⚽",
-                            fontSize = 64.sp
-                        )
-                    }
-                }
+                // Logo más pequeño (180dp -> 179dp)
+                Image(
+                    painter = painterResource(id = R.drawable.logo_color),
+                    contentDescription = "Logo ARKI Deportes",
+                    modifier = Modifier.size(150.dp),
+                    contentScale = ContentScale.Fit
+                )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                // Separación entre logo y texto (24dp -> 26dp)
+                Spacer(modifier = Modifier.height(26.dp))
 
+                // Texto con constante y letra más pequeña (24sp -> 21sp)
                 Text(
                     text = Constants.EMPRESA_NOMBRE,
-                    fontSize = 24.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -672,7 +690,7 @@ class MainActivity : ComponentActivity() {
 
                 Text(
                     text = "Iniciando...",
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     color = Color.Gray
                 )
             }
@@ -701,26 +719,18 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // Logo
-                Card(
-                    modifier = Modifier.size(100.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "⚽", fontSize = 48.sp)
-                    }
-                }
+                Image(
+                    painter = painterResource(id = R.drawable.logo_color),
+                    contentDescription = "Logo ARKI Deportes",
+                    modifier = Modifier.size(120.dp),
+                    contentScale = ContentScale.Fit
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
                     text = Constants.APP_NOMBRE,
-                    fontSize = 28.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.arki_deportes.utils.Constants
+import com.example.arki_deportes.ui.common.DatePickerField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,11 +120,14 @@ fun CampeonatoFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                DatePickerField(
                     value = uiState.formData.fechaInicio,
                     onValueChange = viewModel::onFechaInicioChange,
-                    label = { Text("Fecha inicio (yyyy-MM-dd)") },
+                    label = "Fecha inicio",
                     modifier = Modifier.weight(1f),
                     isError = uiState.showValidationErrors && uiState.formData.fechaInicio.isBlank(),
                     supportingText = {
@@ -132,10 +136,11 @@ fun CampeonatoFormScreen(
                         }
                     }
                 )
-                OutlinedTextField(
+
+                DatePickerField(
                     value = uiState.formData.fechaFin,
                     onValueChange = viewModel::onFechaFinChange,
-                    label = { Text("Fecha fin (yyyy-MM-dd)") },
+                    label = "Fecha fin",
                     modifier = Modifier.weight(1f),
                     isError = uiState.showValidationErrors && uiState.formData.fechaFin.isBlank(),
                     supportingText = {
@@ -159,13 +164,14 @@ fun CampeonatoFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            /* AÑO
             OutlinedTextField(
                 value = uiState.formData.anio,
                 onValueChange = viewModel::onAnioChange,
                 label = { Text("Año") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
-            )
+            )*/
 
             OutlinedTextField(
                 value = uiState.formData.hashtags,

@@ -26,7 +26,7 @@ object Constants {
     // 🔧 EDITAR AQUÍ la información de tu empresa
 
     /** Nombre de la empresa desarrolladora */
-    const val EMPRESA_NOMBRE = "ARKI SISTEMAS"
+    const val EMPRESA_NOMBRE = "Wilsoft Coorp."
 
     /** Nombre completo de la empresa */
     const val EMPRESA_NOMBRE_COMPLETO = "ARKI SISTEMAS CIA. LTDA."
@@ -69,7 +69,7 @@ object Constants {
     // ═══════════════════════════════════════════════════════════════════════
 
     /** Nombre de la aplicación */
-    const val APP_NOMBRE = "FUTBOLWC Manager"
+    const val APP_NOMBRE = "Arki Deportes"
 
     /** Versión de la aplicación */
     const val APP_VERSION = "1.0.0"
