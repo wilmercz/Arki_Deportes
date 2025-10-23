@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material3.Card
@@ -17,6 +18,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -48,13 +50,15 @@ import java.util.Locale
 @Composable
 fun HomeRoute(
     viewModel: HomeViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenDrawer: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     HomeScreen(
         state = uiState,
         onRefresh = { viewModel.refrescarPartidos() },
-        modifier = modifier
+        modifier = modifier,
+        onOpenDrawer = onOpenDrawer
     )
 }
 
@@ -63,7 +67,8 @@ fun HomeRoute(
 fun HomeScreen(
     state: HomeUiState,
     onRefresh: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenDrawer: (() -> Unit)? = null
 ) {
     val swipeState = rememberSwipeRefreshState(isRefreshing = state.isRefreshing)
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -73,6 +78,16 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = { Text(text = "Inicio") },
+                navigationIcon = {
+                    onOpenDrawer?.let {
+                        IconButton(onClick = it) {
+                            Icon(
+                                imageVector = Icons.Filled.Menu,
+                                contentDescription = "Abrir menú"
+                            )
+                        }
+                    }
+                },
                 scrollBehavior = scrollBehavior
             )
         }
