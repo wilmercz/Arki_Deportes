@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -47,13 +49,15 @@ import java.util.Locale
 @Composable
 fun TiempoRealRoute(
     viewModel: TiempoRealViewModel,
-    onBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
+    onOpenDrawer: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
     TiempoRealScreen(
         state = state,
-        onBack = onBack,
+        onNavigateBack = onNavigateBack,
+        onOpenDrawer = onOpenDrawer,
         onRetry = viewModel::reintentar,
         modifier = modifier
     )
@@ -63,9 +67,10 @@ fun TiempoRealRoute(
 @Composable
 fun TiempoRealScreen(
     state: TiempoRealUiState,
-    onBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenDrawer: (() -> Unit)? = null
 ) {
     val topAppBarState = rememberTopAppBarState()
     Scaffold(
@@ -74,14 +79,26 @@ fun TiempoRealScreen(
             TopAppBar(
                 title = { Text(text = "Tiempo real") },
                 navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Volver")
+                    when {
+                        onOpenDrawer != null -> {
+                            IconButton(onClick = onOpenDrawer) {
+                                Icon(
+                                    imageVector = Icons.Filled.Menu,
+                                    contentDescription = "Abrir menú"
+                                )
+                            }
+                        }
+                        onNavigateBack != null -> {
+                            TextButton(onClick = onNavigateBack) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = null
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "Volver")
+                                }
+                            }
                         }
                     }
                 },

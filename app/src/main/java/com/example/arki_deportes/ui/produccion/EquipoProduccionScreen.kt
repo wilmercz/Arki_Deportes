@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -62,7 +63,8 @@ import java.util.Locale
 fun EquipoProduccionRoute(
     viewModel: EquipoProduccionViewModel,
     onBack: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenDrawer: (() -> Unit)? = null
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -77,7 +79,8 @@ fun EquipoProduccionRoute(
         onGuardar = viewModel::guardarConfiguracion,
         onRetry = viewModel::recargar,
         onBack = onBack,
-        modifier = modifier
+        modifier = modifier,
+        onOpenDrawer = onOpenDrawer
     )
 }
 
@@ -94,7 +97,8 @@ fun EquipoProduccionScreen(
     onGuardar: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    onOpenDrawer: (() -> Unit)? = null
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -104,12 +108,22 @@ fun EquipoProduccionScreen(
             TopAppBar(
                 title = { Text("Equipo de producción") },
                 navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = Icons.Filled.ArrowBack,
-                                contentDescription = "Regresar"
-                            )
+                    when {
+                        onOpenDrawer != null -> {
+                            IconButton(onClick = onOpenDrawer) {
+                                Icon(
+                                    imageVector = Icons.Filled.Menu,
+                                    contentDescription = "Abrir menú"
+                                )
+                            }
+                        }
+                        onBack != null -> {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowBack,
+                                    contentDescription = "Regresar"
+                                )
+                            }
                         }
                     }
                 },

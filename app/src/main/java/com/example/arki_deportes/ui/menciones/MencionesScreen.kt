@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -73,7 +74,8 @@ import java.util.Locale
 fun MencionesRoute(
     viewModel: MencionesViewModel,
     modifier: Modifier = Modifier,
-    onNavigateBack: (() -> Unit)? = null
+    onNavigateBack: (() -> Unit)? = null,
+    onOpenDrawer: (() -> Unit)? = null
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -118,6 +120,7 @@ fun MencionesRoute(
         },
         snackbarHostState = snackbarHostState,
         onNavigateBack = onNavigateBack,
+        onOpenDrawer = onOpenDrawer,
         modifier = modifier
     )
 }
@@ -135,7 +138,8 @@ fun MencionesScreen(
     onCopy: (String) -> Unit,
     snackbarHostState: SnackbarHostState,
     onNavigateBack: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenDrawer: (() -> Unit)? = null
 ) {
     val reorderState = rememberReorderableLazyListState(
         onMove = { from, to -> onMove(from.index, to.index) },
@@ -148,12 +152,22 @@ fun MencionesScreen(
             TopAppBar(
                 title = { Text(text = "Menciones") },
                 navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Volver"
-                            )
+                    when {
+                        onOpenDrawer != null -> {
+                            IconButton(onClick = onOpenDrawer) {
+                                Icon(
+                                    imageVector = Icons.Filled.Menu,
+                                    contentDescription = "Abrir menú"
+                                )
+                            }
+                        }
+                        onNavigateBack != null -> {
+                            IconButton(onClick = onNavigateBack) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Volver"
+                                )
+                            }
                         }
                     }
                 },

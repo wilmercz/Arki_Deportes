@@ -14,7 +14,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,15 +45,23 @@ import com.example.arki_deportes.ui.menciones.MencionesRoute
 import com.example.arki_deportes.ui.menciones.MencionesViewModel
 import com.example.arki_deportes.ui.menciones.MencionesViewModelFactory
 
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.arki_deportes.navigation.AppDestinations
 import com.example.arki_deportes.navigation.AppNavGraph
 import com.example.arki_deportes.navigation.AppNavigator
+import com.example.arki_deportes.navigation.DrawerContent
+import com.example.arki_deportes.navigation.rememberAppNavigator
 
 import com.example.arki_deportes.ui.produccion.EquipoProduccionRoute
 import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModel
 import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModelFactory
 import com.example.arki_deportes.ui.theme.Arki_DeportesTheme
-import com.example.arki_deportes.ui.tiemporeal.TiempoRealScreen
+import com.example.arki_deportes.ui.campeonatos.CampeonatoFormScreen
+import com.example.arki_deportes.ui.equipos.EquipoFormScreen
+import com.example.arki_deportes.ui.grupos.GrupoFormScreen
+import com.example.arki_deportes.ui.partidos.PartidoFormScreen
+import com.example.arki_deportes.ui.settings.SettingsRoute
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
@@ -57,6 +69,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -126,20 +139,85 @@ class MainActivity : ComponentActivity() {
         setContent {
             Arki_DeportesTheme {
                 val navController = rememberNavController()
-                AppNavGraph(
-                    navController = navController,
-                    loginRoute = { navigator -> PantallaInicio(navigator) },
-                    hybridHomeRoute = { navigator -> PantallaBienvenida(navigator) },
-                    realTimeRoute = { navigator -> PantallaTiempoReal(navigator) },
-                    catalogsRoute = { navigator -> PantallaCatalogos(navigator) }
-                )
+                val navigator = rememberAppNavigator(navController)
+                val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+                val scope = rememberCoroutineScope()
+                val backStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = backStackEntry?.destination?.route
+                val drawerEnabled = currentRoute != AppDestinations.LOGIN
+
+                val openDrawer: () -> Unit = {
+                    scope.launch { drawerState.open() }
+                }
+                val closeDrawer: () -> Unit = {
+                    scope.launch { drawerState.close() }
+                }
+                val handleLogout: () -> Unit = {
+                    borrarPasswordLocal()
+                    configManager.cerrarSesion()
+                }
+
+                ModalNavigationDrawer(
+                    drawerState = drawerState,
+                    gesturesEnabled = drawerEnabled,
+                    drawerContent = {
+                        if (drawerEnabled) {
+                            DrawerContent(
+                                navigator = navigator,
+                                onCloseDrawer = closeDrawer,
+                                currentRoute = currentRoute,
+                                onLogout = handleLogout
+                            )
+                        }
+                    }
+                ) {
+                    AppNavGraph(
+                        navController = navController,
+                        navigator = navigator,
+                        loginRoute = { navigatorParam: AppNavigator -> PantallaInicio(navigatorParam) },
+                        hybridHomeRoute = { navigatorParam: AppNavigator ->
+                            PantallaBienvenida(navigatorParam, openDrawer = openDrawer)
+                        },
+                        realTimeRoute = { navigatorParam: AppNavigator ->
+                            PantallaTiempoReal(navigatorParam, openDrawer = openDrawer)
+                        },
+                        catalogsRoute = { navigatorParam: AppNavigator ->
+                            PantallaCatalogos(navigatorParam, openDrawer = openDrawer)
+                        },
+                        mencionesRoute = { navigatorParam: AppNavigator ->
+                            PantallaMenciones(navigatorParam, openDrawer = openDrawer)
+                        },
+                        equipoProduccionRoute = { navigatorParam: AppNavigator ->
+                            PantallaEquipoProduccion(navigatorParam, openDrawer = openDrawer)
+                        },
+                        settingsRoute = { navigatorParam: AppNavigator ->
+                            PantallaConfiguracion(
+                                navigator = navigatorParam,
+                                openDrawer = openDrawer,
+                                onLogout = handleLogout
+                            )
+                        },
+                        campeonatoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
+                            PantallaCampeonatoForm(navigatorParam, codigo)
+                        },
+                        grupoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
+                            PantallaGrupoForm(navigatorParam, codigo)
+                        },
+                        equipoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
+                            PantallaEquipoForm(navigatorParam, codigo)
+                        },
+                        partidoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
+                            PantallaPartidoForm(navigatorParam, codigo)
+                        }
+                    )
+                }
             }
 
         }
     }
 
     @Composable
-    fun PantallaTiempoReal(navigator: AppNavigator) {
+    fun PantallaTiempoReal(navigator: AppNavigator, openDrawer: () -> Unit) {
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
@@ -149,49 +227,143 @@ class MainActivity : ComponentActivity() {
 
         TiempoRealRoute(
             viewModel = viewModel,
-            onBack = {
+            onNavigateBack = {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToHybridHome()
                 }
-            }
-        )
-
-        TiempoRealScreen(
-            modifier = Modifier.fillMaxSize(),
-            onNavigateBack = { navigator.navigateToHybridHome() }
+            },
+            onOpenDrawer = openDrawer
         )
     }
 
     @Composable
-    fun PantallaCatalogos(navigator: AppNavigator) {
+    fun PantallaCatalogos(navigator: AppNavigator, openDrawer: () -> Unit) {
         CatalogsRoute(
-            onBack = {
+            onNavigateBack = {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToHybridHome()
                 }
-            }
+            },
+            onOpenDrawer = openDrawer
         )
+    }
 
+    @Composable
+    fun PantallaMenciones(navigator: AppNavigator, openDrawer: () -> Unit) {
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
-
         val viewModel: MencionesViewModel = viewModel(
             factory = MencionesViewModelFactory(repository)
         )
 
         MencionesRoute(
             viewModel = viewModel,
-            onNavigateBack = { navigator.navigateBack() }
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer
         )
+    }
 
-        val viewModelEquipo: EquipoProduccionViewModel = viewModel(
+    @Composable
+    fun PantallaEquipoProduccion(navigator: AppNavigator, openDrawer: () -> Unit) {
+        val repository = remember(database, configManager) {
+            Repository(database, configManager)
+        }
+        val viewModel: EquipoProduccionViewModel = viewModel(
             factory = EquipoProduccionViewModelFactory(repository)
         )
 
         EquipoProduccionRoute(
-            viewModel = viewModelEquipo,
-            onBack = { navigator.navigateBack() }
+            viewModel = viewModel,
+            onBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer
+        )
+    }
+
+    @Composable
+    fun PantallaCampeonatoForm(navigator: AppNavigator, codigo: String?) {
+        CampeonatoFormScreen(
+            codigoCampeonato = codigo,
+            onBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToCatalogs()
+                }
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaGrupoForm(navigator: AppNavigator, codigo: String?) {
+        GrupoFormScreen(
+            codigoGrupo = codigo,
+            onBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToCatalogs()
+                }
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaEquipoForm(navigator: AppNavigator, codigo: String?) {
+        EquipoFormScreen(
+            codigoEquipo = codigo,
+            onBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToCatalogs()
+                }
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaPartidoForm(navigator: AppNavigator, codigo: String?) {
+        PartidoFormScreen(
+            codigoPartido = codigo,
+            onBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToCatalogs()
+                }
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaConfiguracion(
+        navigator: AppNavigator,
+        openDrawer: () -> Unit,
+        onLogout: () -> Unit
+    ) {
+        var nodeValue by remember { mutableStateOf(configManager.obtenerNodoRaiz()) }
+        val lastSync by remember { mutableStateOf(configManager.obtenerUltimaSincronizacion()) }
+
+        SettingsRoute(
+            nodeValue = nodeValue,
+            onNodeValueChange = { nodeValue = it },
+            onSaveNode = { configManager.guardarNodoRaiz(nodeValue) },
+            onResetNode = {
+                configManager.resetearNodoRaiz()
+                nodeValue = configManager.obtenerNodoRaiz()
+            },
+            onLogout = {
+                onLogout()
+                navigator.navigateToLogin(clearBackStack = true)
+            },
+            onOpenDrawer = openDrawer,
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            lastSyncTimestamp = lastSync
         )
     }
 
@@ -655,84 +827,17 @@ class MainActivity : ComponentActivity() {
      * Pantalla de bienvenida (después de autenticar correctamente)
      */
     @Composable
-    fun PantallaBienvenida(navigator: AppNavigator) {
+    fun PantallaBienvenida(navigator: AppNavigator, openDrawer: () -> Unit) {
         val repository = remember(database, configManager) {
             Repository(database, configManager)
         }
         val homeViewModel: HomeViewModel = viewModel(
             factory = HomeViewModelFactory(repository)
         )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "✅",
-                    fontSize = 64.sp
-                )
-
-                Text(
-                    text = "¡Bienvenido!",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center
-                )
-
-                Text(
-                    text = "Acceso autorizado",
-                    fontSize = 16.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                HomeRoute(viewModel = homeViewModel)
-            }
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Button(
-                    onClick = { navigator.navigateToRealTime() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Ir a Tiempo Real", fontSize = 16.sp)
-                }
-
-                Button(
-                    onClick = { navigator.navigateToCatalogs() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Ir a Catálogos", fontSize = 16.sp)
-                }
-
-                OutlinedButton(
-                    onClick = {
-                        borrarPasswordLocal()
-                        navigator.navigateToLogin(clearBackStack = true)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Cerrar sesión", fontSize = 16.sp)
-                }
-            }
-        }
+        HomeRoute(
+            viewModel = homeViewModel,
+            onOpenDrawer = openDrawer
+        )
     }
 
     /**

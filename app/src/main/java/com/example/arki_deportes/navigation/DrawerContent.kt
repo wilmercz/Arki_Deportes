@@ -15,6 +15,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+private fun String?.matchesRoute(route: String): Boolean {
+    return this == route || this?.startsWith("$route/") == true
+}
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * DRAWER CONTENT - CONTENIDO DEL MENÚ LATERAL
@@ -24,7 +28,8 @@ import androidx.compose.ui.unit.dp
 fun DrawerContent(
     navigator: AppNavigator,
     onCloseDrawer: () -> Unit,
-    currentRoute: String? = null
+    currentRoute: String? = null,
+    onLogout: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -40,7 +45,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.Home,
             label = "Inicio",
-            isSelected = currentRoute == AppDestinations.HYBRID_HOME,
+            isSelected = currentRoute.matchesRoute(AppDestinations.HYBRID_HOME),
             onClick = {
                 navigator.navigateToHybridHome()
                 onCloseDrawer()
@@ -50,7 +55,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.VideoLibrary,
             label = "Tiempo Real",
-            isSelected = currentRoute == AppDestinations.REAL_TIME,
+            isSelected = currentRoute.matchesRoute(AppDestinations.REAL_TIME),
             onClick = {
                 navigator.navigateToRealTime()
                 onCloseDrawer()
@@ -60,7 +65,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.Category,
             label = "Catálogos",
-            isSelected = currentRoute == AppDestinations.CATALOGS,
+            isSelected = currentRoute.matchesRoute(AppDestinations.CATALOGS),
             onClick = {
                 navigator.navigateToCatalogs()
                 onCloseDrawer()
@@ -80,6 +85,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.EmojiEvents,
             label = "Campeonatos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.CAMPEONATO_FORM),
             onClick = {
                 navigator.navigateToCampeonatoForm()
                 onCloseDrawer()
@@ -89,6 +95,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.Group,
             label = "Grupos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_FORM),
             onClick = {
                 navigator.navigateToGrupoForm()
                 onCloseDrawer()
@@ -98,6 +105,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.Shield,
             label = "Equipos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_FORM),
             onClick = {
                 navigator.navigateToEquipoForm()
                 onCloseDrawer()
@@ -107,6 +115,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.SportsScore,
             label = "Partidos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_FORM),
             onClick = {
                 navigator.navigateToPartidoForm()
                 onCloseDrawer()
@@ -126,6 +135,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.Mic,
             label = "Menciones",
+            isSelected = currentRoute.matchesRoute(AppDestinations.MENCIONES),
             onClick = {
                 navigator.navigateToMenciones()
                 onCloseDrawer()
@@ -135,6 +145,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.People,
             label = "Equipo Producción",
+            isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_PRODUCCION),
             onClick = {
                 navigator.navigateToEquipoProduccion()
                 onCloseDrawer()
@@ -149,6 +160,7 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.Settings,
             label = "Configuración",
+            isSelected = currentRoute.matchesRoute(AppDestinations.SETTINGS),
             onClick = {
                 navigator.navigateToSettings()
                 onCloseDrawer()
@@ -159,6 +171,7 @@ fun DrawerContent(
             icon = Icons.Default.ExitToApp,
             label = "Cerrar Sesión",
             onClick = {
+                onLogout()
                 navigator.navigateToLogin(clearBackStack = true)
                 onCloseDrawer()
             }
