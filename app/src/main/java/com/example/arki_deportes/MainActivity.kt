@@ -50,7 +50,10 @@ import androidx.navigation.compose.rememberNavController
 import com.example.arki_deportes.navigation.AppDestinations
 import com.example.arki_deportes.navigation.AppNavGraph
 import com.example.arki_deportes.navigation.AppNavigator
+
 import com.example.arki_deportes.navigation.DrawerContent
+
+
 import com.example.arki_deportes.navigation.rememberAppNavigator
 
 import com.example.arki_deportes.ui.produccion.EquipoProduccionRoute
@@ -146,6 +149,7 @@ class MainActivity : ComponentActivity() {
                 val currentRoute = backStackEntry?.destination?.route
                 val drawerEnabled = currentRoute != AppDestinations.LOGIN
 
+
                 val openDrawer: () -> Unit = {
                     scope.launch { drawerState.open() }
                 }
@@ -153,6 +157,15 @@ class MainActivity : ComponentActivity() {
                     scope.launch { drawerState.close() }
                 }
                 val handleLogout: () -> Unit = {
+
+                val openDrawer = {
+                    scope.launch { drawerState.open() }
+                }
+                val closeDrawer = {
+                    scope.launch { drawerState.close() }
+                }
+                val handleLogout = {
+
                     borrarPasswordLocal()
                     configManager.cerrarSesion()
                 }
@@ -174,6 +187,7 @@ class MainActivity : ComponentActivity() {
                     AppNavGraph(
                         navController = navController,
                         navigator = navigator,
+
                         loginRoute = { navigatorParam: AppNavigator -> PantallaInicio(navigatorParam) },
                         hybridHomeRoute = { navigatorParam: AppNavigator ->
                             PantallaBienvenida(navigatorParam, openDrawer = openDrawer)
@@ -209,6 +223,19 @@ class MainActivity : ComponentActivity() {
                         partidoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
                             PantallaPartidoForm(navigatorParam, codigo)
                         }
+
+                        loginRoute = { PantallaInicio(it) },
+                        hybridHomeRoute = { PantallaBienvenida(it, openDrawer = openDrawer) },
+                        realTimeRoute = { PantallaTiempoReal(it, openDrawer = openDrawer) },
+                        catalogsRoute = { PantallaCatalogos(it, openDrawer = openDrawer) },
+                        mencionesRoute = { PantallaMenciones(it, openDrawer = openDrawer) },
+                        equipoProduccionRoute = { PantallaEquipoProduccion(it, openDrawer = openDrawer) },
+                        settingsRoute = { PantallaConfiguracion(it, openDrawer = openDrawer, onLogout = handleLogout) },
+                        campeonatoFormRoute = { navigatorParam, codigo -> PantallaCampeonatoForm(navigatorParam, codigo) },
+                        grupoFormRoute = { navigatorParam, codigo -> PantallaGrupoForm(navigatorParam, codigo) },
+                        equipoFormRoute = { navigatorParam, codigo -> PantallaEquipoForm(navigatorParam, codigo) },
+                        partidoFormRoute = { navigatorParam, codigo -> PantallaPartidoForm(navigatorParam, codigo) }
+
                     )
                 }
             }
