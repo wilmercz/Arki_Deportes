@@ -76,6 +76,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.arki_deportes.ui.campeonatos.CampeonatoListRoute
 
+// Imports para listas de catálogos
+import com.example.arki_deportes.ui.campeonatos.CampeonatoListRoute
+//import com.example.arki_deportes.ui.grupos.GrupoListRoute
+import com.example.arki_deportes.ui.equipos.EquipoListRoute
+import com.example.arki_deportes.ui.partidos.PartidoListRoute
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -179,7 +185,9 @@ class MainActivity : ComponentActivity() {
                     AppNavGraph(
                         navController = navController,
                         navigator = navigator,
-                        loginRoute = { navigatorParam: AppNavigator -> PantallaInicio(navigatorParam) },
+                        loginRoute = { navigatorParam: AppNavigator ->
+                            PantallaInicio(navigatorParam)
+                        },
                         hybridHomeRoute = { navigatorParam: AppNavigator ->
                             PantallaBienvenida(navigatorParam, openDrawer = openDrawer)
                         },
@@ -202,11 +210,26 @@ class MainActivity : ComponentActivity() {
                                 onLogout = handleLogout
                             )
                         },
-                        campeonatoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
-                            PantallaCampeonatoForm(navigatorParam, codigo)
-                        },
+                        // ═══════════════════════════════════════════════════════════════
+                        // RUTAS DE LISTAS
+                        // ═══════════════════════════════════════════════════════════════
                         campeonatoListRoute = { navigatorParam: AppNavigator ->
                             PantallaCampeonatoList(navigatorParam, openDrawer = openDrawer)
+                        },
+                        grupoListRoute = { navigatorParam: AppNavigator ->
+                            PantallaGrupoList(navigatorParam, openDrawer = openDrawer)
+                        },
+                        equipoListRoute = { navigatorParam: AppNavigator ->
+                            PantallaEquipoList(navigatorParam, openDrawer = openDrawer)
+                        },
+                        partidoListRoute = { navigatorParam: AppNavigator ->
+                            PantallaPartidoList(navigatorParam, openDrawer = openDrawer)
+                        },
+                        // ═══════════════════════════════════════════════════════════════
+                        // RUTAS DE FORMULARIOS
+                        // ═══════════════════════════════════════════════════════════════
+                        campeonatoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
+                            PantallaCampeonatoForm(navigatorParam, codigo)
                         },
                         grupoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
                             PantallaGrupoForm(navigatorParam, codigo)
@@ -359,6 +382,61 @@ class MainActivity : ComponentActivity() {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToCatalogs()
                 }
+            }
+        )
+    }
+
+
+    @Composable
+    fun PantallaGrupoList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        GrupoListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer,
+            onCreateGrupo = {
+                navigator.navigateToGrupoForm(null)
+            },
+            onEditGrupo = { codigo ->
+                navigator.navigateToGrupoForm(codigo)
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaEquipoList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        EquipoListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer,
+            onCreateEquipo = {
+                navigator.navigateToEquipoForm(null)
+            },
+            onEditEquipo = { codigo ->
+                navigator.navigateToEquipoForm(codigo)
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaPartidoList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        PartidoListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer,
+            onCreatePartido = {
+                navigator.navigateToPartidoForm(null)
+            },
+            onEditPartido = { codigo ->
+                navigator.navigateToPartidoForm(codigo)
             }
         )
     }

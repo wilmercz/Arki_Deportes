@@ -138,7 +138,7 @@ fun DrawerContent(
 
 
         //ELIMINAR ESTE BLOQUE
-        /*Text(
+        Text(
             text = "GESTIÓN",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -180,7 +180,7 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
-*/
+
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 

@@ -276,6 +276,9 @@ fun AppNavGraph(
     settingsRoute: @Composable (AppNavigator) -> Unit,
     campeonatoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     campeonatoListRoute: @Composable (AppNavigator) -> Unit,
+    grupoListRoute: @Composable (AppNavigator) -> Unit,
+    equipoListRoute: @Composable (AppNavigator) -> Unit,
+    partidoListRoute: @Composable (AppNavigator) -> Unit,
     grupoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     equipoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     partidoFormRoute: @Composable (AppNavigator, String?) -> Unit
@@ -293,6 +296,10 @@ fun AppNavGraph(
         composable(AppDestinations.EQUIPO_PRODUCCION) { equipoProduccionRoute(navigator) }
         composable(AppDestinations.SETTINGS) { settingsRoute(navigator) }
         composable(AppDestinations.CAMPEONATO_LIST) { campeonatoListRoute(navigator) }
+        composable(AppDestinations.GRUPO_LIST) { grupoListRoute(navigator) }
+        composable(AppDestinations.EQUIPO_LIST) { equipoListRoute(navigator) }
+        composable(AppDestinations.PARTIDO_LIST) { partidoListRoute(navigator) }
+
         composable(AppDestinations.CAMPEONATO_FORM) { campeonatoFormRoute(navigator, null) }
         composable(
             route = "${AppDestinations.CAMPEONATO_FORM}/{codigoCampeonato}",
