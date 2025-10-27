@@ -185,4 +185,33 @@ object Constants {
         const val INSTAGRAM = "https://instagram.com/arkisistemas"
         const val LINKEDIN = "https://linkedin.com/company/arkisistemas"
     }
+
+    object ProvinciasEcuador {
+        val TODAS = listOf(
+            "Azuay",
+            "Bolívar",
+            "Cañar",
+            "Carchi",
+            "Chimborazo",
+            "Cotopaxi",
+            "El Oro",
+            "Esmeraldas",
+            "Galápagos",
+            "Guayas",
+            "Imbabura",
+            "Loja",
+            "Los Ríos",
+            "Manabí",
+            "Morona Santiago",
+            "Napo",
+            "Orellana",
+            "Pastaza",
+            "Pichincha",
+            "Santa Elena",
+            "Santo Domingo de los Tsáchilas",
+            "Sucumbíos",
+            "Tungurahua",
+            "Zamora Chinchipe"
+        )
+    }
 }

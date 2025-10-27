@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.comparisons.compareBy
 
 data class GrupoListUiState(
     val grupos: List<Grupo> = emptyList(),
@@ -127,4 +128,20 @@ class GrupoListViewModel(
                     grupo.ANIO.toString().contains(query)
         }
     }
+
+    fun observeGrupos(campeonatoCodigo: String) {
+        viewModelScope.launch {
+            repository.observeGrupos(campeonatoCodigo)
+                .collect { grupos ->
+                    // ✅ ordenar por nombre del grupo y luego por posición
+                    val ordenados = grupos.sortedWith(
+                        compareBy<Grupo> { it.GRUPO.orEmpty() }
+                            .thenBy { it.POSICION ?: Int.MAX_VALUE }
+                    )
+
+                    _uiState.update { it.copy(grupos = ordenados) }
+                }
+        }
+    }
+
 }

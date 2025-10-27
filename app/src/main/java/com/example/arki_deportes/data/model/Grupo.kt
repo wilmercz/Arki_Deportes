@@ -85,7 +85,8 @@ data class Grupo(
      * Valores: "MOBILE" o "DESKTOP"
      * Indica desde qué aplicación se creó el registro
      */
-    val ORIGEN: String = "MOBILE"
+    val ORIGEN: String = "MOBILE",
+    val POSICION: Int = 0,
 ) {
     /**
      * Convierte el objeto a un Map para Firebase

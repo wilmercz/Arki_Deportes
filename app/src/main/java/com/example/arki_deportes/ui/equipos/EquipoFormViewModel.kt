@@ -73,7 +73,13 @@ class EquipoFormViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             try {
-                val equipo = repository.getEquipo(codigoEquipo)
+                val campeonatoCodigo =
+                    _uiState.value.formData.codigoCampeonato.ifBlank {
+                        com.example.arki_deportes.data.context.CampeonatoContext
+                            .campeonatoActivo.value?.CODIGO.orEmpty()
+                    }
+
+                val equipo = repository.getEquipo(campeonatoCodigo, codigoEquipo)
                 if (equipo != null) {
                     originalEquipo = equipo
                     _uiState.update {

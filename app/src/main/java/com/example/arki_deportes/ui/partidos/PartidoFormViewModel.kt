@@ -86,7 +86,16 @@ class PartidoFormViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             try {
-                val partido = repository.getPartido(codigoPartido)
+                // 🔹 Toma el campeonato del form o del selector global del menú lateral
+                val campeonatoCodigo =
+                    _uiState.value.formData.campeonatoCodigo.ifBlank {
+                        com.example.arki_deportes.data.context.CampeonatoContext
+                            .campeonatoActivo.value?.CODIGO.orEmpty()
+                    }
+
+                // ⬇️ LÍNEA CORREGIDA (ahora con 2 parámetros)
+                val partido = repository.getPartido(campeonatoCodigo, codigoPartido)
+
                 if (partido != null) {
                     originalPartido = partido
                     subscribeToGrupos(partido.CAMPEONATOCODIGO)

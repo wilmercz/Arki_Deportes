@@ -64,7 +64,13 @@ class GrupoFormViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             try {
-                val grupo = repository.getGrupo(codigoGrupo)
+                val campeonatoCodigo =
+                    _uiState.value.formData.codigoCampeonato.ifBlank {
+                        com.example.arki_deportes.data.context.CampeonatoContext
+                            .campeonatoActivo.value?.CODIGO.orEmpty()
+                    }
+
+                val grupo = repository.getGrupo(campeonatoCodigo, codigoGrupo)
                 if (grupo != null) {
                     originalGrupo = grupo
                     _uiState.update {
