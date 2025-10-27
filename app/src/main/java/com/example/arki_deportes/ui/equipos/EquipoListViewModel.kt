@@ -2,9 +2,11 @@ package com.example.arki_deportes.ui.equipos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.arki_deportes.data.context.CampeonatoContext
 import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import com.example.arki_deportes.utils.Constants
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -15,7 +17,9 @@ data class EquipoListUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val campeonatoActivo: String? = null,
+    val campeonatoNombre: String = "Todos los campeonatos"
 )
 
 class EquipoListViewModel(
@@ -25,20 +29,47 @@ class EquipoListViewModel(
     private val _uiState = MutableStateFlow(EquipoListUiState())
     val uiState: StateFlow<EquipoListUiState> = _uiState
 
+    private var equiposJob: Job? = null
+
     init {
-        loadEquipos()
+        observeCampeonatoContext()
     }
 
-    private fun loadEquipos() {
+    /**
+     * Observa los cambios en el campeonato activo y recarga los equipos automáticamente
+     */
+    private fun observeCampeonatoContext() {
+        viewModelScope.launch {
+            CampeonatoContext.campeonatoActivo.collect { campeonato ->
+                _uiState.update {
+                    it.copy(
+                        campeonatoActivo = campeonato?.CODIGO,
+                        campeonatoNombre = campeonato?.CAMPEONATO ?: "Todos los campeonatos"
+                    )
+                }
+                loadEquipos(campeonato?.CODIGO)
+            }
+        }
+    }
+
+    /**
+     * Carga los equipos filtrados por el campeonato especificado
+     * @param campeonatoCodigo Código del campeonato, o null para ver todos
+     */
+    private fun loadEquipos(campeonatoCodigo: String?) {
+        equiposJob?.cancel()
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                repository.observeEquipos().collect { equipos ->
-                    _uiState.update {
-                        it.copy(
-                            equipos = equipos.sortedBy { equipo -> equipo.getNombreDisplay() },
-                            isLoading = false
-                        )
+                equiposJob = launch {
+                    repository.observeEquipos(campeonatoCodigo, null).collect { equipos ->
+                        _uiState.update {
+                            it.copy(
+                                equipos = equipos.sortedBy { equipo -> equipo.getNombreDisplay() },
+                                isLoading = false
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -92,8 +123,8 @@ class EquipoListViewModel(
 
         return _uiState.value.equipos.filter { equipo ->
             equipo.EQUIPO_NOMBRECOMPLETO.lowercase().contains(query) ||
-            equipo.EQUIPO.lowercase().contains(query) ||
-            equipo.CODIGOCAMPEONATO.lowercase().contains(query)
+                    equipo.EQUIPO.lowercase().contains(query) ||
+                    equipo.CODIGOCAMPEONATO.lowercase().contains(query)
         }
     }
 }

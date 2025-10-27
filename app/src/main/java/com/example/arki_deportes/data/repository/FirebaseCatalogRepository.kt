@@ -17,42 +17,61 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
 /**
- * Repositorio centralizado para operaciones CRUD sobre catálogos en Firebase.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * FIREBASE CATALOG REPOSITORY - ESTRUCTURA JERÁRQUICA
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * Gestiona campeonatos, grupos, equipos y partidos utilizando el nodo raíz
- * configurado en la aplicación. Ofrece métodos de lectura reactiva mediante
- * [Flow] y operaciones suspendidas para crear, actualizar y eliminar.
+ * Repositorio adaptado para trabajar con estructura jerárquica de Firebase:
+ *
+ * FutbolWC/
+ *   ├─ CODIGO_CAMPEONATO_1/
+ *   │   ├─ CAMPEONATO: "..."
+ *   │   ├─ ANIO: 2025
+ *   │   ├─ Partidos/
+ *   │   │   └─ codigo_partido: {...}
+ *   │   ├─ Equipos/
+ *   │   │   └─ codigo_equipo: {...}
+ *   │   └─ Grupos/
+ *   │       └─ codigo_grupo: {...}
+ *
+ * @author ARKI SISTEMAS
+ * @version 2.0.0 - Adaptado para estructura jerárquica
  */
 class FirebaseCatalogRepository(
     private val database: FirebaseDatabase = FirebaseDatabase.getInstance(),
-    private val rootNode: String = Constants.FIREBASE_NODO_RAIZ_DEFAULT
+    private val rootNode: String = "DatosFutbol"  // ← Cambiado a tu nodo raíz
 ) {
 
     private val rootReference: DatabaseReference
         get() = database.reference.child(rootNode)
 
-    private fun campeonatosReference(): DatabaseReference =
-        rootReference.child(Constants.FirebaseCollections.CAMPEONATOS)
+    // ═══════════════════════════════════════════════════════════════════════
+    // OBSERVADORES DE CAMPEONATOS
+    // ═══════════════════════════════════════════════════════════════════════
 
-    private fun gruposReference(): DatabaseReference =
-        rootReference.child(Constants.FirebaseCollections.GRUPOS)
-
-    private fun equiposReference(): DatabaseReference =
-        rootReference.child(Constants.FirebaseCollections.EQUIPOS)
-
-    private fun partidosReference(): DatabaseReference =
-        rootReference.child(Constants.FirebaseCollections.PARTIDOS)
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Observadores
-    // ─────────────────────────────────────────────────────────────────────────────
-
+    /**
+     * Observa todos los campeonatos.
+     * Lee los nodos principales donde cada uno representa un campeonato.
+     */
     fun observeCampeonatos(): Flow<List<Campeonato>> = callbackFlow {
-        val reference = campeonatosReference()
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val campeonatos = snapshot.children.mapNotNull { child ->
-                    child.getValue(Campeonato::class.java)
+                val campeonatos = snapshot.children.mapNotNull { campeonatoNode ->
+                    // Construir el campeonato desde los campos directos del nodo
+                    val codigo = campeonatoNode.key ?: return@mapNotNull null
+
+                    try {
+                        Campeonato(
+                            CODIGO = codigo,
+                            CAMPEONATO = campeonatoNode.child("CAMPEONATO").getValue(String::class.java) ?: "",
+                            ANIO = campeonatoNode.child("ANIO").getValue(Int::class.java) ?: 0,
+                            DEPORTE = campeonatoNode.child("DEPORTE").getValue(String::class.java) ?: "Futbol",
+                            PROVINCIA = campeonatoNode.child("PROVINCIA").getValue(String::class.java) ?: "",
+                            ORIGEN = campeonatoNode.child("ORIGEN").getValue(String::class.java) ?: "MOBILE"
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
                 trySend(campeonatos.sortedBy { it.CAMPEONATO })
             }
@@ -61,160 +80,371 @@ class FirebaseCatalogRepository(
                 close(error.toException())
             }
         }
-        reference.addValueEventListener(listener)
-        awaitClose { reference.removeEventListener(listener) }
+        rootReference.addValueEventListener(listener)
+        awaitClose { rootReference.removeEventListener(listener) }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // OBSERVADORES DE GRUPOS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Observa los grupos de un campeonato específico o todos.
+     * @param campeonatoCodigo Código del campeonato, o null para ver todos
+     */
     fun observeGrupos(campeonatoCodigo: String? = null): Flow<List<Grupo>> = callbackFlow {
-        val reference = gruposReference()
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val grupos = snapshot.children.mapNotNull { child ->
-                    child.getValue(Grupo::class.java)
-                }.filter { grupo ->
-                    campeonatoCodigo.isNullOrBlank() || grupo.CODIGOCAMPEONATO == campeonatoCodigo
-                }
-                trySend(grupos.sortedBy { it.GRUPO })
-            }
+        if (campeonatoCodigo.isNullOrBlank()) {
+            // Ver TODOS los grupos de TODOS los campeonatos
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val todosLosGrupos = mutableListOf<Grupo>()
 
-            override fun onCancelled(error: DatabaseError) {
-                close(error.toException())
+                    snapshot.children.forEach { campeonatoNode ->
+                        val campeonatoCod = campeonatoNode.key ?: return@forEach
+                        val gruposNode = campeonatoNode.child("Grupos")
+
+                        gruposNode.children.forEach { grupoNode ->
+                            grupoNode.getValue(Grupo::class.java)?.let { grupo ->
+                                todosLosGrupos.add(grupo.copy(CODIGOCAMPEONATO = campeonatoCod))
+                            }
+                        }
+                    }
+
+                    trySend(todosLosGrupos.sortedBy { it.GRUPO })
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    close(error.toException())
+                }
             }
+            rootReference.addValueEventListener(listener)
+            awaitClose { rootReference.removeEventListener(listener) }
+
+        } else {
+            // Ver grupos de UN campeonato específico
+            val gruposRef = rootReference.child(campeonatoCodigo).child("Grupos")
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val grupos = snapshot.children.mapNotNull { grupoNode ->
+                        grupoNode.getValue(Grupo::class.java)?.copy(
+                            CODIGOCAMPEONATO = campeonatoCodigo
+                        )
+                    }
+                    trySend(grupos.sortedBy { it.GRUPO })
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    close(error.toException())
+                }
+            }
+            gruposRef.addValueEventListener(listener)
+            awaitClose { gruposRef.removeEventListener(listener) }
         }
-        reference.addValueEventListener(listener)
-        awaitClose { reference.removeEventListener(listener) }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // OBSERVADORES DE EQUIPOS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Observa los equipos de un campeonato específico o todos.
+     * @param campeonatoCodigo Código del campeonato, o null para ver todos
+     * @param grupoCodigo Código del grupo para filtrar (opcional)
+     */
     fun observeEquipos(
         campeonatoCodigo: String? = null,
         grupoCodigo: String? = null
     ): Flow<List<Equipo>> = callbackFlow {
-        val reference: Query = if (campeonatoCodigo.isNullOrBlank()) {
-            equiposReference()
-        } else {
-            equiposReference().orderByChild("CODIGOCAMPEONATO").equalTo(campeonatoCodigo)
-        }
+        if (campeonatoCodigo.isNullOrBlank()) {
+            // Ver TODOS los equipos de TODOS los campeonatos
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val todosLosEquipos = mutableListOf<Equipo>()
 
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val equipos = snapshot.children.mapNotNull { child ->
-                    val equipo = child.getValue(Equipo::class.java)
-                    val equipoGrupo = child.child("CODIGOGRUPO").getValue(String::class.java)
-                    if (equipo != null && (grupoCodigo.isNullOrBlank() || equipoGrupo == grupoCodigo)) {
-                        equipo
-                    } else {
-                        null
+                    snapshot.children.forEach { campeonatoNode ->
+                        val campeonatoCod = campeonatoNode.key ?: return@forEach
+                        val equiposNode = campeonatoNode.child("Equipos")
+
+                        equiposNode.children.forEach { equipoNode ->
+                            equipoNode.getValue(Equipo::class.java)?.let { equipo ->
+                                val equipoGrupo = equipoNode.child("CODIGOGRUPO").getValue(String::class.java)
+
+                                // Filtrar por grupo si se especifica
+                                if (grupoCodigo.isNullOrBlank() || equipoGrupo == grupoCodigo) {
+                                    todosLosEquipos.add(equipo.copy(CODIGOCAMPEONATO = campeonatoCod))
+                                }
+                            }
+                        }
                     }
+
+                    trySend(todosLosEquipos.sortedBy { it.getNombreDisplay() })
                 }
-                trySend(equipos.sortedBy { it.getNombreDisplay() })
-            }
 
-            override fun onCancelled(error: DatabaseError) {
-                close(error.toException())
+                override fun onCancelled(error: DatabaseError) {
+                    close(error.toException())
+                }
             }
-        }
-        reference.addValueEventListener(listener)
-        awaitClose { reference.removeEventListener(listener) }
-    }
+            rootReference.addValueEventListener(listener)
+            awaitClose { rootReference.removeEventListener(listener) }
 
-    fun observePartidos(campeonatoCodigo: String? = null): Flow<List<Partido>> = callbackFlow {
-        val reference: Query = if (campeonatoCodigo.isNullOrBlank()) {
-            partidosReference()
         } else {
-            partidosReference().orderByChild("CAMPEONATOCODIGO").equalTo(campeonatoCodigo)
-        }
+            // Ver equipos de UN campeonato específico
+            val equiposRef = rootReference.child(campeonatoCodigo).child("Equipos")
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val equipos = snapshot.children.mapNotNull { equipoNode ->
+                        val equipo = equipoNode.getValue(Equipo::class.java)
+                        val equipoGrupo = equipoNode.child("CODIGOGRUPO").getValue(String::class.java)
 
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val partidos = snapshot.children.mapNotNull { child ->
-                    child.getValue(Partido::class.java)
+                        // Filtrar por grupo si se especifica
+                        if (equipo != null && (grupoCodigo.isNullOrBlank() || equipoGrupo == grupoCodigo)) {
+                            equipo.copy(CODIGOCAMPEONATO = campeonatoCodigo)
+                        } else {
+                            null
+                        }
+                    }
+                    trySend(equipos.sortedBy { it.getNombreDisplay() })
                 }
-                trySend(partidos.sortedBy { it.FECHA_PARTIDO })
-            }
 
-            override fun onCancelled(error: DatabaseError) {
-                close(error.toException())
+                override fun onCancelled(error: DatabaseError) {
+                    close(error.toException())
+                }
             }
+            equiposRef.addValueEventListener(listener)
+            awaitClose { equiposRef.removeEventListener(listener) }
         }
-        reference.addValueEventListener(listener)
-        awaitClose { reference.removeEventListener(listener) }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Operaciones de lectura única
-    // ─────────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // OBSERVADORES DE PARTIDOS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Observa los partidos de un campeonato específico o todos.
+     * @param campeonatoCodigo Código del campeonato, o null para ver todos
+     */
+    fun observePartidos(campeonatoCodigo: String? = null): Flow<List<Partido>> = callbackFlow {
+        if (campeonatoCodigo.isNullOrBlank()) {
+            // Ver TODOS los partidos de TODOS los campeonatos
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val todosLosPartidos = mutableListOf<Partido>()
+
+                    snapshot.children.forEach { campeonatoNode ->
+                        val campeonatoCod = campeonatoNode.key ?: return@forEach
+                        val partidosNode = campeonatoNode.child("Partidos")
+
+                        partidosNode.children.forEach { partidoNode ->
+                            partidoNode.getValue(Partido::class.java)?.let { partido ->
+                                todosLosPartidos.add(partido.copy(CAMPEONATOCODIGO = campeonatoCod))
+                            }
+                        }
+                    }
+
+                    trySend(todosLosPartidos.sortedByDescending { it.FECHA_PARTIDO })
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    close(error.toException())
+                }
+            }
+            rootReference.addValueEventListener(listener)
+            awaitClose { rootReference.removeEventListener(listener) }
+
+        } else {
+            // Ver partidos de UN campeonato específico
+            val partidosRef = rootReference.child(campeonatoCodigo).child("Partidos")
+            val listener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val partidos = snapshot.children.mapNotNull { partidoNode ->
+                        partidoNode.getValue(Partido::class.java)?.copy(
+                            CAMPEONATOCODIGO = campeonatoCodigo
+                        )
+                    }
+                    trySend(partidos.sortedByDescending { it.FECHA_PARTIDO })
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    close(error.toException())
+                }
+            }
+            partidosRef.addValueEventListener(listener)
+            awaitClose { partidosRef.removeEventListener(listener) }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // OPERACIONES DE LECTURA ÚNICA
+    // ═══════════════════════════════════════════════════════════════════════
 
     suspend fun getCampeonato(codigo: String): Campeonato? {
-        val snapshot = campeonatosReference().child(codigo).get().await()
-        return snapshot.getValue(Campeonato::class.java)
+        val snapshot = rootReference.child(codigo).get().await()
+        return try {
+            Campeonato(
+                CODIGO = codigo,
+                CAMPEONATO = snapshot.child("CAMPEONATO").getValue(String::class.java) ?: "",
+                ANIO = snapshot.child("ANIO").getValue(Int::class.java) ?: 0,
+                DEPORTE = snapshot.child("DEPORTE").getValue(String::class.java) ?: "Futbol",
+                PROVINCIA = snapshot.child("PROVINCIA").getValue(String::class.java) ?: "",
+                ORIGEN = snapshot.child("ORIGEN").getValue(String::class.java) ?: "MOBILE"
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 
     suspend fun getAllCampeonatos(): List<Campeonato> {
-        val snapshot = campeonatosReference().get().await()
-        return snapshot.children.mapNotNull { child ->
-            child.getValue(Campeonato::class.java)
+        val snapshot = rootReference.get().await()
+        return snapshot.children.mapNotNull { campeonatoNode ->
+            val codigo = campeonatoNode.key ?: return@mapNotNull null
+            try {
+                Campeonato(
+                    CODIGO = codigo,
+                    CAMPEONATO = campeonatoNode.child("CAMPEONATO").getValue(String::class.java) ?: "",
+                    ANIO = campeonatoNode.child("ANIO").getValue(Int::class.java) ?: 0,
+                    DEPORTE = campeonatoNode.child("DEPORTE").getValue(String::class.java) ?: "Futbol",
+                    PROVINCIA = campeonatoNode.child("PROVINCIA").getValue(String::class.java) ?: "",
+                    ORIGEN = campeonatoNode.child("ORIGEN").getValue(String::class.java) ?: "MOBILE"
+                )
+            } catch (e: Exception) {
+                null
+            }
         }
     }
-    suspend fun getGrupo(codigoGrupo: String): Grupo? {
-        val snapshot = gruposReference().child(codigoGrupo).get().await()
-        return snapshot.getValue(Grupo::class.java)
+
+    suspend fun getGrupo(campeonatoCodigo: String, codigoGrupo: String): Grupo? {
+        val snapshot = rootReference.child(campeonatoCodigo).child("Grupos").child(codigoGrupo).get().await()
+        return snapshot.getValue(Grupo::class.java)?.copy(CODIGOCAMPEONATO = campeonatoCodigo)
     }
 
-    suspend fun getEquipo(codigoEquipo: String): Equipo? {
-        val snapshot = equiposReference().child(codigoEquipo).get().await()
-        return snapshot.getValue(Equipo::class.java)
+    suspend fun getEquipo(campeonatoCodigo: String, codigoEquipo: String): Equipo? {
+        val snapshot = rootReference.child(campeonatoCodigo).child("Equipos").child(codigoEquipo).get().await()
+        return snapshot.getValue(Equipo::class.java)?.copy(CODIGOCAMPEONATO = campeonatoCodigo)
     }
 
-    suspend fun getPartido(codigoPartido: String): Partido? {
-        val snapshot = partidosReference().child(codigoPartido).get().await()
-        return snapshot.getValue(Partido::class.java)
+    suspend fun getPartido(campeonatoCodigo: String, codigoPartido: String): Partido? {
+        val snapshot = rootReference.child(campeonatoCodigo).child("Partidos").child(codigoPartido).get().await()
+        return snapshot.getValue(Partido::class.java)?.copy(CAMPEONATOCODIGO = campeonatoCodigo)
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Operaciones de guardado
-    // ─────────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // OPERACIONES DE GUARDADO
+    // ═══════════════════════════════════════════════════════════════════════
 
     suspend fun saveCampeonato(campeonato: Campeonato) {
-        campeonatosReference().child(campeonato.CODIGO)
+        rootReference.child(campeonato.CODIGO)
             .setValue(campeonato.toMap())
             .await()
     }
 
     suspend fun saveGrupo(grupo: Grupo) {
-        gruposReference().child(grupo.CODIGOGRUPO)
+        if (grupo.CODIGOCAMPEONATO.isBlank()) {
+            throw IllegalArgumentException("El grupo debe tener un código de campeonato")
+        }
+        rootReference.child(grupo.CODIGOCAMPEONATO)
+            .child("Grupos")
+            .child(grupo.CODIGOGRUPO)
             .setValue(grupo.toMap())
             .await()
     }
 
     suspend fun saveEquipo(equipo: Equipo) {
-        equiposReference().child(equipo.CODIGOEQUIPO)
+        if (equipo.CODIGOCAMPEONATO.isBlank()) {
+            throw IllegalArgumentException("El equipo debe tener un código de campeonato")
+        }
+        rootReference.child(equipo.CODIGOCAMPEONATO)
+            .child("Equipos")
+            .child(equipo.CODIGOEQUIPO)
             .setValue(equipo.toMap())
             .await()
     }
 
     suspend fun savePartido(partido: Partido) {
-        partidosReference().child(partido.CODIGOPARTIDO)
+        if (partido.CAMPEONATOCODIGO.isBlank()) {
+            throw IllegalArgumentException("El partido debe tener un código de campeonato")
+        }
+        rootReference.child(partido.CAMPEONATOCODIGO)
+            .child("Partidos")
+            .child(partido.CODIGOPARTIDO)
             .setValue(partido.toMap())
             .await()
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Operaciones de eliminación
-    // ─────────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // OPERACIONES DE ELIMINACIÓN
+    // ═══════════════════════════════════════════════════════════════════════
 
     suspend fun deleteCampeonato(codigo: String) {
-        campeonatosReference().child(codigo).removeValue().await()
+        rootReference.child(codigo).removeValue().await()
     }
 
+    suspend fun deleteGrupo(campeonatoCodigo: String, codigoGrupo: String) {
+        rootReference.child(campeonatoCodigo)
+            .child("Grupos")
+            .child(codigoGrupo)
+            .removeValue()
+            .await()
+    }
+
+    suspend fun deleteEquipo(campeonatoCodigo: String, codigoEquipo: String) {
+        rootReference.child(campeonatoCodigo)
+            .child("Equipos")
+            .child(codigoEquipo)
+            .removeValue()
+            .await()
+    }
+
+    suspend fun deletePartido(campeonatoCodigo: String, codigoPartido: String) {
+        rootReference.child(campeonatoCodigo)
+            .child("Partidos")
+            .child(codigoPartido)
+            .removeValue()
+            .await()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MÉTODOS DE COMPATIBILIDAD (para ViewModels que no tienen campeonatoCodigo)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Busca y elimina un grupo por su código en todos los campeonatos
+     */
     suspend fun deleteGrupo(codigoGrupo: String) {
-        gruposReference().child(codigoGrupo).removeValue().await()
+        val snapshot = rootReference.get().await()
+        snapshot.children.forEach { campeonatoNode ->
+            val grupoRef = campeonatoNode.ref.child("Grupos").child(codigoGrupo)
+            if (grupoRef.get().await().exists()) {
+                grupoRef.removeValue().await()
+                return
+            }
+        }
     }
 
+    /**
+     * Busca y elimina un equipo por su código en todos los campeonatos
+     */
     suspend fun deleteEquipo(codigoEquipo: String) {
-        equiposReference().child(codigoEquipo).removeValue().await()
+        val snapshot = rootReference.get().await()
+        snapshot.children.forEach { campeonatoNode ->
+            val equipoRef = campeonatoNode.ref.child("Equipos").child(codigoEquipo)
+            if (equipoRef.get().await().exists()) {
+                equipoRef.removeValue().await()
+                return
+            }
+        }
     }
 
+    /**
+     * Busca y elimina un partido por su código en todos los campeonatos
+     */
     suspend fun deletePartido(codigoPartido: String) {
-        partidosReference().child(codigoPartido).removeValue().await()
+        val snapshot = rootReference.get().await()
+        snapshot.children.forEach { campeonatoNode ->
+            val partidoRef = campeonatoNode.ref.child("Partidos").child(codigoPartido)
+            if (partidoRef.get().await().exists()) {
+                partidoRef.removeValue().await()
+                return
+            }
+        }
     }
 }

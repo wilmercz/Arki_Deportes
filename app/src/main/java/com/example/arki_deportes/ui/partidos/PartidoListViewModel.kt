@@ -1,11 +1,12 @@
-
 package com.example.arki_deportes.ui.partidos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.arki_deportes.data.context.CampeonatoContext
 import com.example.arki_deportes.data.model.Partido
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import com.example.arki_deportes.utils.Constants
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -16,7 +17,9 @@ data class PartidoListUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val campeonatoActivo: String? = null,
+    val campeonatoNombre: String = "Todos los campeonatos"
 )
 
 class PartidoListViewModel(
@@ -26,20 +29,47 @@ class PartidoListViewModel(
     private val _uiState = MutableStateFlow(PartidoListUiState())
     val uiState: StateFlow<PartidoListUiState> = _uiState
 
+    private var partidosJob: Job? = null
+
     init {
-        loadPartidos()
+        observeCampeonatoContext()
     }
 
-    private fun loadPartidos() {
+    /**
+     * Observa los cambios en el campeonato activo y recarga los partidos automáticamente
+     */
+    private fun observeCampeonatoContext() {
+        viewModelScope.launch {
+            CampeonatoContext.campeonatoActivo.collect { campeonato ->
+                _uiState.update {
+                    it.copy(
+                        campeonatoActivo = campeonato?.CODIGO,
+                        campeonatoNombre = campeonato?.CAMPEONATO ?: "Todos los campeonatos"
+                    )
+                }
+                loadPartidos(campeonato?.CODIGO)
+            }
+        }
+    }
+
+    /**
+     * Carga los partidos filtrados por el campeonato especificado
+     * @param campeonatoCodigo Código del campeonato, o null para ver todos
+     */
+    private fun loadPartidos(campeonatoCodigo: String?) {
+        partidosJob?.cancel()
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                repository.observePartidos().collect { partidos ->
-                    _uiState.update {
-                        it.copy(
-                            partidos = partidos.sortedByDescending { partido -> partido.FECHA_PARTIDO },
-                            isLoading = false
-                        )
+                partidosJob = launch {
+                    repository.observePartidos(campeonatoCodigo).collect { partidos ->
+                        _uiState.update {
+                            it.copy(
+                                partidos = partidos.sortedByDescending { partido -> partido.FECHA_PARTIDO },
+                                isLoading = false
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -93,9 +123,9 @@ class PartidoListViewModel(
 
         return _uiState.value.partidos.filter { partido ->
             partido.EQUIPO1.lowercase().contains(query) ||
-            partido.EQUIPO2.lowercase().contains(query) ||
-            partido.CAMPEONATOTXT.lowercase().contains(query) ||
-            partido.FECHA_PARTIDO.contains(query)
+                    partido.EQUIPO2.lowercase().contains(query) ||
+                    partido.CAMPEONATOTXT.lowercase().contains(query) ||
+                    partido.FECHA_PARTIDO.contains(query)
         }
     }
 }

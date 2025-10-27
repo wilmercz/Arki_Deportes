@@ -2,9 +2,11 @@ package com.example.arki_deportes.ui.grupos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.arki_deportes.data.context.CampeonatoContext
 import com.example.arki_deportes.data.model.Grupo
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import com.example.arki_deportes.utils.Constants
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -15,7 +17,9 @@ data class GrupoListUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val campeonatoActivo: String? = null,
+    val campeonatoNombre: String = "Todos los campeonatos"
 )
 
 class GrupoListViewModel(
@@ -25,20 +29,47 @@ class GrupoListViewModel(
     private val _uiState = MutableStateFlow(GrupoListUiState())
     val uiState: StateFlow<GrupoListUiState> = _uiState
 
+    private var gruposJob: Job? = null
+
     init {
-        loadGrupos()
+        observeCampeonatoContext()
     }
 
-    fun loadGrupos() {
+    /**
+     * Observa los cambios en el campeonato activo y recarga los grupos automáticamente
+     */
+    private fun observeCampeonatoContext() {
+        viewModelScope.launch {
+            CampeonatoContext.campeonatoActivo.collect { campeonato ->
+                _uiState.update {
+                    it.copy(
+                        campeonatoActivo = campeonato?.CODIGO,
+                        campeonatoNombre = campeonato?.CAMPEONATO ?: "Todos los campeonatos"
+                    )
+                }
+                loadGrupos(campeonato?.CODIGO)
+            }
+        }
+    }
+
+    /**
+     * Carga los grupos filtrados por el campeonato especificado
+     * @param campeonatoCodigo Código del campeonato, o null para ver todos
+     */
+    private fun loadGrupos(campeonatoCodigo: String?) {
+        gruposJob?.cancel()
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                repository.observeGrupos().collect { grupos ->
-                    _uiState.update {
-                        it.copy(
-                            grupos = grupos.sortedBy { grupo -> grupo.GRUPO },
-                            isLoading = false
-                        )
+                gruposJob = launch {
+                    repository.observeGrupos(campeonatoCodigo).collect { grupos ->
+                        _uiState.update {
+                            it.copy(
+                                grupos = grupos.sortedBy { grupo -> grupo.GRUPO },
+                                isLoading = false
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {

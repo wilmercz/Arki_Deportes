@@ -3,6 +3,7 @@
 package com.example.arki_deportes.data.model
 
 import com.example.arki_deportes.utils.SportType
+import com.google.firebase.database.PropertyName
 import com.google.firebase.database.IgnoreExtraProperties
 import java.util.Locale
 
@@ -93,6 +94,7 @@ data class PartidoActual(
      * - "Pausado": Partido pausado (medio tiempo, lesión, etc.)
      * - "NoIniciado": Partido no ha comenzado
      */
+    @get:PropertyName("ESTADO")
     val ESTADO: String = "NoIniciado",
 
     /**
@@ -108,6 +110,7 @@ data class PartidoActual(
     /**
      * Estado del partido reportado con la nueva nomenclatura camelCase.
      */
+    @get:PropertyName("estado")
     val estado: String = "",
 
     /**

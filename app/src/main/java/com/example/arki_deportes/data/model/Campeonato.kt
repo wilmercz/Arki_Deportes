@@ -4,6 +4,8 @@ package com.example.arki_deportes.data.model
 
 import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -44,6 +46,7 @@ data class Campeonato(
      * Ejemplo: "PROVINCIAL 2025", "COPA PASTAZA"
      */
     val CAMPEONATO: String = "",
+
 
     /**
      * Fecha de alta del registro en el sistema

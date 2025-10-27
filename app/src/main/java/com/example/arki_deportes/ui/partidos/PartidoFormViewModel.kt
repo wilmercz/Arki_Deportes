@@ -74,6 +74,8 @@ class PartidoFormViewModel(
         observeCampeonatos()
     }
 
+
+
     fun loadPartido(codigoPartido: String?) {
         if (codigoPartido.isNullOrBlank()) {
             _uiState.update { PartidoFormUiState(campeonatos = it.campeonatos) }
@@ -371,4 +373,7 @@ class PartidoFormViewModel(
     }
 
     private fun currentDate(): String = LocalDate.now().format(DATE_FORMATTER)
+
+
+
 }

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault())
 
@@ -40,7 +41,10 @@ data class EquipoFormUiState(
     val isDeleting: Boolean = false,
     val showValidationErrors: Boolean = false,
     val message: FormMessage? = null,
-    val shouldClose: Boolean = false
+    val shouldClose: Boolean = false,
+    val isCreatingMassive: Boolean = false,
+    val massiveCreationProgress: Int = 0,
+    val massiveCreationTotal: Int = 0
 )
 
 class EquipoFormViewModel(
@@ -56,6 +60,8 @@ class EquipoFormViewModel(
     init {
         observeCampeonatos()
     }
+
+
 
     fun loadEquipo(codigoEquipo: String?) {
         if (codigoEquipo.isNullOrBlank()) {
@@ -248,4 +254,82 @@ class EquipoFormViewModel(
     }
 
     private fun currentDate(): String = LocalDate.now().format(DATE_FORMATTER)
+
+    fun crearEquiposPorProvincia() {
+        val codigoCampeonato = _uiState.value.formData.codigoCampeonato
+
+        if (codigoCampeonato.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    message = FormMessage("Debe seleccionar un campeonato primero", isError = true)
+                )
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            val provincias = Constants.ProvinciasEcuador.TODAS
+            _uiState.update {
+                it.copy(
+                    isCreatingMassive = true,
+                    massiveCreationTotal = provincias.size,
+                    massiveCreationProgress = 0
+                )
+            }
+
+            try {
+                provincias.forEachIndexed { index, provincia ->
+                    val timestamp = System.currentTimeMillis() + index
+                    val nombreCorto = provincia
+                    val codigo = generateCodigo(nombreCorto, timestamp)
+                    val fechaActual = currentDate()
+
+                    val equipo = Equipo(
+                        CODIGOEQUIPO = codigo,
+                        EQUIPO = nombreCorto,
+                        PROVINCIA = provincia,
+                        FECHAALTA = fechaActual,
+                        ESCUDOLOCAL = "",
+                        ESCUDOLINK = "",
+                        CODIGOCAMPEONATO = codigoCampeonato,
+                        EQUIPO_NOMBRECOMPLETO = "SELECCIÓN $provincia",
+                        TIMESTAMP_CREACION = timestamp,
+                        TIMESTAMP_MODIFICACION = timestamp,
+                        ORIGEN = Constants.ORIGEN_MOBILE
+                    )
+
+                    repository.saveEquipo(equipo)
+
+                    // Actualizar progreso
+                    _uiState.update {
+                        it.copy(massiveCreationProgress = index + 1)
+                    }
+
+                    // Pequeña pausa para no saturar Firebase
+                    delay(100)
+                }
+
+                _uiState.update {
+                    it.copy(
+                        isCreatingMassive = false,
+                        massiveCreationProgress = 0,
+                        massiveCreationTotal = 0,
+                        message = FormMessage("✓ ${provincias.size} equipos creados exitosamente")
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isCreatingMassive = false,
+                        massiveCreationProgress = 0,
+                        massiveCreationTotal = 0,
+                        message = FormMessage(
+                            "Error al crear equipos: ${e.message ?: Constants.Mensajes.ERROR_DESCONOCIDO}",
+                            isError = true
+                        )
+                    )
+                }
+            }
+        }
+    }
 }

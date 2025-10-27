@@ -20,8 +20,7 @@ import androidx.compose.ui.layout.ContentScale
 import com.example.arki_deportes.R
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
+import com.example.arki_deportes.ui.components.CampeonatoSelector
 
 
 private fun String?.matchesRoute(route: String): Boolean {
@@ -40,15 +39,23 @@ fun DrawerContent(
     currentRoute: String? = null,
     onLogout: () -> Unit
 ) {
-    // ✅ El drawer DEBE usar ModalDrawerSheet, no un Column de ancho completo.
     ModalDrawerSheet(
-        drawerContainerColor = MaterialTheme.colorScheme.surface, // opcional
-        drawerTonalElevation = 0.dp                              // opcional
+        drawerContainerColor = MaterialTheme.colorScheme.surface,
+        drawerTonalElevation = 0.dp
     ) {
         // Header
         DrawerHeader()
 
         Divider()
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SELECTOR DE CAMPEONATO - ¡NUEVO!
+        // ═══════════════════════════════════════════════════════════════════
+        CampeonatoSelector(
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
+        Divider(modifier = Modifier.padding(vertical = 8.dp))
 
         // Menú principal
         DrawerMenuItem(
@@ -80,7 +87,6 @@ fun DrawerContent(
         )
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
-
 
         // SECCIÓN DE GESTIÓN
         Text(
@@ -133,54 +139,6 @@ fun DrawerContent(
                 onCloseDrawer()
             }
         )
-
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-
-        //ELIMINAR ESTE BLOQUE
-        Text(
-            text = "GESTIÓN",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        DrawerMenuItem(
-            icon = Icons.Default.EmojiEvents,
-            label = "Campeonatos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.CAMPEONATO_FORM),
-            onClick = {
-                navigator.navigateToCampeonatoForm()
-                onCloseDrawer()
-            }
-        )
-        DrawerMenuItem(
-            icon = Icons.Default.Group,
-            label = "Grupos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_FORM),
-            onClick = {
-                navigator.navigateToGrupoForm()
-                onCloseDrawer()
-            }
-        )
-        DrawerMenuItem(
-            icon = Icons.Default.Shield,
-            label = "Equipos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_FORM),
-            onClick = {
-                navigator.navigateToEquipoForm()
-                onCloseDrawer()
-            }
-        )
-        DrawerMenuItem(
-            icon = Icons.Default.SportsScore,
-            label = "Partidos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_FORM),
-            onClick = {
-                navigator.navigateToPartidoForm()
-                onCloseDrawer()
-            }
-        )
-
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 
