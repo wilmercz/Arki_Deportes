@@ -1,5 +1,6 @@
 package com.example.arki_deportes.data
 
+import android.util.Log
 import com.example.arki_deportes.data.local.ConfigManager
 import com.example.arki_deportes.data.model.Mencion
 import com.example.arki_deportes.data.model.Campeonato
@@ -31,6 +32,15 @@ class Repository(
     private val database: FirebaseDatabase,
     private val configManager: ConfigManager
 ) {
+
+    companion object {
+        private val TAG = Repository::class.java.simpleName
+
+        private val fechaFormatters = listOf(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        )
+    }
 
     private val nodoRaiz: String
         get() = configManager.obtenerNodoRaiz()
@@ -297,6 +307,13 @@ class Repository(
                             .thenBy { it.CODIGOPARTIDO }
                     )
 
+                val total = snapshot.childrenCount
+                val descartados = total - partidos.size.toLong()
+                Log.d(
+                    TAG,
+                    "obtenerPartidosRango: total=$total, enRango=${partidos.size}, descartados=$descartados"
+                )
+
                 if (!continuation.isCompleted) {
                     continuation.resume(partidos)
                 }
@@ -317,12 +334,19 @@ class Repository(
      * Parsea una fecha en formato yyyy-MM-dd
      */
     private fun parseFecha(fecha: String): LocalDate? {
-        return try {
-            if (fecha.isBlank()) return null
-            LocalDate.parse(fecha.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-        } catch (e: Exception) {
-            null
+        if (fecha.isBlank()) return null
+
+        val fechaLimpia = fecha.trim()
+        fechaFormatters.forEach { formatter ->
+            try {
+                return LocalDate.parse(fechaLimpia, formatter)
+            } catch (_: Exception) {
+                // Continúa con el siguiente formato disponible
+            }
         }
+
+        Log.w(TAG, "No se pudo parsear la fecha: $fecha")
+        return null
     }
 
     /**
