@@ -342,10 +342,16 @@ private fun PartidoCard(partido: Partido) {
                 )
             }
 
+            val estadoCronometro = partido.getEstadoCronometroDescripcion()
             val tiempoJuego = partido.getTiempoJuegoDescripcion()
-            if (tiempoJuego.isNotBlank()) {
+            val descripcionTiempo = when {
+                estadoCronometro.isNotBlank() -> "${partido.getTiempoJuegoLabel()}: $estadoCronometro"
+                tiempoJuego.isNotBlank() -> "${partido.getTiempoJuegoLabel()}: $tiempoJuego"
+                else -> ""
+            }
+            if (descripcionTiempo.isNotBlank()) {
                 Text(
-                    text = "${partido.getTiempoJuegoLabel()}: $tiempoJuego",
+                    text = descripcionTiempo,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
