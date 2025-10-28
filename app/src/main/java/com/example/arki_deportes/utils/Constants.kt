@@ -85,7 +85,7 @@ object Constants {
         //ESTA LINEA ESTA EN EL ARCHIVO Constants.kt
         //private val rootNode: String = "ARKI_DEPORTES/DatosFutbol/Campeonatos"
 
-        const val CAMPEONATOS = "/DatosFutbol/Campeonatos"  // Raíz directa
+        const val CAMPEONATOS = "DatosFutbol/Campeonatos"  // Raíz directa
         const val GRUPOS = "Grupos"          // Dentro de cada campeonato
         const val EQUIPOS = "Equipos"        // Dentro de cada campeonato
         const val PARTIDOS = "Partidos"      // Dentro de cada campeonato
