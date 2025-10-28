@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -309,9 +308,22 @@ private fun PartidoCard(partido: Partido) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "${partido.EQUIPO1.ifBlank { "Por definir" }} vs ${partido.EQUIPO2.ifBlank { "Por definir" }}",
+                text = partido.getTextoCompleto(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = buildString {
+                    append(formatFecha(partido.FECHA_PARTIDO))
+                    val hora = formatHora(partido.HORA_PARTIDO)
+                    if (hora.isNotBlank()) {
+                        append(" · ")
+                        append(hora)
+                    }
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Text(
@@ -319,6 +331,7 @@ private fun PartidoCard(partido: Partido) {
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
             )
+
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -343,6 +356,7 @@ private fun PartidoCard(partido: Partido) {
             }
 
             val estadoCronometro = partido.getEstadoCronometroDescripcion()
+
             val tiempoJuego = partido.getTiempoJuegoDescripcion()
             val descripcionTiempo = when {
                 estadoCronometro.isNotBlank() -> "${partido.getTiempoJuegoLabel()}: $estadoCronometro"
