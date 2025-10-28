@@ -4,6 +4,8 @@ package com.example.arki_deportes.data.model
 
 import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -201,8 +203,8 @@ data class Partido(
             "EQUIPO2" to EQUIPO2.uppercase(),
             "CAMPEONATOCODIGO" to CAMPEONATOCODIGO,
             "CAMPEONATOTXT" to CAMPEONATOTXT.uppercase(),
-            "FECHAALTA" to FECHAALTA,
-            "FECHA_PARTIDO" to FECHA_PARTIDO,
+            "FECHAALTA" to normalizarFecha(FECHAALTA),
+            "FECHA_PARTIDO" to normalizarFecha(FECHA_PARTIDO),
             "HORA_PARTIDO" to HORA_PARTIDO,
             "TEXTOFACEBOOK" to TEXTOFACEBOOK,
             "ESTADIO" to ESTADIO.uppercase(),
@@ -221,6 +223,22 @@ data class Partido(
             "ORIGEN" to ORIGEN,
             "DEPORTE" to DEPORTE.uppercase()
         )
+    }
+
+    private fun normalizarFecha(fecha: String): String {
+        if (fecha.isBlank()) return fecha
+
+        val fechaLimpia = fecha.trim()
+        FORMATOS_FECHA.forEach { formato ->
+            try {
+                val parsed = LocalDate.parse(fechaLimpia, formato)
+                return parsed.format(FORMATO_SALIDA)
+            } catch (_: Exception) {
+                // Continúa intentando con el siguiente formato disponible
+            }
+        }
+
+        return fechaLimpia
     }
 
     /**
@@ -294,6 +312,12 @@ data class Partido(
      * Compañero para crear instancias vacías
      */
     companion object {
+        private val FORMATOS_FECHA = listOf(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        )
+        private val FORMATO_SALIDA: DateTimeFormatter = DateTimeFormatter.ISO_DATE
+
         /**
          * Crea una instancia vacía de Partido
          * Útil para formularios de creación
