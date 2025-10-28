@@ -4,6 +4,7 @@ package com.example.arki_deportes.data.model
 
 import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
+import java.util.Locale
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -114,6 +115,23 @@ data class Partido(
     val TIEMPOJUEGO: String = "90",
 
     /**
+     * Estado del tiempo de juego reportado en vivo.
+     * Ejemplo: "0T", "1T", "MT", "2T".
+     */
+    val TiempoDeJuego: String = "",
+
+    /**
+     * Momento (en milisegundos) en el que se inició el cronómetro del partido.
+     */
+    val CronometroInicio: Long = 0,
+
+    /**
+     * Momento (en milisegundos) en el que se detuvo el cronómetro del partido.
+     * Valor 0 indica que sigue corriendo.
+     */
+    val CronometroFin: Long = 0,
+
+    /**
      * Goles del equipo 1
      * String numérico. Ejemplo: "2", "0"
      */
@@ -219,7 +237,10 @@ data class Partido(
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
             "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
             "ORIGEN" to ORIGEN,
-            "DEPORTE" to DEPORTE.uppercase()
+            "DEPORTE" to DEPORTE.uppercase(),
+            "TiempoDeJuego" to TiempoDeJuego,
+            "CronometroInicio" to CronometroInicio,
+            "CronometroFin" to CronometroFin
         )
     }
 
@@ -259,6 +280,71 @@ data class Partido(
         if (valor.isEmpty()) return ""
         val sufijo = sportType().durationUnitSuffix
         return "$valor $sufijo"
+    }
+
+    /**
+     * Describe el estado reportado del tiempo de juego (0T, 1T, MT, 2T, etc.).
+     */
+    fun getTiempoDeJuegoEstadoDescripcion(): String {
+        val valor = TiempoDeJuego.trim()
+        if (valor.isEmpty()) return ""
+        return when (valor.uppercase(Locale.getDefault())) {
+            "0T" -> "Por iniciar"
+            "1T" -> "Primer tiempo"
+            "2T" -> "Segundo tiempo"
+            "3T" -> "Tercer tiempo"
+            "4T" -> "Cuarto tiempo"
+            "MT" -> "Descanso"
+            "ET1" -> "Prórroga 1"
+            "ET2" -> "Prórroga 2"
+            "PEN" -> "Penales"
+            "FT", "FINAL" -> "Finalizado"
+            else -> valor
+                .replace('_', ' ')
+                .lowercase(Locale.getDefault())
+                .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+        }
+    }
+
+    /** Indica si el cronómetro está en marcha (inicio válido sin fin registrado). */
+    fun isCronometroActivo(): Boolean = CronometroInicio > 0 && CronometroFin <= 0
+
+    /**
+     * Obtiene el tiempo transcurrido del cronómetro en milisegundos.
+     *
+     * @param nowMillis Momento de referencia a usar si el cronómetro sigue activo.
+     */
+    fun getTiempoTranscurridoMillis(nowMillis: Long = System.currentTimeMillis()): Long? {
+        if (CronometroInicio <= 0) return null
+        val fin = if (CronometroFin > 0) CronometroFin else nowMillis
+        if (fin <= 0 || fin < CronometroInicio) return null
+        return fin - CronometroInicio
+    }
+
+    /**
+     * Obtiene el tiempo transcurrido formateado (mm:ss).
+     */
+    fun getTiempoTranscurridoTexto(nowMillis: Long = System.currentTimeMillis()): String {
+        val elapsed = getTiempoTranscurridoMillis(nowMillis) ?: return ""
+        val totalSeconds = elapsed / 1000
+        val minutes = totalSeconds / 60
+        val seconds = (totalSeconds % 60).toInt()
+        return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
+    }
+
+    /**
+     * Construye una descripción amigable del estado del partido combinando
+     * la etapa reportada (TiempoDeJuego) y el cronómetro transcurrido.
+     */
+    fun getEstadoCronometroDescripcion(nowMillis: Long = System.currentTimeMillis()): String {
+        val estado = getTiempoDeJuegoEstadoDescripcion()
+        val tiempo = getTiempoTranscurridoTexto(nowMillis)
+        return when {
+            estado.isNotBlank() && tiempo.isNotBlank() -> "$estado · $tiempo"
+            estado.isNotBlank() -> estado
+            tiempo.isNotBlank() -> tiempo
+            else -> ""
+        }
     }
 
     /** Obtiene la etiqueta del campo de duración según el deporte. */

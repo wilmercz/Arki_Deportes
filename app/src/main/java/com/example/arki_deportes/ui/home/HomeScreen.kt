@@ -332,10 +332,40 @@ private fun PartidoCard(partido: Partido) {
                 color = MaterialTheme.colorScheme.primary
             )
 
-            val tiempoJuego = partido.getTiempoJuegoDescripcion()
-            if (tiempoJuego.isNotBlank()) {
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 Text(
-                    text = "${partido.getTiempoJuegoLabel()}: $tiempoJuego",
+                    text = buildString {
+                        append(formatFecha(partido.FECHA_PARTIDO))
+                        val hora = formatHora(partido.HORA_PARTIDO)
+                        if (hora.isNotBlank()) {
+                            append(" · ")
+                            append(hora)
+                        }
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            val estadoCronometro = partido.getEstadoCronometroDescripcion()
+
+            val tiempoJuego = partido.getTiempoJuegoDescripcion()
+            val descripcionTiempo = when {
+                estadoCronometro.isNotBlank() -> "${partido.getTiempoJuegoLabel()}: $estadoCronometro"
+                tiempoJuego.isNotBlank() -> "${partido.getTiempoJuegoLabel()}: $tiempoJuego"
+                else -> ""
+            }
+            if (descripcionTiempo.isNotBlank()) {
+                Text(
+                    text = descripcionTiempo,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
