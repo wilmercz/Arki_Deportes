@@ -4,6 +4,11 @@ package com.example.arki_deportes.data.model
 
 import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
+import java.time.Duration
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -120,12 +125,18 @@ data class Partido(
     val TIEMPOJUEGO: String = "90",
 
     /**
+
+     * Estado actual del encuentro (0T, 1T, 2T, etc.).
+
      * Estado del tiempo de juego reportado en vivo.
      * Ejemplo: "0T", "1T", "MT", "2T".
+
      */
     val TiempoDeJuego: String = "",
 
     /**
+
+
      * Momento (en milisegundos) en el que se inició el cronómetro del partido.
      */
     val CronometroInicio: Long = 0,
@@ -137,6 +148,7 @@ data class Partido(
     val CronometroFin: Long = 0,
 
     /**
+
      * Goles del equipo 1
      * String numérico. Ejemplo: "2", "0"
      */
@@ -200,6 +212,18 @@ data class Partido(
     val TIMESTAMP_MODIFICACION: Long = 0,
 
     /**
+     * Fecha y hora en que arrancó el cronómetro del partido.
+     * Formato esperado ISO-8601 (ej. 2025-01-20T14:00:00).
+     */
+    val CronometroInicio: String = "",
+
+    /**
+     * Fecha y hora en que finalizó el cronómetro del partido.
+     * Formato esperado ISO-8601 (ej. 2025-01-20T15:45:00).
+     */
+    val CronometroFin: String = "",
+
+    /**
      * Origen del registro
      * Valores: "MOBILE" o "DESKTOP"
      * Indica desde qué aplicación se creó el registro
@@ -231,6 +255,7 @@ data class Partido(
             "ESTADIO" to ESTADIO.uppercase(),
             "PROVINCIA" to PROVINCIA.uppercase(),
             "TIEMPOJUEGO" to TIEMPOJUEGO,
+            "TiempoDeJuego" to TiempoDeJuego,
             "GOLES1" to GOLES1,
             "GOLES2" to GOLES2,
             "ANIO" to ANIO,
@@ -241,6 +266,8 @@ data class Partido(
             "LUGAR" to LUGAR.uppercase(),
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
             "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
+            "CronometroInicio" to CronometroInicio,
+            "CronometroFin" to CronometroFin,
             "ORIGEN" to ORIGEN,
             "DEPORTE" to DEPORTE.uppercase(),
             "TiempoDeJuego" to TiempoDeJuego,
@@ -284,6 +311,13 @@ data class Partido(
         "$GOLES1 - $GOLES2"
     } else {
         "vs"
+    }
+
+    /** Obtiene el marcador de forma segura para la tarjeta principal. */
+    fun getMarcadorParaPizarra(): String {
+        val goles1 = GOLES1.toIntOrNull()?.toString() ?: GOLES1.ifBlank { "0" }
+        val goles2 = GOLES2.toIntOrNull()?.toString() ?: GOLES2.ifBlank { "0" }
+        return "$goles1 - $goles2"
     }
 
     /** Obtiene la etiqueta del marcador de acuerdo al deporte. */
@@ -380,7 +414,75 @@ data class Partido(
      * @return String formateado con los equipos y marcador
      */
     fun getTextoCompleto(): String {
-        return "$EQUIPO1 ${getMarcador()} $EQUIPO2"
+        return "${EQUIPO1.ifBlank { "Por definir" }} ${getMarcadorParaPizarra()} ${EQUIPO2.ifBlank { "Por definir" }}"
+    }
+
+    /** Obtiene la descripción legible del estado del partido. */
+    fun getEstadoTiempoDeJuegoDescripcion(): String {
+        val codigo = TiempoDeJuego.trim().uppercase(Locale.getDefault())
+        if (codigo.isBlank()) return ""
+        return when (codigo) {
+            "0T" -> "Pendiente"
+            "1T" -> "Primer tiempo"
+            "2T" -> "Entretiempo"
+            "3T" -> "Segundo tiempo"
+            "4T" -> "Finalizó el tiempo reglamentario"
+            "5T" -> "Definición por penales"
+            "6T" -> "Partido finalizado"
+            else -> codigo
+        }
+    }
+
+    /** Indica si el partido se encuentra actualmente en juego. */
+    fun estaEnCurso(): Boolean {
+        return when (TiempoDeJuego.trim().uppercase(Locale.getDefault())) {
+            "1T", "3T", "5T" -> true
+            else -> false
+        }
+    }
+
+    /**
+     * Obtiene la duración acumulada del cronómetro en un formato amigable.
+     */
+    fun getCronometroDescripcion(now: LocalDateTime = LocalDateTime.now()): String {
+        val inicio = parseCronometro(CronometroInicio) ?: return ""
+        val fin = parseCronometro(CronometroFin) ?: now
+        if (fin.isBefore(inicio)) return ""
+
+        val duration = Duration.between(inicio, fin)
+        if (duration.isNegative || duration.isZero) return ""
+
+        val totalSeconds = duration.seconds
+        val horas = totalSeconds / 3600
+        val minutos = (totalSeconds % 3600) / 60
+        val segundos = totalSeconds % 60
+
+        val tiempoFormateado = if (horas > 0) {
+            String.format(Locale.getDefault(), "%d:%02d:%02d", horas, minutos, segundos)
+        } else {
+            String.format(Locale.getDefault(), "%02d:%02d", minutos, segundos)
+        }
+
+        val etiqueta = if (CronometroFin.isBlank()) "Transcurrido" else "Duración"
+        return "$etiqueta: $tiempoFormateado"
+    }
+
+    private fun parseCronometro(valor: String): LocalDateTime? {
+        val texto = valor.trim()
+        if (texto.isEmpty()) return null
+
+        val candidatos = listOf(
+            DateTimeFormatter.ISO_DATE_TIME,
+            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+        )
+
+        candidatos.forEach { formatter ->
+            runCatching { return LocalDateTime.parse(texto, formatter) }
+        }
+
+        return runCatching { OffsetDateTime.parse(texto, DateTimeFormatter.ISO_DATE_TIME).toLocalDateTime() }
+            .getOrNull()
     }
 
     /**

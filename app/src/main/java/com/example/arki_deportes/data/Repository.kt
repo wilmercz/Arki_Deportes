@@ -331,10 +331,23 @@ class Repository(
     }
 
     /**
-     * Parsea una fecha en formato yyyy-MM-dd
+     * Parsea una fecha en los formatos más comunes guardados en Firebase.
      */
     private fun parseFecha(fecha: String): LocalDate? {
         if (fecha.isBlank()) return null
+
+        val texto = fecha.trim()
+        val formatos = listOf(
+            DateTimeFormatter.ISO_LOCAL_DATE,
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        )
+
+        formatos.forEach { formatter ->
+            runCatching { return LocalDate.parse(texto, formatter) }
+        }
+
+
 
         val fechaLimpia = fecha.trim()
         fechaFormatters.forEach { formatter ->
@@ -346,6 +359,7 @@ class Repository(
         }
 
         Log.w(TAG, "No se pudo parsear la fecha: $fecha")
+
         return null
     }
 
@@ -359,15 +373,21 @@ class Repository(
     }
 
     /**
-     * Parsea una hora en formato HH:mm
+     * Parsea una hora en formato HH:mm o HH:mm:ss.
      */
     private fun parseHora(hora: String): LocalTime? {
-        return try {
-            if (hora.isBlank()) return null
-            LocalTime.parse(hora.trim(), DateTimeFormatter.ofPattern("HH:mm"))
-        } catch (e: Exception) {
-            null
+        if (hora.isBlank()) return null
+        val texto = hora.trim()
+        val formatos = listOf(
+            DateTimeFormatter.ofPattern("HH:mm"),
+            DateTimeFormatter.ofPattern("HH:mm:ss")
+        )
+
+        formatos.forEach { formatter ->
+            runCatching { return LocalTime.parse(texto, formatter) }
         }
+
+        return null
     }
 
 }
