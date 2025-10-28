@@ -186,7 +186,59 @@ data class Partido(
     /**
      * Deporte al que pertenece el partido
      */
-    val DEPORTE: String = SportType.FUTBOL.id
+    val DEPORTE: String = SportType.FUTBOL.id,
+
+    /**
+     * Estado actual del partido en tiempo real (tiempo de juego actual)
+     * null o ausente = Partido programado, no ha comenzado
+     * "0T" = Preparación, aún no comienza
+     * "1T" = Primer tiempo en curso
+     * "2T" = Entre tiempo (descanso)
+     * "3T" = Segundo tiempo en curso
+     * "4T" = Tiempo completo (90 minutos cumplidos)
+     * "5T" = Se va a definir por penales
+     * "6T" = Partido finalizado
+     *
+     * NOTA: No confundir con TIEMPOJUEGO (duración configurada del partido)
+     */
+    val TIEMPODEJUEGO: String? = null,
+
+    /**
+     * Timestamp de cuando inició el cronómetro del partido
+     * Se registra al iniciar el primer tiempo ("1T")
+     * Formato: milisegundos desde epoch (Unix timestamp)
+     * Ejemplo: 1729796400000 representa Oct 24, 2025 18:00:00 GMT
+     */
+    val CRONOMETRO_INICIO: Long? = null,
+
+    /**
+     * Timestamp de cuando finalizó el cronómetro
+     * Se registra al finalizar el partido ("6T")
+     * Formato: milisegundos desde epoch (Unix timestamp)
+     * null = El partido aún no ha finalizado
+     */
+    val CRONOMETRO_FIN: Long? = null,
+
+    /**
+     * Penales convertidos por el equipo 1
+     * Se usa cuando el partido se define por penales (ESTADO_PARTIDO = "5T" o "6T")
+     * Valor por defecto: 0
+     */
+    val PENALES1: Int = 0,
+
+    /**
+     * Penales convertidos por el equipo 2
+     * Se usa cuando el partido se define por penales (ESTADO_PARTIDO = "5T" o "6T")
+     * Valor por defecto: 0
+     */
+    val PENALES2: Int = 0,
+
+    /**
+     * Nombre del equipo ganador
+     * Se establece cuando el partido finaliza
+     * Puede ser EQUIPO1, EQUIPO2, o vacío si es empate
+     */
+    val NOMBREGANADOR: String = ""
 ) {
     /**
      * Convierte el objeto a un Map para Firebase
@@ -219,8 +271,12 @@ data class Partido(
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
             "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
             "ORIGEN" to ORIGEN,
-            "DEPORTE" to DEPORTE.uppercase()
+            "DEPORTE" to DEPORTE.uppercase(),
+            "PENALES1" to PENALES1,
+            "PENALES2" to PENALES2,
+            "NOMBREGANADOR" to NOMBREGANADOR.uppercase()
         )
+
     }
 
     /**

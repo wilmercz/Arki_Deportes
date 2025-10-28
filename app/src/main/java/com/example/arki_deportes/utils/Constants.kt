@@ -47,30 +47,45 @@ object Constants {
     // CONFIGURACIÓN FIREBASE - ESTRUCTURA JERÁRQUICA
     // ═══════════════════════════════════════════════════════════════════════
 
-    /**
-     * ⚠️ IMPORTANTE: Nodo raíz actualizado para estructura jerárquica
-     *
-     * Estructura en Firebase:
-     * FutbolWC/
-     *   ├─ CODIGO_CAMPEONATO_1/
-     *   │   ├─ CAMPEONATO: "..."
-     *   │   ├─ ANIO: 2025
-     *   │   ├─ Partidos/
-     *   │   │   └─ codigo_partido: {...}
-     *   │   ├─ Equipos/
-     *   │   │   └─ codigo_equipo: {...}
-     *   │   └─ Grupos/
-     *   │       └─ codigo_grupo: {...}
-     */
-    const val FIREBASE_NODO_RAIZ_DEFAULT = "FutbolWC"
+
+    const val FIREBASE_NODO_RAIZ_DEFAULT = "ARKI_DEPORTES"
 
     /** Nombre de las sub-colecciones dentro de cada campeonato */
     object FirebaseCollections {
+        // ════════════════════════════════════════════════════════════════════
+        // NODO DE CONFIGURACIÓN GLOBAL (fuera de campeonatos)
+        // ════════════════════════════════════════════════════════════════════
+
+        /**
+         * Nodo principal de configuración de la aplicación
+         * Contiene usuarios, configuraciones globales, etc.
+         */
+        const val APP_CONFIG = "AppConfig"
+
+        /**
+         * Nodo de usuarios dentro de AppConfig
+         * Ruta: /AppConfig/Usuarios/[nombre_usuario]
+         */
+        const val USUARIOS = "Usuarios"
+
+        // ════════════════════════════════════════════════════════════════════
+        // NODO DE DATOS (campeonatos)
+        // ════════════════════════════════════════════════════════════════════
+
+        /**
+         * @deprecated Este nodo ya no se usa para acceso
+         * El acceso ahora está en /AppConfig/Usuarios/
+         */
+        @Deprecated("Usar AppConfig/Usuarios en su lugar")
         const val ACCESO = "Acceso"
 
         // ⚠️ NOTA: En estructura jerárquica, estos no son nodos raíz,
         // sino sub-nodos dentro de cada campeonato
-        const val CAMPEONATOS = "FutbolWC"  // Raíz directa
+
+        //ESTA LINEA ESTA EN EL ARCHIVO Constants.kt
+        //private val rootNode: String = "ARKI_DEPORTES/DatosFutbol/Campeonatos"
+
+        const val CAMPEONATOS = "/DatosFutbol/Campeonatos"  // Raíz directa
         const val GRUPOS = "Grupos"          // Dentro de cada campeonato
         const val EQUIPOS = "Equipos"        // Dentro de cada campeonato
         const val PARTIDOS = "Partidos"      // Dentro de cada campeonato
@@ -148,6 +163,12 @@ object Constants {
         const val CAMPO_OBLIGATORIO = "Este campo es obligatorio"
         const val CARGANDO = "Cargando..."
         const val SIN_DATOS = "No hay datos disponibles"
+        // NUEVO: Mensajes de autenticación
+        const val USUARIO_O_PASSWORD_INCORRECTO = "Usuario o contraseña incorrectos"
+        const val USUARIO_NO_AUTORIZADO = "Tu usuario no está autorizado para acceder"
+        const val USUARIO_NO_ENCONTRADO = "Usuario no encontrado"
+        const val ERROR_AUTENTICACION = "Error al intentar iniciar sesión"
+        const val SESION_CERRADA = "Sesión cerrada exitosamente"
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -214,4 +235,6 @@ object Constants {
             "Zamora Chinchipe"
         )
     }
+
+
 }

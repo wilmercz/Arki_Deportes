@@ -14,7 +14,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -75,6 +74,8 @@ import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.arki_deportes.ui.campeonatos.CampeonatoListRoute
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 
 // Imports para listas de catálogos
 import com.example.arki_deportes.ui.campeonatos.CampeonatoListRoute
@@ -82,6 +83,25 @@ import com.example.arki_deportes.ui.campeonatos.CampeonatoListRoute
 import com.example.arki_deportes.ui.equipos.EquipoListRoute
 import com.example.arki_deportes.ui.partidos.PartidoListRoute
 import com.example.arki_deportes.ui.grupos.GrupoListRoute
+
+// IMPORTS DE TECLADO Y ACCIONES
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+
+// IMPORTS DE ICONOS
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+
+// IMPORTS DEL SISTEMA DE AUTENTICACIÓN
+import com.example.arki_deportes.data.auth.AuthenticationManager
+import com.example.arki_deportes.data.model.Usuario
+import com.example.arki_deportes.data.model.ResultadoAutenticacion
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -122,7 +142,7 @@ class MainActivity : ComponentActivity() {
 
     /** Instancia de Firebase Realtime Database */
     private lateinit var database: FirebaseDatabase
-
+    private lateinit var authManager: AuthenticationManager  // ← NUEVO
     // ═══════════════════════════════════════════════════════════════════════
     // CICLO DE VIDA
     // ═══════════════════════════════════════════════════════════════════════
@@ -133,12 +153,13 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "═══════════════════════════════════════════════════════")
         Log.d(TAG, "🚀 Iniciando ${Constants.APP_NOMBRE}")
         Log.d(TAG, "📱 Versión: ${Constants.APP_VERSION}")
-        Log.d(TAG, "🏢 Empresa: ${Constants.EMPRESA_NOMBRE}")
         Log.d(TAG, "═══════════════════════════════════════════════════════")
+
 
         // Inicializar Firebase y configuración
         inicializarFirebase()
         inicializarConfiguracion()
+        inicializarAuthManager()
 
         // Autenticación anónima con Firebase (permite leer/escribir sin login de usuario)
         signInAnonymously()
@@ -245,6 +266,11 @@ class MainActivity : ComponentActivity() {
             }
 
         }
+    }
+
+    private fun inicializarAuthManager() {
+        authManager = AuthenticationManager(this, database)
+        Log.d(TAG, "✅ AuthenticationManager inicializado")
     }
 
     @Composable
@@ -499,6 +525,10 @@ class MainActivity : ComponentActivity() {
     private fun inicializarConfiguracion() {
         try {
             configManager = ConfigManager(this)
+
+            // ⚡ SOLUCIÓN: Forzar el nodo raíz correcto
+            configManager.guardarNodoRaiz("ARKI_DEPORTES")  // ← AGREGAR ESTA LÍNEA
+
             val nodoRaiz = configManager.obtenerNodoRaiz()
             Log.d(TAG, "✅ ConfigManager inicializado")
             Log.d(TAG, "📍 Nodo raíz configurado: /$nodoRaiz")
@@ -711,18 +741,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════
+// MOSTRAR PANTALLA SEGÚN EL ESTADO
+// ═══════════════════════════════════════════════════════════════
+
         // Mostrar pantalla según el estado
         when (estadoApp) {
             EstadoApp.CARGANDO -> PantallaCargando()
-            EstadoApp.REQUIERE_LOGIN -> PantallaLogin { password ->
-                validarPassword(password) { esValida ->
-                    if (esValida) {
-                        estadoApp = EstadoApp.AUTENTICADO
-                    }
-                }
-            }
+
+            EstadoApp.REQUIERE_LOGIN -> PantallaLogin(navigator)   // <- aquí el cambio
+
             EstadoApp.AUTENTICADO -> PantallaCargando()
         }
+
     }
 
     /**
@@ -779,7 +810,8 @@ class MainActivity : ComponentActivity() {
      * Pantalla de login con contraseña
      */
     @Composable
-    fun PantallaLogin(onPasswordSubmit: (String) -> Unit) {
+    fun PantallaLogin(navigator: AppNavigator) {
+        var usuario by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         var passwordVisible by remember { mutableStateOf(false) }
         var mensajeError by remember { mutableStateOf("") }
@@ -816,13 +848,34 @@ class MainActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Ingresa la contraseña de acceso",
+                    text = "Ingresa tus credenciales",
                     fontSize = 14.sp,
                     color = Color.Gray,
                     textAlign = TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
+
+                // Campo de usuario
+                OutlinedTextField(
+                    value = usuario,
+                    onValueChange = {
+                        usuario = it
+                        mensajeError = ""
+                    },
+                    label = { Text("Usuario") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Usuario"
+                        )
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Campo de contraseña
                 OutlinedTextField(
@@ -837,6 +890,25 @@ class MainActivity : ComponentActivity() {
                         VisualTransformation.None
                     else
                         PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (usuario.isNotBlank() && password.isNotBlank()) {
+                                // Ejecutar login
+                            }
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Contraseña"
+                        )
+                    },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
@@ -850,10 +922,7 @@ class MainActivity : ComponentActivity() {
                                     "Mostrar contraseña"
                             )
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !cargando,
-                    isError = mensajeError.isNotEmpty()
+                    }
                 )
 
                 if (mensajeError.isNotEmpty()) {
@@ -861,27 +930,53 @@ class MainActivity : ComponentActivity() {
                     Text(
                         text = mensajeError,
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
                     )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Botón de acceder
+                // Botón de login
                 Button(
                     onClick = {
-                        if (password.isBlank()) {
-                            mensajeError = "Ingresa una contraseña"
+                        if (usuario.isBlank() || password.isBlank()) {
+                            mensajeError = "Completa todos los campos"
                         } else {
                             cargando = true
                             mensajeError = ""
-                            onPasswordSubmit(password)
 
-                            // Resetear estado después de 2 segundos si falla
-                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            Log.d(TAG, "🔐 Intentando login: $usuario")
+
+                            authManager.login(usuario, password) { resultado ->
                                 cargando = false
-                                mensajeError = "Contraseña incorrecta"
-                            }, 2000)
+
+                                when (resultado) {
+                                    is ResultadoAutenticacion.Exito -> {
+                                        val user = resultado.usuario
+                                        Log.d(TAG, "✅ Login exitoso: ${user.usuario}")
+                                        Log.d(TAG, "👤 Nombre: ${user.nombre}")
+                                        Log.d(TAG, "🎭 Rol: ${user.rol}")
+                                        navigator.navigateToHybridHome(clearBackStack = true)
+                                    }
+                                    is ResultadoAutenticacion.CredencialesInvalidas -> {
+                                        Log.w(TAG, "❌ Credenciales inválidas")
+                                        mensajeError = Constants.Mensajes.USUARIO_O_PASSWORD_INCORRECTO
+                                    }
+                                    is ResultadoAutenticacion.UsuarioNoAutorizado -> {
+                                        Log.w(TAG, "⛔ Usuario no autorizado")
+                                        mensajeError = Constants.Mensajes.USUARIO_NO_AUTORIZADO
+                                    }
+                                    is ResultadoAutenticacion.UsuarioNoEncontrado -> {
+                                        Log.w(TAG, "❌ Usuario no encontrado")
+                                        mensajeError = Constants.Mensajes.USUARIO_NO_ENCONTRADO
+                                    }
+                                    is ResultadoAutenticacion.Error -> {
+                                        Log.e(TAG, "❌ Error: ${resultado.mensaje}")
+                                        mensajeError = resultado.mensaje
+                                    }
+                                }
+                            }
                         }
                     },
                     modifier = Modifier
@@ -895,14 +990,14 @@ class MainActivity : ComponentActivity() {
                             color = Color.White
                         )
                     } else {
-                        Text("Acceder", fontSize = 16.sp)
+                        Text("Iniciar Sesión", fontSize = 16.sp)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "💡 Solicita la contraseña al administrador",
+                    text = "💡 Solicita tus credenciales al administrador",
                     fontSize = 12.sp,
                     color = Color.Gray,
                     textAlign = TextAlign.Center
