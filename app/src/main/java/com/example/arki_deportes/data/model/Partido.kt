@@ -10,6 +10,12 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
+import java.util.Locale
+
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * PARTIDO - MODELO DE DATOS
@@ -119,11 +125,30 @@ data class Partido(
     val TIEMPOJUEGO: String = "90",
 
     /**
+
      * Estado actual del encuentro (0T, 1T, 2T, etc.).
+
+     * Estado del tiempo de juego reportado en vivo.
+     * Ejemplo: "0T", "1T", "MT", "2T".
+
      */
     val TiempoDeJuego: String = "",
 
     /**
+
+
+     * Momento (en milisegundos) en el que se inició el cronómetro del partido.
+     */
+    val CronometroInicio: Long = 0,
+
+    /**
+     * Momento (en milisegundos) en el que se detuvo el cronómetro del partido.
+     * Valor 0 indica que sigue corriendo.
+     */
+    val CronometroFin: Long = 0,
+
+    /**
+
      * Goles del equipo 1
      * String numérico. Ejemplo: "2", "0"
      */
@@ -223,8 +248,8 @@ data class Partido(
             "EQUIPO2" to EQUIPO2.uppercase(),
             "CAMPEONATOCODIGO" to CAMPEONATOCODIGO,
             "CAMPEONATOTXT" to CAMPEONATOTXT.uppercase(),
-            "FECHAALTA" to FECHAALTA,
-            "FECHA_PARTIDO" to FECHA_PARTIDO,
+            "FECHAALTA" to normalizarFecha(FECHAALTA),
+            "FECHA_PARTIDO" to normalizarFecha(FECHA_PARTIDO),
             "HORA_PARTIDO" to HORA_PARTIDO,
             "TEXTOFACEBOOK" to TEXTOFACEBOOK,
             "ESTADIO" to ESTADIO.uppercase(),
@@ -244,8 +269,27 @@ data class Partido(
             "CronometroInicio" to CronometroInicio,
             "CronometroFin" to CronometroFin,
             "ORIGEN" to ORIGEN,
-            "DEPORTE" to DEPORTE.uppercase()
+            "DEPORTE" to DEPORTE.uppercase(),
+            "TiempoDeJuego" to TiempoDeJuego,
+            "CronometroInicio" to CronometroInicio,
+            "CronometroFin" to CronometroFin
         )
+    }
+
+    private fun normalizarFecha(fecha: String): String {
+        if (fecha.isBlank()) return fecha
+
+        val fechaLimpia = fecha.trim()
+        FORMATOS_FECHA.forEach { formato ->
+            try {
+                val parsed = LocalDate.parse(fechaLimpia, formato)
+                return parsed.format(FORMATO_SALIDA)
+            } catch (_: Exception) {
+                // Continúa intentando con el siguiente formato disponible
+            }
+        }
+
+        return fechaLimpia
     }
 
     /**
@@ -291,6 +335,71 @@ data class Partido(
         if (valor.isEmpty()) return ""
         val sufijo = sportType().durationUnitSuffix
         return "$valor $sufijo"
+    }
+
+    /**
+     * Describe el estado reportado del tiempo de juego (0T, 1T, MT, 2T, etc.).
+     */
+    fun getTiempoDeJuegoEstadoDescripcion(): String {
+        val valor = TiempoDeJuego.trim()
+        if (valor.isEmpty()) return ""
+        return when (valor.uppercase(Locale.getDefault())) {
+            "0T" -> "Por iniciar"
+            "1T" -> "Primer tiempo"
+            "2T" -> "Segundo tiempo"
+            "3T" -> "Tercer tiempo"
+            "4T" -> "Cuarto tiempo"
+            "MT" -> "Descanso"
+            "ET1" -> "Prórroga 1"
+            "ET2" -> "Prórroga 2"
+            "PEN" -> "Penales"
+            "FT", "FINAL" -> "Finalizado"
+            else -> valor
+                .replace('_', ' ')
+                .lowercase(Locale.getDefault())
+                .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+        }
+    }
+
+    /** Indica si el cronómetro está en marcha (inicio válido sin fin registrado). */
+    fun isCronometroActivo(): Boolean = CronometroInicio > 0 && CronometroFin <= 0
+
+    /**
+     * Obtiene el tiempo transcurrido del cronómetro en milisegundos.
+     *
+     * @param nowMillis Momento de referencia a usar si el cronómetro sigue activo.
+     */
+    fun getTiempoTranscurridoMillis(nowMillis: Long = System.currentTimeMillis()): Long? {
+        if (CronometroInicio <= 0) return null
+        val fin = if (CronometroFin > 0) CronometroFin else nowMillis
+        if (fin <= 0 || fin < CronometroInicio) return null
+        return fin - CronometroInicio
+    }
+
+    /**
+     * Obtiene el tiempo transcurrido formateado (mm:ss).
+     */
+    fun getTiempoTranscurridoTexto(nowMillis: Long = System.currentTimeMillis()): String {
+        val elapsed = getTiempoTranscurridoMillis(nowMillis) ?: return ""
+        val totalSeconds = elapsed / 1000
+        val minutes = totalSeconds / 60
+        val seconds = (totalSeconds % 60).toInt()
+        return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
+    }
+
+    /**
+     * Construye una descripción amigable del estado del partido combinando
+     * la etapa reportada (TiempoDeJuego) y el cronómetro transcurrido.
+     */
+    fun getEstadoCronometroDescripcion(nowMillis: Long = System.currentTimeMillis()): String {
+        val estado = getTiempoDeJuegoEstadoDescripcion()
+        val tiempo = getTiempoTranscurridoTexto(nowMillis)
+        return when {
+            estado.isNotBlank() && tiempo.isNotBlank() -> "$estado · $tiempo"
+            estado.isNotBlank() -> estado
+            tiempo.isNotBlank() -> tiempo
+            else -> ""
+        }
     }
 
     /** Obtiene la etiqueta del campo de duración según el deporte. */
@@ -394,6 +503,12 @@ data class Partido(
      * Compañero para crear instancias vacías
      */
     companion object {
+        private val FORMATOS_FECHA = listOf(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        )
+        private val FORMATO_SALIDA: DateTimeFormatter = DateTimeFormatter.ISO_DATE
+
         /**
          * Crea una instancia vacía de Partido
          * Útil para formularios de creación
