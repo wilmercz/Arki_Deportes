@@ -15,6 +15,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import android.util.Log
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -95,65 +96,81 @@ class FirebaseCatalogRepository(
      * Convierte un DataSnapshot a Partido de forma segura, manejando conversiones de tipo.
      * Soluciona el error: "Failed to convert a value of type java.lang.String to long"
      */
+
     private fun DataSnapshot.toPartidoSafe(campeonatoCodigo: String): Partido? {
+        fun anyToString(path: String, default: String = ""): String {
+            val v = child(path).value ?: return default
+            return v.toString() // convierte Int/Long/Boolean a texto sin fallar
+        }
+        fun anyToInt(path: String, default: Int = 0): Int {
+            val v = child(path).value ?: return default
+            return when (v) {
+                is Int -> v
+                is Long -> v.toInt()
+                is Double -> v.toInt()
+                is String -> v.toIntOrNull() ?: default
+                is Boolean -> if (v) 1 else 0
+                else -> default
+            }
+        }
+        fun anyToLong(path: String, default: Long = 0L): Long {
+            val v = child(path).value ?: return default
+            return when (v) {
+                is Long -> v
+                is Int -> v.toLong()
+                is Double -> v.toLong()
+                is String -> v.toLongOrNull() ?: default
+                is Boolean -> if (v) 1L else 0L
+                else -> default
+            }
+        }
+        fun anyToBool(path: String, default: Boolean = false): Boolean {
+            val v = child(path).value ?: return default
+            return when (v) {
+                is Boolean -> v
+                is String -> v.equals("true", ignoreCase = true) || v == "1"
+                is Number -> v.toInt() != 0
+                else -> default
+            }
+        }
+
         return try {
             Partido(
-                CODIGOPARTIDO = child("CODIGOPARTIDO").getValue(String::class.java) ?: "",
-                EQUIPO1 = child("EQUIPO1").getValue(String::class.java) ?: "",
-                EQUIPO2 = child("EQUIPO2").getValue(String::class.java) ?: "",
+                CODIGOPARTIDO = anyToString("CODIGOPARTIDO"),
+                EQUIPO1 = anyToString("EQUIPO1"),
+                EQUIPO2 = anyToString("EQUIPO2"),
                 CAMPEONATOCODIGO = campeonatoCodigo,
-                CAMPEONATOTXT = child("CAMPEONATOTXT").getValue(String::class.java) ?: "",
-                FECHAALTA = child("FECHAALTA").getValue(String::class.java) ?: "",
-                FECHA_PARTIDO = child("FECHA_PARTIDO").getValue(String::class.java) ?: "",
-                HORA_PARTIDO = child("HORA_PARTIDO").getValue(String::class.java) ?: "",
-                TEXTOFACEBOOK = child("TEXTOFACEBOOK").getValue(String::class.java) ?: "",
-                ESTADIO = child("ESTADIO").getValue(String::class.java) ?: "",
-                PROVINCIA = child("PROVINCIA").getValue(String::class.java) ?: "",
-                TIEMPOJUEGO = child("TIEMPOJUEGO").getValue(String::class.java) ?: "90",
-                GOLES1 = child("GOLES1").getValue(String::class.java) ?: "0",
-                GOLES2 = child("GOLES2").getValue(String::class.java) ?: "0",
-                // ✅ Manejo seguro de Int: acepta tanto String como Int
-                ANIO = when (val value = child("ANIO").value) {
-                    is Int -> value
-                    is String -> value.toIntOrNull() ?: 0
-                    is Long -> value.toInt()
-                    is Double -> value.toInt()
-                    else -> 0
-                },
-                CODIGOEQUIPO1 = child("CODIGOEQUIPO1").getValue(String::class.java) ?: "",
-                CODIGOEQUIPO2 = child("CODIGOEQUIPO2").getValue(String::class.java) ?: "",
-                TRANSMISION = child("TRANSMISION").getValue(Boolean::class.java) ?: false,
-                // ✅ Manejo seguro de Int para ETAPA
-                ETAPA = when (val value = child("ETAPA").value) {
-                    is Int -> value
-                    is String -> value.toIntOrNull() ?: 0
-                    is Long -> value.toInt()
-                    is Double -> value.toInt()
-                    else -> 0
-                },
-                LUGAR = child("LUGAR").getValue(String::class.java) ?: "",
-                // ✅ Manejo seguro de Long para timestamps
-                TIMESTAMP_CREACION = when (val value = child("TIMESTAMP_CREACION").value) {
-                    is Long -> value
-                    is String -> value.toLongOrNull() ?: 0L
-                    is Int -> value.toLong()
-                    is Double -> value.toLong()
-                    else -> 0L
-                },
-                TIMESTAMP_MODIFICACION = when (val value = child("TIMESTAMP_MODIFICACION").value) {
-                    is Long -> value
-                    is String -> value.toLongOrNull() ?: 0L
-                    is Int -> value.toLong()
-                    is Double -> value.toLong()
-                    else -> 0L
-                },
-                ORIGEN = child("ORIGEN").getValue(String::class.java) ?: "MOBILE",
-                DEPORTE = child("DEPORTE").getValue(String::class.java) ?: "FUTBOL"
+                CAMPEONATOTXT = anyToString("CAMPEONATOTXT"),
+                FECHAALTA = anyToString("FECHAALTA"),
+                FECHA_PARTIDO = anyToString("FECHA_PARTIDO"),
+                HORA_PARTIDO = anyToString("HORA_PARTIDO"),
+                TEXTOFACEBOOK = anyToString("TEXTOFACEBOOK"),
+                ESTADIO = anyToString("ESTADIO"),
+                PROVINCIA = anyToString("PROVINCIA"),
+                TIEMPOJUEGO = anyToString("TIEMPOJUEGO", "90"), // puede llegar como número -> toString()
+                GOLES1 = anyToString("GOLES1", "0"),
+                GOLES2 = anyToString("GOLES2", "0"),
+                ANIO = anyToInt("ANIO", 0),
+                CODIGOEQUIPO1 = anyToString("CODIGOEQUIPO1"),
+                CODIGOEQUIPO2 = anyToString("CODIGOEQUIPO2"),
+                TRANSMISION = anyToBool("TRANSMISION", false),
+                ETAPA = anyToInt("ETAPA", 0),
+                LUGAR = anyToString("LUGAR"),
+                TIMESTAMP_CREACION = anyToLong("TIMESTAMP_CREACION", 0L),
+                TIMESTAMP_MODIFICACION = anyToLong("TIMESTAMP_MODIFICACION", 0L),
+                ORIGEN = anyToString("ORIGEN", "MOBILE"),
+                DEPORTE = anyToString("DEPORTE", "FUTBOL")
             )
         } catch (e: Exception) {
+            android.util.Log.e(
+                "OBS_PARTIDOS",
+                "❌ Error mapeando partido key=${key} -> ${e.message}",
+                e
+            )
             null
         }
     }
+
 
     private fun DataSnapshot.toGrupoSafe(campeonatoCodigo: String): Grupo? {
         return try {
@@ -360,35 +377,60 @@ class FirebaseCatalogRepository(
     // ═══════════════════════════════════════════════════════════════════════
     // OBSERVADORES DE PARTIDOS (CORREGIDO)
     // ═══════════════════════════════════════════════════════════════════════
-
+    // Utilidad segura: imprime URL del Query/Ref
+    private fun logRef(tag: String, prefix: String, query: Query) {
+        Log.d(tag, "$prefix url=${query.toString()}")
+    }
     /**
      * Observa los partidos de un campeonato específico o todos.
      * ✅ CORREGIDO: Usa toPartidoSafe() para evitar errores de conversión de tipos
      * @param campeonatoCodigo Código del campeonato, o null para ver todos
      */
     fun observePartidos(campeonatoCodigo: String? = null): Flow<List<Partido>> = callbackFlow {
-        if (campeonatoCodigo.isNullOrBlank()) {
-            // Ver TODOS los partidos de TODOS los campeonatos
+        val codigoLimpio = campeonatoCodigo?.trim()
+
+        if (codigoLimpio.isNullOrEmpty()) {
+            Log.d("OBS_PARTIDOS", "🟡 GLOBAL (sin filtro)")
             val listener = object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    val todosLosPartidos = mutableListOf<Partido>()
+                    // ❌ NO usar snapshot.ref.path
+                    logRef("OBS_PARTIDOS", "GLOBAL onDataChange ref:", snapshot.ref)
+                    Log.d("OBS_PARTIDOS", "GLOBAL children(campos campeonatos)=${snapshot.childrenCount}")
 
-                    snapshot.children.forEach { campeonatoNode ->
-                        val campeonatoCod = campeonatoNode.key ?: return@forEach
-                        val partidosNode = campeonatoNode.child("Partidos")
+                    val todos = mutableListOf<Partido>()
+                    var vistos = 0
+                    snapshot.children.forEach { campNode ->
+                        vistos++
+                        val campCod = campNode.key ?: return@forEach
+                        val partidosNode = when {
+                            campNode.hasChild("Partidos") -> campNode.child("Partidos")
+                            campNode.hasChild("PARTIDOS") -> campNode.child("PARTIDOS")
+                            campNode.hasChild("partidos") -> campNode.child("partidos")
+                            else -> null
+                        }
+                        if (partidosNode == null) {
+                            Log.d("OBS_PARTIDOS", "Camp=$campCod SIN nodo Partidos")
+                            return@forEach
+                        }
+                        // Log seguro
+                        logRef("OBS_PARTIDOS", "Camp=$campCod nodoPartidos:", partidosNode.ref)
+                        Log.d("OBS_PARTIDOS", "hijos=${partidosNode.childrenCount}")
 
-                        partidosNode.children.forEach { partidoNode ->
-                            // ✅ USO DE toPartidoSafe() en lugar de getValue()
-                            partidoNode.toPartidoSafe(campeonatoCod)?.let { partido ->
-                                todosLosPartidos.add(partido)
+                        partidosNode.children.forEach { pNode ->
+                            val p = pNode.toPartidoSafe(campCod)
+                            if (p == null) {
+                                Log.d("OBS_PARTIDOS", "NULL map key=${pNode.key} value=${pNode.value}")
+                            } else {
+                                todos.add(p)
+                                Log.d("OBS_PARTIDOS", "OK ${p.CODIGOPARTIDO} @ ${p.FECHA_PARTIDO}")
                             }
                         }
                     }
-
-                    trySend(todosLosPartidos.sortedByDescending { it.FECHA_PARTIDO })
+                    Log.d("OBS_PARTIDOS", "RESUMEN GLOBAL: campeonatosVistos=$vistos, enviados=${todos.size}")
+                    trySend(todos.sortedByDescending { it.FECHA_PARTIDO })
                 }
-
                 override fun onCancelled(error: DatabaseError) {
+                    Log.d("OBS_PARTIDOS", "GLOBAL cancel: ${error.message}")
                     close(error.toException())
                 }
             }
@@ -396,18 +438,27 @@ class FirebaseCatalogRepository(
             awaitClose { rootReference.removeEventListener(listener) }
 
         } else {
-            // Ver partidos de UN campeonato específico
-            val partidosRef = rootReference.child(campeonatoCodigo).child("Partidos")
+            Log.d("OBS_PARTIDOS", "🟢 ONE (filtro) camp='$codigoLimpio'")
+            val partidosRef = rootReference.child(codigoLimpio).child("Partidos")
+            logRef("OBS_PARTIDOS", "ONE suscribir ref:", partidosRef)
+
             val listener = object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    val partidos = snapshot.children.mapNotNull { partidoNode ->
-                        // ✅ USO DE toPartidoSafe() en lugar de getValue()
-                        partidoNode.toPartidoSafe(campeonatoCodigo)
+                    // ❌ NO usar snapshot.ref.path
+                    logRef("OBS_PARTIDOS", "ONE onDataChange ref:", snapshot.ref)
+                    Log.d("OBS_PARTIDOS", "ONE hijos=${snapshot.childrenCount}")
+
+                    val partidos = snapshot.children.mapNotNull { pNode ->
+                        pNode.toPartidoSafe(codigoLimpio).also {
+                            if (it == null) Log.d("OBS_PARTIDOS", "NULL map key=${pNode.key} value=${pNode.value}")
+                            else Log.d("OBS_PARTIDOS", "OK ${it.CODIGOPARTIDO} @ ${it.FECHA_PARTIDO}")
+                        }
                     }
+                    Log.d("OBS_PARTIDOS", "RESUMEN ONE: enviados=${partidos.size}")
                     trySend(partidos.sortedByDescending { it.FECHA_PARTIDO })
                 }
-
                 override fun onCancelled(error: DatabaseError) {
+                    Log.d("OBS_PARTIDOS", "ONE cancel: ${error.message}")
                     close(error.toException())
                 }
             }
@@ -415,7 +466,6 @@ class FirebaseCatalogRepository(
             awaitClose { partidosRef.removeEventListener(listener) }
         }
     }
-
     // ═══════════════════════════════════════════════════════════════════════
     // OPERACIONES DE LECTURA ÚNICA
     // ═══════════════════════════════════════════════════════════════════════

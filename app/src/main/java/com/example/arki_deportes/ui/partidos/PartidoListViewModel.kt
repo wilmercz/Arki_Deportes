@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.util.Log
 
 data class PartidoListUiState(
     val partidos: List<Partido> = emptyList(),
@@ -32,6 +33,7 @@ class PartidoListViewModel(
     private var partidosJob: Job? = null
 
     init {
+
         observeCampeonatoContext()
     }
 
@@ -58,12 +60,14 @@ class PartidoListViewModel(
      */
     private fun loadPartidos(campeonatoCodigo: String?) {
         partidosJob?.cancel()
+        Log.d("VM_PARTIDOS", "loadPartidos(${campeonatoCodigo ?: "null"})")  // <—
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
                 partidosJob = launch {
                     repository.observePartidos(campeonatoCodigo).collect { partidos ->
+                        Log.d("VM_PARTIDOS", "collect(): recibidos=${partidos.size}")
                         _uiState.update {
                             it.copy(
                                 partidos = partidos.sortedByDescending { partido -> partido.FECHA_PARTIDO },
