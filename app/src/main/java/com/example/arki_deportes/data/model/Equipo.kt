@@ -99,7 +99,20 @@ data class Equipo(
      * Valores: "MOBILE" o "DESKTOP"
      * Indica desde qué aplicación se creó el registro
      */
-    val ORIGEN: String = "MOBILE"
+    val ORIGEN: String = "MOBILE",
+
+    /**
+     * Código del grupo al que pertenece el equipo
+     * Ejemplo: "GRUPO_A_1705334400000"
+     */
+    val CODIGOGRUPO: String = "",
+
+    /**
+     * Posición del equipo en el grupo
+     * Valores: 1 (primero), 2 (segundo), 3 (tercero), 4 (cuarto)
+     * Si no tiene valor 1-4, significa que perdió todos los partidos
+     */
+    val POSICION: Int = 0
 ) {
     /**
      * Convierte el objeto a un Map para Firebase

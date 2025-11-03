@@ -121,7 +121,7 @@ data class Campeonato(
     fun toMap(): HashMap<String, Any> {
         return hashMapOf(
             "CODIGO" to CODIGO,
-            "CAMPEONATO" to CAMPEONATO.uppercase(),
+            "CAMPEONATO" to CAMPEONATO.trim(),
             "FECHAALTA" to FECHAALTA,
             "FECHAINICIO" to FECHAINICIO,
             "FECHAFINAL" to FECHAFINAL,

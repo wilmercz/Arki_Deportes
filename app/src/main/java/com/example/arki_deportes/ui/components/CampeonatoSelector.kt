@@ -29,91 +29,80 @@ import com.example.arki_deportes.ui.campeonatos.CampeonatoListViewModel
  * Componente que muestra el campeonato actualmente seleccionado y permite
  * cambiarlo. Se muestra típicamente en el Drawer o TopBar.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CampeonatoSelector(
+    campeonatos: List<Campeonato>? = null,                 // 👈 NUEVO: lista externa opcional
+    campeonatoSeleccionado: String? = null,                // (opcional) si ya usas una clave activa
+    onCampeonatoSeleccionado: (Campeonato) -> Unit = {},   // callback al seleccionar
     modifier: Modifier = Modifier,
     viewModel: CampeonatoListViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val campeonatoActivo by CampeonatoContext.campeonatoActivo.collectAsState()
+
+    // 👇 Unificamos la fuente: externa si viene, interna si no
+    val lista = remember(campeonatos, uiState.campeonatos) {
+        campeonatos ?: uiState.campeonatos
+    }
+
     var showDialog by remember { mutableStateOf(false) }
 
-    // Cargar campeonatos si aún no se han cargado
-    LaunchedEffect(Unit) {
-        // El ViewModel ya carga los campeonatos en init
+    // Si no hay campeonatos, muestra estado vacío (puedes usar tu EmptyState actual)
+    if (lista.isEmpty()) {
+        Text(
+            text = "No hay campeonatos disponibles",
+            modifier = modifier.padding(16.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
     }
 
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { showDialog = true }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.EmojiEvents,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Column {
-                    Text(
-                        text = "Campeonato Activo",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = campeonatoActivo?.CAMPEONATO ?: "Todos",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    if (campeonatoActivo != null) {
-                        Text(
-                            text = "Año ${campeonatoActivo?.ANIO}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-            
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = "Cambiar campeonato",
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-
-    if (showDialog) {
-        CampeonatoSelectorDialog(
-            campeonatos = uiState.campeonatos,
-            campeonatoActivo = campeonatoActivo,
-            onCampeonatoSelected = { campeonato ->
-                CampeonatoContext.seleccionarCampeonato(campeonato)
-                showDialog = false
-            },
-            onDismiss = { showDialog = false }
+    // Selección inicial: por contexto activo o por parámetro, o primer item
+    var seleccionado by remember(lista, campeonatoActivo, campeonatoSeleccionado) {
+        mutableStateOf(
+            lista.find { it.CODIGO == (campeonatoSeleccionado ?: campeonatoActivo?.CODIGO) }
+                ?: lista.first()
         )
     }
+
+    // === tu UI existente del selector ===
+    ExposedDropdownMenuBox(
+        expanded = showDialog,
+        onExpandedChange = { showDialog = !showDialog },
+        modifier = modifier.padding(horizontal = 16.dp)
+    ) {
+        TextField(
+            readOnly = true,
+            value = seleccionado.CAMPEONATO,
+            onValueChange = {},
+            label = { Text("Campeonato") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showDialog) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = showDialog,
+            onDismissRequest = { showDialog = false }
+        ) {
+            lista.forEach { camp ->
+                DropdownMenuItem(
+                    text = { Text(camp.CAMPEONATO) },
+                    onClick = {
+                        seleccionado = camp
+                        showDialog = false
+                        // (opcional) actualizar contexto global si tienes API:
+                        // CampeonatoContext.seleccionar(camp)
+                        onCampeonatoSeleccionado(camp)
+                    }
+                )
+            }
+        }
+    }
 }
+
 
 /**
  * Diálogo para seleccionar un campeonato

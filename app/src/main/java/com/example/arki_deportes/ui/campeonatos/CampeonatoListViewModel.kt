@@ -22,11 +22,32 @@ class CampeonatoListViewModel(
     private val repository: FirebaseCatalogRepository = FirebaseCatalogRepository()
 ) : ViewModel() {
 
+    private var observeJob: kotlinx.coroutines.Job? = null
+
     private val _uiState = MutableStateFlow(CampeonatoListUiState())
     val uiState: StateFlow<CampeonatoListUiState> = _uiState
 
     init {
-        loadCampeonatos()
+        //loadCampeonatos()
+        startObserving()
+    }
+
+    private fun startObserving() {
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
+            repository.observeCampeonatos()
+                .collect { list ->
+                    // ordénalo como prefieras (ej. por FECHAINICIO desc)
+                    val ordenados = list.sortedByDescending { it.FECHAINICIO }
+                    _uiState.update {
+                        it.copy(
+                            campeonatos = ordenados,
+                            isLoading = false,
+                            isRefreshing = false
+                        )
+                    }
+                }
+        }
     }
 
     fun loadCampeonatos() {
@@ -53,6 +74,12 @@ class CampeonatoListViewModel(
     }
 
     fun refresh() {
+        // Reinicia la observación para mostrar spinner y “refrescar”
+        _uiState.update { it.copy(isRefreshing = true) }
+        startObserving()
+    }
+
+    fun refresh_Antiguo() {
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
             try {

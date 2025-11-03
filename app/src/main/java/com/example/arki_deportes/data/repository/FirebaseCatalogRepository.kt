@@ -174,26 +174,76 @@ class FirebaseCatalogRepository(
 
     private fun DataSnapshot.toGrupoSafe(campeonatoCodigo: String): Grupo? {
         return try {
+            val map = value as? Map<*, *> ?: emptyMap<String, Any?>()
+
+            fun s(vararg keys: String): String =
+                keys.asSequence()
+                    .mapNotNull { k -> map[k]?.toString()?.trim() }
+                    .firstOrNull()
+                    .orEmpty()
+
+            fun i(vararg keys: String): Int =
+                keys.asSequence()
+                    .mapNotNull { k ->
+                        when (val v = map[k]) {
+                            is Number -> v.toInt()
+                            is String -> v.toIntOrNull()
+                            else -> null
+                        }
+                    }.firstOrNull() ?: 0
+
+            fun l(vararg keys: String): Long =
+                keys.asSequence()
+                    .mapNotNull { k ->
+                        when (val v = map[k]) {
+                            is Number -> v.toLong()
+                            is String -> v.toLongOrNull()
+                            else -> null
+                        }
+                    }.firstOrNull() ?: 0L
+
+            val codigoGrupo = s("CODIGOGRUPO", "CodigoGrupo", "codigoGrupo")
+                .ifBlank { key ?: "" }
+
+            val grupoLetra = s("GRUPO", "Grupo", "grupo")
+            val provincia = s("PROVINCIA", "Provincia", "provincia")
+            val nombreEquipoRaw = s("NOMBREEQUIPO", "NombreEquipo", "EQUIPO", "Equipo", "nombre")
+
+            // Fallback inteligente para el nombre visible
+            val nombreVisible = when {
+                nombreEquipoRaw.isNotBlank() -> nombreEquipoRaw
+                provincia.isNotBlank()        -> provincia
+                codigoGrupo.contains('_')     -> codigoGrupo.substringAfter('_').trim()
+                else                          -> ""
+            }
+
             Grupo(
                 CODIGOCAMPEONATO = campeonatoCodigo,
-                CODIGOGRUPO = child("CODIGOGRUPO").getValue(String::class.java) ?: "",
-                GRUPO = child("GRUPO").getValue(String::class.java) ?: "",
-                // ... campos normales ...
+                CODIGOGRUPO = codigoGrupo,
+                GRUPO = grupoLetra,
+                POSICION = i("POSICION", "Posicion", "posicion", "orden"),
 
-                // ✅ Conversión segura de timestamps
-                TIMESTAMP_CREACION = when (val value = child("TIMESTAMP_CREACION").value) {
-                    is Long -> value
-                    is String -> value.toLongOrNull() ?: 0L
-                    is Int -> value.toLong()
-                    is Double -> value.toLong()
-                    else -> 0L
-                },
-                // ... etc
+                // Texto y códigos con fallback
+                PROVINCIA = provincia,
+                CODIGOPROVINCIA = s("CODIGOPROVINCIA", "CodigoProvincia", "codigoProvincia"),
+                NOMBREEQUIPO = nombreVisible,
+                CODIGOEQUIPO = s("CODIGOEQUIPO", "CodigoEquipo", "codigoEquipo")
+                    .ifBlank { s("CODIGOPROVINCIA", "CodigoProvincia", "codigoProvincia") },
+
+                // (Opcionales: incluye solo si existen en tu data class)
+                ///PUNTOS = i("PUNTOS", "Puntos", "puntos"),
+                //PP = i("PP", "pp"),
+                //SINCRONIZADO = i("SINCRONIZADO", "Sincronizado", "sync"),
+                ANIO = i("ANIO", "Anio", "año", "anio", "year"),
+                TIMESTAMP_CREACION = l("TIMESTAMP_CREACION", "timestamp_creacion", "createdAt"),
+                TIMESTAMP_MODIFICACION = l("TIMESTAMP_MODIFICACION", "timestamp_modificacion", "updatedAt"),
+                ORIGEN = s("ORIGEN", "origen")
             )
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
+
 
     // ═══════════════════════════════════════════════════════════════════════
     // OBSERVADORES DE CAMPEONATOS

@@ -421,13 +421,9 @@ class MainActivity : ComponentActivity() {
                     navigator.navigateToHybridHome()
                 }
             },
-            onOpenDrawer = openDrawer,
-            onCreateGrupo = {
-                navigator.navigateToGrupoForm(null)
-            },
-            onEditGrupo = { codigo ->
-                navigator.navigateToGrupoForm(codigo)
-            }
+            onOpenDrawer = openDrawer
+            // ✅ Solo estos dos parámetros
+            // No necesita onCreateGrupo ni onEditGrupo
         )
     }
 

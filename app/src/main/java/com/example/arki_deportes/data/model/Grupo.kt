@@ -67,7 +67,17 @@ data class Grupo(
      * Ejemplo: "16" para Pastaza
      */
     val CODIGOPROVINCIA: String = "",
+    /**
+     * Nombre del equipo (opcional)
+     * Si está vacío, se usa PROVINCIA
+     */
+    val NOMBREEQUIPO: String = "",
 
+    /**
+     * Código del equipo (opcional)
+     * Si está vacío, se usa CODIGOPROVINCIA
+     */
+    val CODIGOEQUIPO: String = "",
     /**
      * Timestamp de creación del registro (en milisegundos)
      * Generado automáticamente por Firebase ServerValue.TIMESTAMP
@@ -88,6 +98,26 @@ data class Grupo(
     val ORIGEN: String = "MOBILE",
     val POSICION: Int = 0,
 ) {
+    /**
+     * Obtiene el nombre del equipo considerando la lógica de campos
+     * @return NOMBREEQUIPO si existe, sino PROVINCIA
+     */
+    fun getNombreEquipo(): String {
+        return if (NOMBREEQUIPO.isNotBlank()) {
+            NOMBREEQUIPO
+        } else {
+            PROVINCIA
+        }
+    }
+
+    fun getCodigoEquipo(): String {
+        return if (CODIGOEQUIPO.isNotBlank()) {
+            CODIGOEQUIPO
+        } else {
+            CODIGOPROVINCIA
+        }
+    }
+
     /**
      * Convierte el objeto a un Map para Firebase
      * Útil para operaciones de guardado/actualización
@@ -128,4 +158,20 @@ data class Grupo(
          */
         fun empty() = Grupo()
     }
+}
+
+// ✅  AHORA, FUERA de la clase:
+fun Grupo.placeEmoji(): String? = when (POSICION) {
+    1 -> "🥇"
+    2 -> "🥈"
+    3 -> "🥉"
+    else -> null
+}
+
+fun Grupo.placeLabel(): String? = when (POSICION) {
+    1 -> "1.º lugar"
+    2 -> "2.º lugar"
+    3 -> "3.º lugar"
+    4 -> "4.º lugar"
+    else -> null
 }

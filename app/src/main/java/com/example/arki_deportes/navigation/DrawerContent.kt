@@ -22,6 +22,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import com.example.arki_deportes.ui.components.CampeonatoSelector
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+
 
 private fun String?.matchesRoute(route: String): Boolean {
     return this == route || this?.startsWith("$route/") == true
@@ -39,6 +43,10 @@ fun DrawerContent(
     currentRoute: String? = null,
     onLogout: () -> Unit
 ) {
+    val drawerVM: DrawerViewModel = viewModel()
+    val campeonatos by drawerVM.campeonatos.collectAsState()
+
+
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
         drawerTonalElevation = 0.dp
@@ -52,6 +60,7 @@ fun DrawerContent(
         // SELECTOR DE CAMPEONATO - ¡NUEVO!
         // ═══════════════════════════════════════════════════════════════════
         CampeonatoSelector(
+            campeonatos = campeonatos,   // ✅ AHORA sí usa la lista en tiempo real
             modifier = Modifier.padding(top = 8.dp)
         )
 
@@ -119,6 +128,17 @@ fun DrawerContent(
         )
 
         DrawerMenuItem(
+            icon = Icons.Default.Group,
+            label = "Grupos",
+            isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_LIST) ||
+                    currentRoute.matchesRoute(AppDestinations.GRUPO_FORM),
+            onClick = {
+                navigator.navigateToGrupoList()
+                onCloseDrawer()
+            }
+        )
+
+        DrawerMenuItem(
             icon = Icons.Default.SportsScore,
             label = "Partidos",
             isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_LIST) ||
@@ -129,16 +149,6 @@ fun DrawerContent(
             }
         )
 
-        DrawerMenuItem(
-            icon = Icons.Default.Group,
-            label = "Grupos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_LIST) ||
-                    currentRoute.matchesRoute(AppDestinations.GRUPO_FORM),
-            onClick = {
-                navigator.navigateToGrupoList()
-                onCloseDrawer()
-            }
-        )
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 
