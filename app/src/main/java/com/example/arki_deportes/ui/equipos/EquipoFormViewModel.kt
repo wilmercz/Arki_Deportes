@@ -298,7 +298,7 @@ class EquipoFormViewModel(
                         ESCUDOLOCAL = "",
                         ESCUDOLINK = "",
                         CODIGOCAMPEONATO = codigoCampeonato,
-                        EQUIPO_NOMBRECOMPLETO = "SELECCIÓN $provincia",
+                        EQUIPO_NOMBRECOMPLETO = provincia,
                         TIMESTAMP_CREACION = timestamp,
                         TIMESTAMP_MODIFICACION = timestamp,
                         ORIGEN = Constants.ORIGEN_MOBILE
