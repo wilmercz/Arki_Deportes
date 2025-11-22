@@ -112,7 +112,12 @@ data class Equipo(
      * Valores: 1 (primero), 2 (segundo), 3 (tercero), 4 (cuarto)
      * Si no tiene valor 1-4, significa que perdió todos los partidos
      */
-    val POSICION: Int = 0
+    val POSICION: Int = 0,
+    val ES_MEJOR_SEGUNDO: Boolean = false,
+    val NOMBRESERIE: String = "",
+    val NOMBRECOMPLETO: String = "",
+    val SINCRONIZADO: Int = 0,
+    val HASH_REGISTRO: String = "",
 ) {
     /**
      * Convierte el objeto a un Map para Firebase
@@ -132,7 +137,14 @@ data class Equipo(
             "EQUIPO_NOMBRECOMPLETO" to EQUIPO_NOMBRECOMPLETO.uppercase(),
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
             "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
-            "ORIGEN" to ORIGEN
+            "ORIGEN" to ORIGEN,
+            "CODIGOGRUPO" to CODIGOGRUPO,
+            "POSICION" to POSICION,
+            "ES_MEJOR_SEGUNDO" to ES_MEJOR_SEGUNDO,
+            "NOMBRESERIE" to NOMBRESERIE,
+            "NOMBRECOMPLETO" to (NOMBRECOMPLETO.ifBlank { EQUIPO_NOMBRECOMPLETO }),
+            "SINCRONIZADO" to SINCRONIZADO,
+            "HASH_REGISTRO" to HASH_REGISTRO
         )
     }
 

@@ -97,6 +97,24 @@ data class Grupo(
      */
     val ORIGEN: String = "MOBILE",
     val POSICION: Int = 0,
+    val CODIGOSERIE: String = "",
+    val NOMBRESERIE: String = "",
+    val ES_MEJOR_SEGUNDO: Boolean = false,
+    val DESCRIPCION: String = "",
+    // ========== ESTADÍSTICAS DE TABLA DE POSICIONES ==========
+    val NOMBREGRUPO: String = "",
+    val PUNTOS: Int = 0,
+    val PJ: Int = 0,  // Partidos Jugados
+    val PG: Int = 0,  // Partidos Ganados
+    val PE: Int = 0,  // Partidos Empatados
+    val PP: Int = 0,  // Partidos Perdidos
+    val GF: Int = 0,  // Goles a Favor
+    val GC: Int = 0,  // Goles en Contra
+    val DIF: Int = 0, // Diferencia de Goles
+
+// ========== CAMPOS DE SINCRONIZACIÓN ==========
+    val SINCRONIZADO: Int = 0,
+    val HASH_REGISTRO: String = ""
 ) {
     /**
      * Obtiene el nombre del equipo considerando la lógica de campos
@@ -134,7 +152,22 @@ data class Grupo(
             "CODIGOPROVINCIA" to CODIGOPROVINCIA,
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
             "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
-            "ORIGEN" to ORIGEN
+            "ORIGEN" to ORIGEN,
+            "CODIGOSERIE" to CODIGOSERIE,
+            "NOMBRESERIE" to NOMBRESERIE,
+            "ES_MEJOR_SEGUNDO" to ES_MEJOR_SEGUNDO,
+            "DESCRIPCION" to DESCRIPCION,
+            "NOMBREGRUPO" to NOMBREGRUPO,
+            "PUNTOS" to PUNTOS,
+            "PJ" to PJ,
+            "PG" to PG,
+            "PE" to PE,
+            "PP" to PP,
+            "GF" to GF,
+            "GC" to GC,
+            "DIF" to DIF,
+            "SINCRONIZADO" to SINCRONIZADO,
+            "HASH_REGISTRO" to HASH_REGISTRO
         )
     }
 

@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import android.util.Log
+import com.example.arki_deportes.data.model.Serie  // ⬅️ NUEVO
+import kotlinx.coroutines.Dispatchers       // ⬅️ NUEVO
+import kotlinx.coroutines.withContext       // ⬅️ NUEVO
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -42,6 +45,8 @@ import android.util.Log
  * @author ARKI SISTEMAS
  * @version 2.0.2 - Corregida lectura segura de tipos para Equipos y Partidos
  */
+
+
 class FirebaseCatalogRepository(
     private val database: FirebaseDatabase = FirebaseDatabase.getInstance(),
     // ✅ CORRECCIÓN APLICADA: Ruta completa incluyendo ARKI_DEPORTES/DatosFutbol/Campeonatos
@@ -51,6 +56,9 @@ class FirebaseCatalogRepository(
     private val rootReference: DatabaseReference
         get() = database.reference.child(rootNode)
 
+    companion object {
+        private const val TAG = "FirebaseCatalogRepo"
+    }
     // ═══════════════════════════════════════════════════════════════════════
     // FUNCIONES HELPER PARA LECTURA SEGURA DE TIPOS
     // ═══════════════════════════════════════════════════════════════════════
@@ -689,6 +697,188 @@ class FirebaseCatalogRepository(
             if (partidoRef.get().await().exists()) {
                 partidoRef.removeValue().await()
                 return
+            }
+        }
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+// FUNCIONES DE SERIES
+// ══════════════════════════════════════════════════════════════
+
+    /**
+     * Obtiene todas las series de un campeonato específico
+     */
+    suspend fun getSeriesByCampeonato(codigoCampeonato: String): Result<List<Serie>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val seriesRef = rootReference  // ⬅️ CAMBIADO
+                    .child(codigoCampeonato)
+                    .child("Series")
+
+                val snapshot = seriesRef.get().await()
+
+                val series = mutableListOf<Serie>()
+                snapshot.children.forEach { serieSnapshot ->
+                    serieSnapshot.getValue(Serie::class.java)?.let {
+                        series.add(it)
+                    }
+                }
+
+                Result.success(series.sortedBy { it.NOMBRESERIE })
+            } catch (e: Exception) {
+                Log.e(TAG, "Error obteniendo series", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Obtiene una serie específica por su código
+     */
+    suspend fun getSerieById(
+        codigoCampeonato: String,
+        codigoSerie: String
+    ): Result<Serie?> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serieRef = rootReference  // ⬅️ CAMBIADO
+                    .child(codigoCampeonato)
+                    .child("Series")
+                    .child(codigoSerie)
+
+                val snapshot = serieRef.get().await()
+                val serie = snapshot.getValue(Serie::class.java)
+
+                Result.success(serie)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error obteniendo serie", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Crea una nueva serie en Firebase
+     */
+    suspend fun createSerie(
+        codigoCampeonato: String,
+        serie: Serie
+    ): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Generar código único si no existe
+                val codigoSerie = if (serie.CODIGOSERIE.isBlank()) {
+                    "SERIE_${serie.NOMBRESERIE}_${System.currentTimeMillis()}"
+                } else {
+                    serie.CODIGOSERIE
+                }
+
+                val serieRef = rootReference  // ⬅️ CAMBIADO
+                    .child(codigoCampeonato)
+                    .child("Series")
+                    .child(codigoSerie)
+
+                val serieActualizada = serie.copy(
+                    CODIGOSERIE = codigoSerie,
+                    CODIGOCAMPEONATO = codigoCampeonato,
+                    TIMESTAMP_CREACION = System.currentTimeMillis(),
+                    TIMESTAMP_MODIFICACION = System.currentTimeMillis()
+                )
+
+                serieRef.setValue(serieActualizada.toMap()).await()
+
+                Log.d(TAG, "Serie creada: $codigoSerie")
+                Result.success(codigoSerie)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creando serie", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Actualiza una serie existente
+     */
+    suspend fun updateSerie(
+        codigoCampeonato: String,
+        serie: Serie
+    ): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serieRef = rootReference  // ⬅️ CAMBIADO
+                    .child(codigoCampeonato)
+                    .child("Series")
+                    .child(serie.CODIGOSERIE)
+
+                val updates = serie.toMap().apply {
+                    put("TIMESTAMP_MODIFICACION", System.currentTimeMillis())
+                }
+
+                serieRef.updateChildren(updates).await()
+
+                Log.d(TAG, "Serie actualizada: ${serie.CODIGOSERIE}")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error actualizando serie", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Elimina una serie
+     */
+    suspend fun deleteSerie(
+        codigoCampeonato: String,
+        codigoSerie: String
+    ): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serieRef = rootReference  // ⬅️ CAMBIADO
+                    .child(codigoCampeonato)
+                    .child("Series")
+                    .child(codigoSerie)
+
+                serieRef.removeValue().await()
+
+                Log.d(TAG, "Serie eliminada: $codigoSerie")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error eliminando serie", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Obtiene grupos de una serie específica
+     */
+    suspend fun getGruposBySerie(
+        codigoCampeonato: String,
+        codigoSerie: String
+    ): Result<List<Grupo>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val gruposRef = rootReference  // ⬅️ CAMBIADO
+                    .child(codigoCampeonato)
+                    .child("Grupos")
+
+                val snapshot = gruposRef.get().await()
+
+                val grupos = mutableListOf<Grupo>()
+                snapshot.children.forEach { grupoSnapshot ->
+                    grupoSnapshot.getValue(Grupo::class.java)?.let { grupo ->
+                        if (grupo.CODIGOSERIE == codigoSerie) {
+                            grupos.add(grupo)
+                        }
+                    }
+                }
+
+                Result.success(grupos.sortedBy { it.GRUPO })
+            } catch (e: Exception) {
+                Log.e(TAG, "Error obteniendo grupos de serie", e)
+                Result.failure(e)
             }
         }
     }

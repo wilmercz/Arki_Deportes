@@ -238,7 +238,13 @@ data class Partido(
      * Se establece cuando el partido finaliza
      * Puede ser EQUIPO1, EQUIPO2, o vacío si es empate
      */
-    val NOMBREGANADOR: String = ""
+    val NOMBREGANADOR: String = "",
+    val SERIECODIGO: String = "",
+    val SERIENOMBRE: String = "",
+    val GRUPOCODIGO: String = "",
+    val GRUPONOMBRE: String = "",
+    val ESTADO: Int = 0,  // 0=Por jugarse, 1=Finalizado
+    val CODIGOGANADOR: String = ""
 ) {
     /**
      * Convierte el objeto a un Map para Firebase
@@ -274,7 +280,14 @@ data class Partido(
             "DEPORTE" to DEPORTE.uppercase(),
             "PENALES1" to PENALES1,
             "PENALES2" to PENALES2,
-            "NOMBREGANADOR" to NOMBREGANADOR.uppercase()
+            "NOMBREGANADOR" to NOMBREGANADOR.uppercase(),
+            "SERIECODIGO" to SERIECODIGO,
+            "SERIENOMBRE" to SERIENOMBRE,
+            "GRUPOCODIGO" to GRUPOCODIGO,
+            "GRUPONOMBRE" to GRUPONOMBRE,
+            "ESTADO" to ESTADO,
+            "NOMBREGANADOR" to NOMBREGANADOR,
+            "CODIGOGANADOR" to CODIGOGANADOR
         )
 
     }
