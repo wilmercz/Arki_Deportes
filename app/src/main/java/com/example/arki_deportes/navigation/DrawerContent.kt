@@ -128,6 +128,17 @@ fun DrawerContent(
         )
 
         DrawerMenuItem(
+            icon = Icons.Default.Filter,  // O usar Icons.Default.Category si prefieres
+            label = "Series",
+            isSelected = currentRoute.matchesRoute(AppDestinations.SERIE_LIST) ||
+                    currentRoute.matchesRoute(AppDestinations.SERIE_FORM),
+            onClick = {
+                navigator.navigateToSerieList()
+                onCloseDrawer()
+            }
+        )
+
+        DrawerMenuItem(
             icon = Icons.Default.Group,
             label = "Grupos",
             isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_LIST) ||

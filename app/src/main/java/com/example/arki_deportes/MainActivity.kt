@@ -101,7 +101,8 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import com.example.arki_deportes.data.auth.AuthenticationManager
 import com.example.arki_deportes.data.model.Usuario
 import com.example.arki_deportes.data.model.ResultadoAutenticacion
-
+// import com.example.arki_deportes.ui.series.SerieListRoute     // ← DESCOMENTA DESPUÉS
+// import com.example.arki_deportes.ui.series.SerieFormScreen    // ← DESCOMENTA DESPUÉS
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -237,6 +238,9 @@ class MainActivity : ComponentActivity() {
                         campeonatoListRoute = { navigatorParam: AppNavigator ->
                             PantallaCampeonatoList(navigatorParam, openDrawer = openDrawer)
                         },
+                        serieListRoute = { navigatorParam: AppNavigator ->        // ← AGREGAR
+                            PantallaSerieList(navigatorParam, openDrawer = openDrawer)
+                        },
                         grupoListRoute = { navigatorParam: AppNavigator ->
                             PantallaGrupoList(navigatorParam, openDrawer = openDrawer)
                         },
@@ -251,6 +255,9 @@ class MainActivity : ComponentActivity() {
                         // ═══════════════════════════════════════════════════════════════
                         campeonatoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
                             PantallaCampeonatoForm(navigatorParam, codigo)
+                        },
+                        serieFormRoute = { navigatorParam: AppNavigator, codigo: String? ->  // ← AGREGAR
+                            PantallaSerieForm(navigatorParam, codigo)
                         },
                         grupoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
                             PantallaGrupoForm(navigatorParam, codigo)
@@ -368,6 +375,36 @@ class MainActivity : ComponentActivity() {
     fun PantallaCampeonatoForm(navigator: AppNavigator, codigo: String?) {
         CampeonatoFormScreen(
             codigoCampeonato = codigo,
+            onBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToCatalogs()
+                }
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaSerieList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        SerieListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer,
+            onCreateSerie = {
+                navigator.navigateToSerieForm(null)
+            },
+            onEditSerie = { codigo: String ->  // ✅ Agregar ": String"
+                navigator.navigateToSerieForm(codigo)
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaSerieForm(navigator: AppNavigator, codigo: String?) {
+        SerieFormScreen(
+            codigoSerie = codigo,
             onBack = {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToCatalogs()

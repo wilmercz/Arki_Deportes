@@ -8,6 +8,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+//import com.example.arki_deportes.ui.series.SerieListRoute
+//import com.example.arki_deportes.ui.series.SerieFormScreen
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * APP NAVIGATOR - INTERFAZ DE NAVEGACIÓN COMPLETA
@@ -59,6 +61,7 @@ interface AppNavigator {
 
     // Listas de catálogos
     fun navigateToCampeonatoList()
+    fun navigateToSerieList()
     fun navigateToGrupoList()
     fun navigateToEquipoList()
     fun navigateToPartidoList()
@@ -71,6 +74,11 @@ interface AppNavigator {
      * @param codigoCampeonato Código del campeonato a editar, o null para crear nuevo
      */
     fun navigateToCampeonatoForm(codigoCampeonato: String? = null)
+    /**
+     * Navega al formulario de series
+     * @param codigoSerie Código de la serie a editar, o null para crear nueva
+     */
+    fun navigateToSerieForm(codigoSerie: String? = null)    // ← AGREGAR ESTA FUNCIÓN
 
     /**
      * Navega al formulario de grupos
@@ -185,6 +193,11 @@ private class DefaultAppNavigator(
         }
     }
 
+    override fun navigateToSerieList() {
+        navController.navigate(AppDestinations.SERIE_LIST) {
+            launchSingleTop = true
+        }
+    }
 
     override fun navigateToCampeonatoForm(codigoCampeonato: String?) {
         val route = if (codigoCampeonato != null) {
@@ -230,6 +243,17 @@ private class DefaultAppNavigator(
         }
     }
 
+    override fun navigateToSerieForm(codigoSerie: String?) {
+        val route = if (codigoSerie != null) {
+            "${AppDestinations.SERIE_FORM}/$codigoSerie"
+        } else {
+            AppDestinations.SERIE_FORM
+        }
+        navController.navigate(route) {
+            launchSingleTop = true
+        }
+    }
+
     override fun navigateToMenciones() {
         navController.navigate(AppDestinations.MENCIONES) {
             launchSingleTop = true
@@ -247,6 +271,9 @@ private class DefaultAppNavigator(
             launchSingleTop = true
         }
     }
+
+
+
 }
 
 /**
@@ -276,6 +303,8 @@ fun AppNavGraph(
     settingsRoute: @Composable (AppNavigator) -> Unit,
     campeonatoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     campeonatoListRoute: @Composable (AppNavigator) -> Unit,
+    serieListRoute: @Composable (AppNavigator) -> Unit,        // ← AGREGAR
+    serieFormRoute: @Composable (AppNavigator, String?) -> Unit, // ← AGREGAR
     grupoListRoute: @Composable (AppNavigator) -> Unit,
     equipoListRoute: @Composable (AppNavigator) -> Unit,
     partidoListRoute: @Composable (AppNavigator) -> Unit,
@@ -296,6 +325,7 @@ fun AppNavGraph(
         composable(AppDestinations.EQUIPO_PRODUCCION) { equipoProduccionRoute(navigator) }
         composable(AppDestinations.SETTINGS) { settingsRoute(navigator) }
         composable(AppDestinations.CAMPEONATO_LIST) { campeonatoListRoute(navigator) }
+        composable(AppDestinations.SERIE_LIST) { serieListRoute(navigator) }  // ← AGREGAR
         composable(AppDestinations.GRUPO_LIST) { grupoListRoute(navigator) }
         composable(AppDestinations.EQUIPO_LIST) { equipoListRoute(navigator) }
         composable(AppDestinations.PARTIDO_LIST) { partidoListRoute(navigator) }
@@ -343,6 +373,19 @@ fun AppNavGraph(
         ) { backStackEntry ->
             val codigo = backStackEntry.arguments?.getString("codigoPartido")
             partidoFormRoute(navigator, codigo)
+        }
+
+
+        composable(AppDestinations.SERIE_FORM) { serieFormRoute(navigator, null) }
+        composable(
+            route = "${AppDestinations.SERIE_FORM}/{codigoSerie}",
+            arguments = listOf(navArgument("codigoSerie") {
+                type = NavType.StringType
+                nullable = true
+            })
+        ) { backStackEntry ->
+            val codigo = backStackEntry.arguments?.getString("codigoSerie")
+            serieFormRoute(navigator, codigo)
         }
 
 
