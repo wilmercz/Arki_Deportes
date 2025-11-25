@@ -101,8 +101,8 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import com.example.arki_deportes.data.auth.AuthenticationManager
 import com.example.arki_deportes.data.model.Usuario
 import com.example.arki_deportes.data.model.ResultadoAutenticacion
-// import com.example.arki_deportes.ui.series.SerieListRoute     // ← DESCOMENTA DESPUÉS
-// import com.example.arki_deportes.ui.series.SerieFormScreen    // ← DESCOMENTA DESPUÉS
+import com.example.arki_deportes.ui.series.SerieListRoute     // ← DESCOMENTA DESPUÉS
+import com.example.arki_deportes.ui.series.SerieFormScreen    // ← DESCOMENTA DESPUÉS
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL

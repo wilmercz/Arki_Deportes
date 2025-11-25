@@ -8,8 +8,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-//import com.example.arki_deportes.ui.series.SerieListRoute
-//import com.example.arki_deportes.ui.series.SerieFormScreen
+import com.example.arki_deportes.ui.series.SerieListRoute
+import com.example.arki_deportes.ui.series.SerieFormScreen
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * APP NAVIGATOR - INTERFAZ DE NAVEGACIÓN COMPLETA

@@ -19,7 +19,6 @@ import android.util.Log
 import com.example.arki_deportes.data.model.Serie  // ⬅️ NUEVO
 import kotlinx.coroutines.Dispatchers       // ⬅️ NUEVO
 import kotlinx.coroutines.withContext       // ⬅️ NUEVO
-
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * FIREBASE CATALOG REPOSITORY - ESTRUCTURA JERÁRQUICA
