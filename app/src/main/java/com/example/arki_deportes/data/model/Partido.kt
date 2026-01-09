@@ -4,369 +4,414 @@ package com.example.arki_deportes.data.model
 
 import com.example.arki_deportes.utils.SportType
 import com.google.firebase.database.IgnoreExtraProperties
+import kotlin.math.max
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * PARTIDO - MODELO DE DATOS
+ * PARTIDO - MODELO DE DATOS EXTENDIDO
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * Representa un partido de fútbol en Firebase Realtime Database.
- *
- * Estructura en Firebase:
- * ```
- * PARTIDOS/
- *   └── [CODIGOPARTIDO]/
- *       ├── CODIGOPARTIDO: "BARCELONA_INDEPENDIENTE_123456"
- *       ├── EQUIPO1: "BARCELONA"
- *       ├── EQUIPO2: "INDEPENDIENTE"
- *       ├── CAMPEONATOCODIGO: "PROVINCIAL_2025"
- *       ├── CAMPEONATOTXT: "PROVINCIAL 2025"
- *       ├── FECHAALTA: "2025-01-15"
- *       ├── FECHA_PARTIDO: "2025-01-20"
- *       ├── HORA_PARTIDO: "14:00"
- *       ├── ESTADIO: "MUNICIPAL"
- *       ├── PROVINCIA: "PASTAZA"
- *       ├── GOLES1: "2"
- *       ├── GOLES2: "1"
- *       ├── ETAPA: 0
- *       └── TRANSMISION: true
- * ```
+ * Representa un partido en Firebase Realtime Database.
+ * Incluye sistema de cronómetro resiliente basado en timestamps.
  *
  * @author ARKI SISTEMAS
- * @version 1.0.0
+ * @version 2.0.0 - Sistema de cronómetro resiliente
  */
 @IgnoreExtraProperties
 data class Partido(
-    /**
-     * Código único del partido
-     * Formato: EQUIPO1_EQUIPO2_TIMESTAMP
-     * Ejemplo: "BARCELONA_INDEPENDIENTE_1705334400000"
-     */
+    // ═══════════════════════════════════════════════════════════════════════
+    // CAMPOS BÁSICOS (Ya existentes)
+    // ═══════════════════════════════════════════════════════════════════════
+    
     val CODIGOPARTIDO: String = "",
-
-    /**
-     * Nombre del equipo 1 (en mayúsculas)
-     * Ejemplo: "BARCELONA"
-     */
     val EQUIPO1: String = "",
-
-    /**
-     * Nombre del equipo 2 (en mayúsculas)
-     * Ejemplo: "INDEPENDIENTE"
-     */
     val EQUIPO2: String = "",
-
-    /**
-     * Código del campeonato al que pertenece el partido
-     * Ejemplo: "PROVINCIAL_2025_123456"
-     */
     val CAMPEONATOCODIGO: String = "",
-
-    /**
-     * Nombre del campeonato (texto legible)
-     * Ejemplo: "PROVINCIAL 2025"
-     */
     val CAMPEONATOTXT: String = "",
-
-    /**
-     * Fecha de alta del registro en el sistema
-     * Formato: yyyy-MM-dd
-     * Ejemplo: "2025-01-15"
-     */
     val FECHAALTA: String = "",
-
-    /**
-     * Fecha en que se jugará el partido
-     * Formato: yyyy-MM-dd
-     * Ejemplo: "2025-01-20"
-     */
     val FECHA_PARTIDO: String = "",
-
-    /**
-     * Hora en que se jugará el partido
-     * Formato: HH:mm
-     * Ejemplo: "14:00"
-     */
     val HORA_PARTIDO: String = "",
-
-    /**
-     * Texto para publicar en Facebook (opcional)
-     * Puede incluir hashtags y descripción del partido
-     */
     val TEXTOFACEBOOK: String = "",
-
-    /**
-     * Nombre del estadio o cancha donde se jugará
-     * Ejemplo: "ESTADIO MUNICIPAL", "CANCHA SINTÉTICA"
-     */
     val ESTADIO: String = "",
-
-    /**
-     * Provincia donde se jugará el partido (en mayúsculas)
-     * Ejemplo: "PASTAZA", "SUCUMBIOS"
-     */
     val PROVINCIA: String = "",
-
-    /**
-     * Tiempo de juego en minutos
-     * Por defecto: "90"
-     */
     val TIEMPOJUEGO: String = "90",
-
-    /**
-     * Goles del equipo 1
-     * String numérico. Ejemplo: "2", "0"
-     */
     val GOLES1: String = "0",
-
-    /**
-     * Goles del equipo 2
-     * String numérico. Ejemplo: "1", "0"
-     */
     val GOLES2: String = "0",
-
-    /**
-     * Año del partido
-     * Ejemplo: 2025
-     */
     val ANIO: Int = 0,
-
-    /**
-     * Código del equipo 1
-     * Ejemplo: "BARCELONA_123456"
-     */
     val CODIGOEQUIPO1: String = "",
-
-    /**
-     * Código del equipo 2
-     * Ejemplo: "INDEPENDIENTE_123456"
-     */
     val CODIGOEQUIPO2: String = "",
-
-    /**
-     * Indica si el partido será transmitido
-     * true = se transmitirá, false = no se transmitirá
-     */
     val TRANSMISION: Boolean = false,
-
-    /**
-     * Etapa del campeonato
-     * 0 = Ninguno/Fase de Grupos
-     * 1 = Cuartos de Final
-     * 2 = Semifinal
-     * 3 = Final
-     */
     val ETAPA: Int = 0,
-
-    /**
-     * Lugar específico del partido
-     * Puede incluir ciudad, sector, etc.
-     */
     val LUGAR: String = "",
-
-    /**
-     * Timestamp de creación del registro (en milisegundos)
-     * Generado automáticamente por Firebase ServerValue.TIMESTAMP
-     */
     val TIMESTAMP_CREACION: Long = 0,
-
-    /**
-     * Timestamp de última modificación (en milisegundos)
-     * Se actualiza cada vez que se edita el registro
-     */
     val TIMESTAMP_MODIFICACION: Long = 0,
-
-    /**
-     * Origen del registro
-     * Valores: "MOBILE" o "DESKTOP"
-     * Indica desde qué aplicación se creó el registro
-     */
     val ORIGEN: String = "MOBILE",
-
-    /**
-     * Deporte al que pertenece el partido
-     */
     val DEPORTE: String = SportType.FUTBOL.id,
-
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // SISTEMA DE CRONÓMETRO RESILIENTE (NUEVOS CAMPOS)
+    // ═══════════════════════════════════════════════════════════════════════
+    
     /**
-     * Estado actual del partido en tiempo real (tiempo de juego actual)
-     * null o ausente = Partido programado, no ha comenzado
-     * "0T" = Preparación, aún no comienza
-     * "1T" = Primer tiempo en curso
-     * "2T" = Entre tiempo (descanso)
-     * "3T" = Segundo tiempo en curso
-     * "4T" = Tiempo completo (90 minutos cumplidos)
-     * "5T" = Se va a definir por penales
-     * "6T" = Partido finalizado
-     *
-     * NOTA: No confundir con TIEMPOJUEGO (duración configurada del partido)
+     * Estado del partido
+     * Valores:
+     * - "NO_INICIADO" = Partido programado, no ha comenzado
+     * - "PRIMER_TIEMPO" = Primer tiempo en curso
+     * - "DESCANSO" = Entre tiempo (descanso)
+     * - "SEGUNDO_TIEMPO" = Segundo tiempo en curso
+     * - "FINALIZADO" = Partido terminado
      */
-    val TIEMPODEJUEGO: String? = null,
-
+    val estado: String = "NO_INICIADO",
+    
     /**
-     * Timestamp de cuando inició el cronómetro del partido
-     * Se registra al iniciar el primer tiempo ("1T")
-     * Formato: milisegundos desde epoch (Unix timestamp)
-     * Ejemplo: 1729796400000 representa Oct 24, 2025 18:00:00 GMT
+     * Timestamp cuando se inició el PRIMER tiempo (en milisegundos)
+     * Se guarda al hacer click en [Iniciar Partido]
+     * Ejemplo: 1736950800000 = 15/01/2026 15:00:00
+     * 
+     * IMPORTANTE: Este valor NO cambia aunque la app se cierre.
+     * El tiempo actual se calcula: (now() - timestampInicio) + ajustes
      */
-    val CRONOMETRO_INICIO: Long? = null,
-
+    val timestampInicioPrimerTiempo: Long? = null,
+    
     /**
-     * Timestamp de cuando finalizó el cronómetro
-     * Se registra al finalizar el partido ("6T")
-     * Formato: milisegundos desde epoch (Unix timestamp)
-     * null = El partido aún no ha finalizado
+     * Timestamp cuando inició el SEGUNDO tiempo (en milisegundos)
+     * Se guarda al hacer click en [Iniciar Segundo Tiempo]
      */
-    val CRONOMETRO_FIN: Long? = null,
-
+    val timestampInicioSegundoTiempo: Long? = null,
+    
     /**
-     * Penales convertidos por el equipo 1
-     * Se usa cuando el partido se define por penales (ESTADO_PARTIDO = "5T" o "6T")
-     * Valor por defecto: 0
+     * Timestamp cuando se pausó el cronómetro (en milisegundos)
+     * null = cronómetro NO está pausado
+     * Si tiene valor = cronómetro está pausado desde ese momento
      */
-    val PENALES1: Int = 0,
-
+    val timestampPausa: Long? = null,
+    
     /**
-     * Penales convertidos por el equipo 2
-     * Se usa cuando el partido se define por penales (ESTADO_PARTIDO = "5T" o "6T")
-     * Valor por defecto: 0
+     * Segundos totales acumulados en pausas
+     * Si pausas 30 segundos, luego 45, total = 75 segundos
+     * Se usa para cálculo correcto del tiempo
      */
-    val PENALES2: Int = 0,
-
+    val segundosEnPausa: Int = 0,
+    
     /**
-     * Nombre del equipo ganador
-     * Se establece cuando el partido finaliza
-     * Puede ser EQUIPO1, EQUIPO2, o vacío si es empate
+     * Ajuste manual del cronómetro en SEGUNDOS
+     * Positivo = adelantar tiempo
+     * Negativo = atrasar tiempo
+     * 
+     * CASO DE USO:
+     * Corresponsal llega 23 minutos tarde:
+     * - Pregunta al árbitro: "Minuto 23"
+     * - ajusteManualSegundos = +1380 (23 * 60)
+     * 
+     * Durante partido nota desfase:
+     * - Cronómetro app: 30:15
+     * - Árbitro dice: 30:45
+     * - Click [+30s] → ajusteManualSegundos += 30
      */
-    val NOMBREGANADOR: String = "",
-    val SERIECODIGO: String = "",
-    val SERIENOMBRE: String = "",
-    val GRUPOCODIGO: String = "",
-    val GRUPONOMBRE: String = "",
-    val ESTADO: Int = 0,  // 0=Por jugarse, 1=Finalizado
-    val CODIGOGANADOR: String = ""
+    val ajusteManualSegundos: Int = 0,
+    
+    /**
+     * Usuario asignado al partido (corresponsal)
+     * null = sin asignar, disponible para cualquier corresponsal
+     * "juan" = asignado al corresponsal Juan
+     */
+    val usuarioAsignado: String? = null,
+    
+    /**
+     * Timestamp cuando se asignó el usuario (en milisegundos)
+     */
+    val timestampAsignacion: Long? = null,
+    
+    /**
+     * Indica si el partido permite edición de datos
+     * true = se pueden anotar goles, tarjetas, cambios
+     * false = solo lectura
+     * 
+     * Se activa cuando se inicia el cronómetro
+     */
+    val permiteEdicion: Boolean = false,
+    
+    /**
+     * Timestamp cuando finalizó el partido (en milisegundos)
+     */
+    val timestampFinalizacion: Long? = null,
+    
+    /**
+     * Minuto en que inició el segundo tiempo (para mostrar)
+     * Por defecto 45 (en fútbol)
+     */
+    val minutoInicioSegundoTiempo: Int = 45
+
 ) {
     /**
-     * Convierte el objeto a un Map para Firebase
-     * Útil para operaciones de guardado/actualización
-     *
-     * @return HashMap con los datos del partido
+     * Constructor sin argumentos requerido por Firebase
      */
-    fun toMap(): HashMap<String, Any> {
-        return hashMapOf(
-            "CODIGOPARTIDO" to CODIGOPARTIDO,
-            "EQUIPO1" to EQUIPO1.uppercase(),
-            "EQUIPO2" to EQUIPO2.uppercase(),
-            "CAMPEONATOCODIGO" to CAMPEONATOCODIGO,
-            "CAMPEONATOTXT" to CAMPEONATOTXT.uppercase(),
-            "FECHAALTA" to FECHAALTA,
-            "FECHA_PARTIDO" to FECHA_PARTIDO,
-            "HORA_PARTIDO" to HORA_PARTIDO,
-            "TEXTOFACEBOOK" to TEXTOFACEBOOK,
-            "ESTADIO" to ESTADIO.uppercase(),
-            "PROVINCIA" to PROVINCIA.uppercase(),
-            "TIEMPOJUEGO" to TIEMPOJUEGO,
-            "GOLES1" to GOLES1,
-            "GOLES2" to GOLES2,
-            "ANIO" to ANIO,
-            "CODIGOEQUIPO1" to CODIGOEQUIPO1,
-            "CODIGOEQUIPO2" to CODIGOEQUIPO2,
-            "TRANSMISION" to TRANSMISION,
-            "ETAPA" to ETAPA,
-            "LUGAR" to LUGAR.uppercase(),
-            "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
-            "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
-            "ORIGEN" to ORIGEN,
-            "DEPORTE" to DEPORTE.uppercase(),
-            "PENALES1" to PENALES1,
-            "PENALES2" to PENALES2,
-            "NOMBREGANADOR" to NOMBREGANADOR.uppercase(),
-            "SERIECODIGO" to SERIECODIGO,
-            "SERIENOMBRE" to SERIENOMBRE,
-            "GRUPOCODIGO" to GRUPOCODIGO,
-            "GRUPONOMBRE" to GRUPONOMBRE,
-            "ESTADO" to ESTADO,
-            "NOMBREGANADOR" to NOMBREGANADOR,
-            "CODIGOGANADOR" to CODIGOGANADOR
-        )
-
-    }
-
+    constructor() : this(
+        CODIGOPARTIDO = "",
+        EQUIPO1 = "",
+        EQUIPO2 = "",
+        estado = "NO_INICIADO"
+    )
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // MÉTODOS DE CÁLCULO DE TIEMPO
+    // ═══════════════════════════════════════════════════════════════════════
+    
     /**
-     * Verifica si el partido ya se jugó (tiene resultado)
-     *
-     * @return true si ya tiene goles registrados, false si no
+     * Calcula el tiempo actual del cronómetro en SEGUNDOS
+     * 
+     * FÓRMULA:
+     * tiempo = (ahora - timestampInicio) - pausasAcumuladas + ajusteManual
+     * 
+     * Este método garantiza que el tiempo sea correcto incluso si:
+     * - La app se cierra y vuelve a abrir
+     * - El usuario cambia de dispositivo
+     * - Hay problemas de red
+     * 
+     * @return Tiempo en segundos
      */
-    fun tieneResultado(): Boolean {
-        return GOLES1.toIntOrNull() != null && GOLES2.toIntOrNull() != null
+    fun calcularTiempoActualSegundos(): Int {
+        val timestampBase = when (estado) {
+            "PRIMER_TIEMPO" -> timestampInicioPrimerTiempo
+            "SEGUNDO_TIEMPO" -> timestampInicioSegundoTiempo
+            else -> null
+        }
+        
+        if (timestampBase == null) return 0
+        
+        // Si está en pausa, usar el timestamp de pausa
+        // Si no, usar el tiempo actual
+        val ahora = if (timestampPausa != null) {
+            timestampPausa
+        } else {
+            System.currentTimeMillis()
+        }
+        
+        // Calcular tiempo transcurrido en milisegundos
+        val milisegundosTranscurridos = ahora - timestampBase
+        
+        // Convertir a segundos
+        var segundosTranscurridos = (milisegundosTranscurridos / 1000).toInt()
+        
+        // Restar pausas acumuladas
+        segundosTranscurridos -= segundosEnPausa
+        
+        // Aplicar ajuste manual
+        segundosTranscurridos += ajusteManualSegundos
+        
+        // El tiempo no puede ser negativo
+        return max(0, segundosTranscurridos)
     }
-
+    
     /**
-     * Obtiene el marcador formateado
-     * Ejemplo: "2 - 1"
-     *
-     * @return String con el marcador o "vs" si no hay resultado
+     * Formatea el tiempo como MM:SS
+     * Ejemplo: 1425 segundos → "23:45"
      */
-    fun getMarcador(): String = if (tieneResultado()) {
-        "$GOLES1 - $GOLES2"
-    } else {
-        "vs"
+    fun getTiempoFormateado(): String {
+        val segundosTotales = calcularTiempoActualSegundos()
+        val minutos = segundosTotales / 60
+        val segundos = segundosTotales % 60
+        return String.format("%02d:%02d", minutos, segundos)
     }
-
-    /** Obtiene la etiqueta del marcador de acuerdo al deporte. */
-    fun getMarcadorLabel(): String = sportType().scoreboardLabel
-
-    /** Obtiene la etiqueta para los goles/puntos individuales. */
-    fun getAnotacionesLabel(): String = sportType().teamScoreLabel
-
-    /** Obtiene el nombre legible del deporte. */
-    fun getDeporteTexto(): String = sportType().displayName
-
-    /** Obtiene el texto descriptivo del tiempo de juego configurado. */
-    fun getTiempoJuegoDescripcion(): String {
-        val valor = TIEMPOJUEGO.trim()
-        if (valor.isEmpty()) return ""
-        val sufijo = sportType().durationUnitSuffix
-        return "$valor $sufijo"
-    }
-
-    /** Obtiene la etiqueta del campo de duración según el deporte. */
-    fun getTiempoJuegoLabel(): String = sportType().scheduleDurationLabel
-
-    private fun sportType(): SportType = SportType.fromId(DEPORTE)
-
+    
     /**
-     * Obtiene el texto completo del partido
-     * Ejemplo: "BARCELONA 2 - 1 INDEPENDIENTE"
-     *
-     * @return String formateado con los equipos y marcador
+     * Obtiene el minuto actual del partido
+     * Ejemplo: 1425 segundos → 23 minutos
      */
-    fun getTextoCompleto(): String {
-        return "$EQUIPO1 ${getMarcador()} $EQUIPO2"
+    fun getMinutoActual(): Int {
+        return calcularTiempoActualSegundos() / 60
     }
 
+    
     /**
-     * Obtiene el nombre de la etapa
-     *
-     * @return String con el nombre de la etapa
+     * Obtiene el minuto con sufijo de tiempo
+     * Ejemplo: "23' 1T" o "68' 2T"
      */
-    fun getNombreEtapa(): String {
-        return when (ETAPA) {
-            1 -> "Cuartos de Final"
-            2 -> "Semifinal"
-            3 -> "Final"
-            else -> "Fase de Grupos"
+    fun getMinutoFormateado(): String {
+        val minuto = getMinutoActual()
+        val sufijo = when (estado) {
+            "PRIMER_TIEMPO" -> "1T"
+            "SEGUNDO_TIEMPO" -> {
+                val minutoReal = minuto + minutoInicioSegundoTiempo
+                return "$minutoReal' 2T"
+            }
+            else -> ""
+        }
+        return "$minuto' $sufijo"
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // VERIFICACIONES DE ESTADO
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Verifica si el partido está en curso (cronómetro corriendo)
+     */
+    fun estaEnCurso(): Boolean {
+        return estado == "PRIMER_TIEMPO" || estado == "SEGUNDO_TIEMPO"
+    }
+    
+    /**
+     * Verifica si está pausado
+     */
+    fun estaPausado(): Boolean {
+        return timestampPausa != null
+    }
+    
+    /**
+     * Verifica si no ha iniciado
+     */
+    fun noIniciado(): Boolean {
+        return estado == "NO_INICIADO"
+    }
+    
+    /**
+     * Verifica si está en descanso
+     */
+    fun enDescanso(): Boolean {
+        return estado == "DESCANSO"
+    }
+    
+    /**
+     * Verifica si ya finalizó
+     */
+    fun finalizado(): Boolean {
+        return estado == "FINALIZADO"
+    }
+    
+    /**
+     * Verifica si es primer tiempo
+     */
+    fun esPrimerTiempo(): Boolean {
+        return estado == "PRIMER_TIEMPO"
+    }
+    
+    /**
+     * Verifica si es segundo tiempo
+     */
+    fun esSegundoTiempo(): Boolean {
+        return estado == "SEGUNDO_TIEMPO"
+    }
+    
+    /**
+     * Verifica si el partido está disponible para asignarse
+     * (sin usuario asignado o finalizado)
+     */
+    fun estaDisponible(): Boolean {
+        return usuarioAsignado == null && !finalizado()
+    }
+    
+    /**
+     * Verifica si el partido está ocupado por otro corresponsal
+     */
+    fun estaOcupado(nombreUsuarioActual: String?): Boolean {
+        if (usuarioAsignado == null) return false
+        return usuarioAsignado != nombreUsuarioActual
+    }
+    
+    /**
+     * Obtiene el nombre descriptivo del partido
+     * Ejemplo: "Deportivo Puyo vs Alianza FC"
+     */
+    fun getNombrePartido(): String {
+        return "$EQUIPO1 vs $EQUIPO2"
+    }
+    
+    /**
+     * Obtiene una descripción del estado actual
+     */
+    fun getDescripcionEstado(): String {
+        return when (estado) {
+            "NO_INICIADO" -> "Por iniciar"
+            "PRIMER_TIEMPO" -> "Primer tiempo - ${getTiempoFormateado()}"
+            "DESCANSO" -> "Descanso"
+            "SEGUNDO_TIEMPO" -> "Segundo tiempo - ${getTiempoFormateado()}"
+            "FINALIZADO" -> "Finalizado"
+            else -> "Desconocido"
+        }
+    }
+    
+    /**
+     * Verifica si el partido es del día de hoy
+     */
+    fun esDeHoy(): Boolean {
+        if (FECHA_PARTIDO.isEmpty()) return false
+        
+        try {
+            val hoy = java.time.LocalDate.now()
+            val fechaPartido = java.time.LocalDate.parse(FECHA_PARTIDO)
+            return fechaPartido.isEqual(hoy)
+        } catch (e: Exception) {
+            return false
+        }
+    }
+    
+    /**
+     * Verifica si el partido está en el pasado (caducado)
+     */
+    fun estaCaducado(): Boolean {
+        if (FECHA_PARTIDO.isEmpty()) return false
+        
+        try {
+            val hoy = java.time.LocalDate.now()
+            val fechaPartido = java.time.LocalDate.parse(FECHA_PARTIDO)
+            return fechaPartido.isBefore(hoy)
+        } catch (e: Exception) {
+            return false
         }
     }
 
-    /**
-     * Compañero para crear instancias vacías
-     */
-    companion object {
-        /**
-         * Crea una instancia vacía de Partido
-         * Útil para formularios de creación
-         */
-        fun empty() = Partido()
+    // ─────────────────────────────────────────────────────────────
+// Helpers de UI (para HomeScreen)
+// ─────────────────────────────────────────────────────────────
+
+    /** Nombre legible del deporte. */
+    fun getDeporteTexto(): String = sportType().displayName
+
+    /** Etiqueta del marcador según el deporte. */
+    fun getMarcadorLabel(): String = sportType().scoreboardLabel
+
+    /** Marcador para Home. Si no hay marcador cargado, devuelve "vs". */
+    fun getMarcador(): String {
+        val g1 = GOLES1.trim()
+        val g2 = GOLES2.trim()
+
+        // Si no hay datos reales aún (típico partido programado)
+        if (g1.isBlank() && g2.isBlank()) return "vs"
+
+        // Si vienen "0" y "0" por defecto, tú decides si ocultas o muestras.
+        // Mantengo tu lógica de HomeScreen (oculta si devuelve "vs"):
+        if (g1 == "0" && g2 == "0") return "vs"
+
+        return "$g1 - $g2"
     }
+
+    /** Etiqueta para el tiempo/duración configurada del partido (según deporte). */
+    fun getTiempoJuegoLabel(): String {
+        return when (sportType().id) {
+            SportType.FUTBOL.id -> "Duración"
+            // Si tienes otros deportes en SportType, puedes afinar aquí:
+            // SportType.BASKET.id -> "Períodos"
+            // SportType.CICLISMO.id -> "Distancia"
+            // SportType.MOTOR.id -> "Vueltas"
+            else -> "Tiempo"
+        }
+    }
+
+    /** Descripción del tiempo/duración configurada (usa TIEMPOJUEGO). */
+    fun getTiempoJuegoDescripcion(): String {
+        val raw = TIEMPOJUEGO.trim()
+        if (raw.isBlank()) return ""
+
+        return when (sportType().id) {
+            SportType.FUTBOL.id -> {
+                // si es número, lo mostramos como minutos
+                raw.toIntOrNull()?.let { "$it min" } ?: raw
+            }
+            else -> raw
+        }
+    }
+
+    private fun sportType(): SportType = SportType.fromId(DEPORTE)
+
 }

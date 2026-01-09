@@ -25,7 +25,11 @@ import com.example.arki_deportes.ui.components.CampeonatoSelector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
-
+import com.example.arki_deportes.data.context.UsuarioContext
+import com.example.arki_deportes.data.context.PartidoContext
+import androidx.compose.material.icons.filled.SportsSoccer
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 private fun String?.matchesRoute(route: String): Boolean {
     return this == route || this?.startsWith("$route/") == true
@@ -63,6 +67,37 @@ fun DrawerContent(
             campeonatos = campeonatos,   // ✅ AHORA sí usa la lista en tiempo real
             modifier = Modifier.padding(top = 8.dp)
         )
+
+        // Si es corresponsal con partido, mostrar opción destacada
+        if (UsuarioContext.esCorresponsal()) {
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.SportsSoccer, contentDescription = null) },
+                label = { Text("Mi Partido", fontWeight = FontWeight.Bold) },
+                selected = currentRoute == AppDestinations.TiempoReal.route,
+                onClick = {
+                    onCloseDrawer()
+                    navigator.navigateToTiempoReal(clearBackStack = false)
+                },
+                colors = NavigationDrawerItemDefaults.colors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            )
+
+            HorizontalDivider()
+        }
+
+// Opción para cambiar de partido (solo corresponsales)
+        if (UsuarioContext.esCorresponsal()) {
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
+                label = { Text("Cambiar Partido") },
+                selected = false,
+                onClick = {
+                    onCloseDrawer()
+                    navigator.navigateToPartidoSeleccion(clearBackStack = false)
+                }
+            )
+        }
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -123,17 +158,6 @@ fun DrawerContent(
                     currentRoute.matchesRoute(AppDestinations.EQUIPO_FORM),
             onClick = {
                 navigator.navigateToEquipoList()
-                onCloseDrawer()
-            }
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.Filter,  // O usar Icons.Default.Category si prefieres
-            label = "Series",
-            isSelected = currentRoute.matchesRoute(AppDestinations.SERIE_LIST) ||
-                    currentRoute.matchesRoute(AppDestinations.SERIE_FORM),
-            onClick = {
-                navigator.navigateToSerieList()
                 onCloseDrawer()
             }
         )
@@ -217,34 +241,57 @@ fun DrawerContent(
  * Header del Drawer con información de la app
  */
 @Composable
-private fun DrawerHeader() {
-    Box(
+fun DrawerHeader() {
+    // ✅ Obtener información del usuario
+    val nombreCompleto = UsuarioContext.getNombreCompleto()
+    val rol = UsuarioContext.getDescripcionRol()
+    val partidoAsignado = UsuarioContext.getPartidoAsignado()
+    val esCorresponsal = UsuarioContext.esCorresponsal()
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(24.dp)
+            .padding(16.dp)
     ) {
-        Column {
-            // Logo blanco más pequeño (48dp -> 46dp)
-            Image(
-                painter = painterResource(id = R.drawable.logo_blanco),
-                contentDescription = "Logo ARKI Deportes",
-                modifier = Modifier.size(46.dp),
-                contentScale = ContentScale.Fit,
-                colorFilter = ColorFilter.tint(Color.White)
-            )
+        // Nombre del usuario
+        Text(
+            text = nombreCompleto,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+
+        // Rol
+        Text(
+            text = rol,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+        )
+
+        // Si es corresponsal, mostrar partido asignado
+        if (esCorresponsal && partidoAsignado != null) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Arki Deportes",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Text(
-                text = "Sistema de Transmisión",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.7f)
-            )
+
+            Surface(
+                color = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text(
+                        text = "🎯 Partido Asignado",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+
+                    val partidoNombre = PartidoContext.getNombrePartido() ?: partidoAsignado
+                    Text(
+                        text = partidoNombre,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }

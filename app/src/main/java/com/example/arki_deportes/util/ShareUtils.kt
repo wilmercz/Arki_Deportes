@@ -11,6 +11,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import com.example.arki_deportes.utils.Constants
 
 /**
  * Utilidades para construir textos y lanzar Intents de compartido.
@@ -60,9 +61,11 @@ object ShareUtils {
             if (partido.CAMPEONATOTXT.isNotBlank()) {
                 appendLine("🏆 ${partido.CAMPEONATOTXT}")
             }
-            if (partido.ETAPA != 0) {
-                appendLine("🔁 Etapa: ${partido.getNombreEtapa()}")
+            val etapaTexto = Constants.EtapasPartido.getTexto(partido.ETAPA)
+            if (partido.ETAPA != Constants.EtapasPartido.NINGUNO) {
+                appendLine("🔁 Etapa: $etapaTexto")
             }
+
             if (partido.TRANSMISION) {
                 appendLine("🎥 Transmisión en vivo")
             }

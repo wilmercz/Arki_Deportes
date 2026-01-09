@@ -45,6 +45,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+//PANTALLA POR MEJORAR
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TiempoRealRoute(

@@ -8,8 +8,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.arki_deportes.ui.series.SerieListRoute
-import com.example.arki_deportes.ui.series.SerieFormScreen
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * APP NAVIGATOR - INTERFAZ DE NAVEGACIÓN COMPLETA
@@ -61,7 +60,6 @@ interface AppNavigator {
 
     // Listas de catálogos
     fun navigateToCampeonatoList()
-    fun navigateToSerieList()
     fun navigateToGrupoList()
     fun navigateToEquipoList()
     fun navigateToPartidoList()
@@ -74,11 +72,6 @@ interface AppNavigator {
      * @param codigoCampeonato Código del campeonato a editar, o null para crear nuevo
      */
     fun navigateToCampeonatoForm(codigoCampeonato: String? = null)
-    /**
-     * Navega al formulario de series
-     * @param codigoSerie Código de la serie a editar, o null para crear nueva
-     */
-    fun navigateToSerieForm(codigoSerie: String? = null)    // ← AGREGAR ESTA FUNCIÓN
 
     /**
      * Navega al formulario de grupos
@@ -116,6 +109,27 @@ interface AppNavigator {
      * Navega a la pantalla de ajustes/configuración
      */
     fun navigateToSettings()
+
+    /**
+     * Navega a la pantalla de selección de partidos
+     * Usada cuando el corresponsal no tiene partido asignado
+     * @param clearBackStack Si es true, limpia toda la pila de navegación
+     */
+    fun navigateToPartidoSeleccion(clearBackStack: Boolean = false)
+
+    /**
+     * Navega a la pantalla de tiempo real con un partido específico
+     * @param partidoId Código del partido (opcional)
+     * @param clearBackStack Si es true, limpia toda la pila de navegación
+     */
+    fun navigateToTiempoReal(partidoId: String? = null, clearBackStack: Boolean = false)
+
+    /**
+     * Navega a la pantalla Home
+     * @param clearBackStack Si es true, limpia toda la pila de navegación
+     */
+    fun navigateToHome(clearBackStack: Boolean = false)
+
 }
 
 /**
@@ -193,11 +207,6 @@ private class DefaultAppNavigator(
         }
     }
 
-    override fun navigateToSerieList() {
-        navController.navigate(AppDestinations.SERIE_LIST) {
-            launchSingleTop = true
-        }
-    }
 
     override fun navigateToCampeonatoForm(codigoCampeonato: String?) {
         val route = if (codigoCampeonato != null) {
@@ -243,17 +252,6 @@ private class DefaultAppNavigator(
         }
     }
 
-    override fun navigateToSerieForm(codigoSerie: String?) {
-        val route = if (codigoSerie != null) {
-            "${AppDestinations.SERIE_FORM}/$codigoSerie"
-        } else {
-            AppDestinations.SERIE_FORM
-        }
-        navController.navigate(route) {
-            launchSingleTop = true
-        }
-    }
-
     override fun navigateToMenciones() {
         navController.navigate(AppDestinations.MENCIONES) {
             launchSingleTop = true
@@ -272,7 +270,38 @@ private class DefaultAppNavigator(
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // IMPLEMENTACIONES PARA SPRINT 2 Y 3
+    // ═══════════════════════════════════════════════════════════════════════
 
+    override fun navigateToPartidoSeleccion(clearBackStack: Boolean) {
+        val route = AppDestinations.PartidoSeleccion.route
+        navController.navigate(route) {
+            launchSingleTop = true
+            if (clearBackStack) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
+
+    override fun navigateToTiempoReal(partidoId: String?, clearBackStack: Boolean) {
+        val route = AppDestinations.TiempoReal.createRoute(partidoId)
+        navController.navigate(route) {
+            launchSingleTop = true
+            if (clearBackStack) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
+
+    override fun navigateToHome(clearBackStack: Boolean) {
+        navController.navigate(AppDestinations.HYBRID_HOME) {
+            launchSingleTop = true
+            if (clearBackStack) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
 }
 
@@ -303,8 +332,6 @@ fun AppNavGraph(
     settingsRoute: @Composable (AppNavigator) -> Unit,
     campeonatoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     campeonatoListRoute: @Composable (AppNavigator) -> Unit,
-    serieListRoute: @Composable (AppNavigator) -> Unit,        // ← AGREGAR
-    serieFormRoute: @Composable (AppNavigator, String?) -> Unit, // ← AGREGAR
     grupoListRoute: @Composable (AppNavigator) -> Unit,
     equipoListRoute: @Composable (AppNavigator) -> Unit,
     partidoListRoute: @Composable (AppNavigator) -> Unit,
@@ -325,7 +352,6 @@ fun AppNavGraph(
         composable(AppDestinations.EQUIPO_PRODUCCION) { equipoProduccionRoute(navigator) }
         composable(AppDestinations.SETTINGS) { settingsRoute(navigator) }
         composable(AppDestinations.CAMPEONATO_LIST) { campeonatoListRoute(navigator) }
-        composable(AppDestinations.SERIE_LIST) { serieListRoute(navigator) }  // ← AGREGAR
         composable(AppDestinations.GRUPO_LIST) { grupoListRoute(navigator) }
         composable(AppDestinations.EQUIPO_LIST) { equipoListRoute(navigator) }
         composable(AppDestinations.PARTIDO_LIST) { partidoListRoute(navigator) }
@@ -375,19 +401,37 @@ fun AppNavGraph(
             partidoFormRoute(navigator, codigo)
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // RUTAS PARA SPRINT 2 - PartidoSeleccion
+        // ═══════════════════════════════════════════════════════════════════
+        // NOTA: La pantalla PartidoSeleccionScreen aún no existe.
+        // Por ahora, esta ruta mostrará una pantalla temporal o redirigirá.
+        // Se implementará en Sprint 2.
 
-        composable(AppDestinations.SERIE_FORM) { serieFormRoute(navigator, null) }
-        composable(
-            route = "${AppDestinations.SERIE_FORM}/{codigoSerie}",
-            arguments = listOf(navArgument("codigoSerie") {
-                type = NavType.StringType
-                nullable = true
-            })
-        ) { backStackEntry ->
-            val codigo = backStackEntry.arguments?.getString("codigoSerie")
-            serieFormRoute(navigator, codigo)
+        composable(AppDestinations.PartidoSeleccion.route) {
+            // TODO: Implementar cuando se cree PartidoSeleccionScreen
+            // Por ahora, redirigir a Home para evitar crash
+            hybridHomeRoute(navigator)
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // RUTAS PARA SPRINT 3 - TiempoReal con argumento
+        // ═══════════════════════════════════════════════════════════════════
+
+        composable(
+            route = "${AppDestinations.TiempoReal.route}?${AppDestinations.TiempoReal.ARG_PARTIDO_ID}={${AppDestinations.TiempoReal.ARG_PARTIDO_ID}}",
+            arguments = listOf(
+                navArgument(AppDestinations.TiempoReal.ARG_PARTIDO_ID) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val partidoId = backStackEntry.arguments?.getString(AppDestinations.TiempoReal.ARG_PARTIDO_ID)
+            // TODO: Pasar partidoId al TiempoRealScreen cuando esté listo
+            realTimeRoute(navigator)
+        }
 
     }
 }

@@ -19,6 +19,9 @@ import android.util.Log
 import com.example.arki_deportes.data.model.Serie  // ⬅️ NUEVO
 import kotlinx.coroutines.Dispatchers       // ⬅️ NUEVO
 import kotlinx.coroutines.withContext       // ⬅️ NUEVO
+import com.example.arki_deportes.data.context.DeporteContext
+
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * FIREBASE CATALOG REPOSITORY - ESTRUCTURA JERÁRQUICA
@@ -618,8 +621,25 @@ class FirebaseCatalogRepository(
         rootReference.child(partido.CAMPEONATOCODIGO)
             .child("Partidos")
             .child(partido.CODIGOPARTIDO)
-            .setValue(partido.toMap())
+            .setValue(partido)  // ✅ CORRECTO - Firebase convierte automáticamente
             .await()
+    }
+
+    /**
+     * Obtiene un campeonato por su código
+     */
+    suspend fun obtenerCampeonato(codigoCampeonato: String): Campeonato? {
+        return try {
+            val snapshot = rootReference
+                .child(codigoCampeonato)
+                .get()
+                .await()
+
+            snapshot.getValue(Campeonato::class.java)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al obtener campeonato: ${e.message}")
+            null
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -881,4 +901,453 @@ class FirebaseCatalogRepository(
             }
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GESTIÓN DE PARTIDOS - AUTO-ASIGNACIÓN
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Asigna un usuario a un partido
+     * Usado cuando un corresponsal se auto-asigna un partido
+     *
+     * @param codigoPartido Código del partido
+     * @param nombreUsuario Nombre del usuario corresponsal
+     * @return true si se asignó correctamente
+     */
+    suspend fun asignarUsuarioAPartido(
+        codigoPartido: String,
+        nombreUsuario: String
+    ): Boolean {
+        return try {
+            val ahora = System.currentTimeMillis()
+
+            val updates = mapOf(
+                "usuarioAsignado" to nombreUsuario,
+                "timestampAsignacion" to ahora
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "✅ Usuario $nombreUsuario asignado al partido $codigoPartido")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al asignar usuario a partido: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Libera un partido (quita la asignación de usuario)
+     * Útil si el corresponsal se equivoca o necesita reasignar
+     *
+     * @param codigoPartido Código del partido
+     * @return true si se liberó correctamente
+     */
+    suspend fun liberarPartido(codigoPartido: String): Boolean {
+        return try {
+            val updates = mapOf(
+                "usuarioAsignado" to null,
+                "timestampAsignacion" to null
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "✅ Partido $codigoPartido liberado")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al liberar partido: ${e.message}")
+            false
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GESTIÓN DE CRONÓMETRO
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Inicia el primer tiempo del partido
+     * Guarda el timestamp y permite ajuste manual si llega tarde
+     *
+     * @param codigoPartido Código del partido
+     * @param ajusteSegundos Ajuste manual en segundos (0 si inicia a tiempo)
+     * @return true si se inició correctamente
+     */
+    suspend fun iniciarPrimerTiempo(
+        codigoPartido: String,
+        ajusteSegundos: Int = 0
+    ): Boolean {
+        return try {
+            val ahora = System.currentTimeMillis()
+
+            val updates = mapOf(
+                "estado" to "PRIMER_TIEMPO",
+                "timestampInicioPrimerTiempo" to ahora,
+                "ajusteManualSegundos" to ajusteSegundos,
+                "permiteEdicion" to true,
+                "TIMESTAMP_MODIFICACION" to ahora
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "✅ Primer tiempo iniciado - Partido: $codigoPartido, Ajuste: $ajusteSegundos seg")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al iniciar primer tiempo: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Pausa el cronómetro del partido
+     *
+     * @param codigoPartido Código del partido
+     * @return true si se pausó correctamente
+     */
+    suspend fun pausarCronometro(codigoPartido: String): Boolean {
+        return try {
+            val ahora = System.currentTimeMillis()
+
+            val updates = mapOf(
+                "timestampPausa" to ahora
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "⏸️ Cronómetro pausado - Partido: $codigoPartido")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al pausar cronómetro: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Reanuda el cronómetro del partido
+     * Calcula y acumula los segundos que estuvo pausado
+     *
+     * @param codigoPartido Código del partido
+     * @param segundosPausadosActuales Segundos acumulados antes de esta pausa
+     * @return true si se reanudó correctamente
+     */
+    suspend fun reanudarCronometro(
+        codigoPartido: String,
+        timestampPausa: Long,
+        segundosPausadosActuales: Int
+    ): Boolean {
+        return try {
+            val ahora = System.currentTimeMillis()
+
+            // Calcular segundos de esta pausa
+            val segundosEstaPausa = ((ahora - timestampPausa) / 1000).toInt()
+            val totalSegundosPausados = segundosPausadosActuales + segundosEstaPausa
+
+            val updates = mapOf(
+                "timestampPausa" to null,
+                "segundosEnPausa" to totalSegundosPausados
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "▶️ Cronómetro reanudado - Partido: $codigoPartido, Pausado: $totalSegundosPausados seg")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al reanudar cronómetro: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Ajusta el cronómetro manualmente
+     * Positivo = adelantar, Negativo = atrasar
+     *
+     * @param codigoPartido Código del partido
+     * @param segundosAjuste Segundos a ajustar (+ adelantar, - atrasar)
+     * @param ajusteActual Ajuste actual para sumar
+     * @return true si se ajustó correctamente
+     */
+    suspend fun ajustarCronometro(
+        codigoPartido: String,
+        segundosAjuste: Int,
+        ajusteActual: Int
+    ): Boolean {
+        return try {
+            val nuevoAjuste = ajusteActual + segundosAjuste
+
+            val updates = mapOf(
+                "ajusteManualSegundos" to nuevoAjuste
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "⚙️ Cronómetro ajustado - Partido: $codigoPartido, Ajuste: $nuevoAjuste seg")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al ajustar cronómetro: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Inicia el descanso (entre tiempos)
+     *
+     * @param codigoPartido Código del partido
+     * @return true si se inició correctamente
+     */
+    suspend fun iniciarDescanso(codigoPartido: String): Boolean {
+        return try {
+            val ahora = System.currentTimeMillis()
+
+            val updates = mapOf(
+                "estado" to "DESCANSO",
+                "timestampPausa" to ahora  // Para detener cronómetro
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "☕ Descanso iniciado - Partido: $codigoPartido")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al iniciar descanso: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Inicia el segundo tiempo del partido
+     *
+     * @param codigoPartido Código del partido
+     * @param ajusteSegundos Ajuste manual si es necesario
+     * @return true si se inició correctamente
+     */
+    suspend fun iniciarSegundoTiempo(
+        codigoPartido: String,
+        ajusteSegundos: Int = 0
+    ): Boolean {
+        return try {
+            val ahora = System.currentTimeMillis()
+
+            val updates = mapOf(
+                "estado" to "SEGUNDO_TIEMPO",
+                "timestampInicioSegundoTiempo" to ahora,
+                "timestampPausa" to null,  // Quitar pausa del descanso
+                "ajusteManualSegundos" to ajusteSegundos  // Reset o nuevo ajuste
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "✅ Segundo tiempo iniciado - Partido: $codigoPartido")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al iniciar segundo tiempo: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Finaliza el partido
+     *
+     * @param codigoPartido Código del partido
+     * @return true si se finalizó correctamente
+     */
+    suspend fun finalizarPartido(codigoPartido: String): Boolean {
+        return try {
+            val ahora = System.currentTimeMillis()
+
+            val updates = mapOf(
+                "estado" to "FINALIZADO",
+                "timestampFinalizacion" to ahora,
+                "permiteEdicion" to false,
+                "TIMESTAMP_MODIFICACION" to ahora
+            )
+
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "🏁 Partido finalizado - Partido: $codigoPartido")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al finalizar partido: ${e.message}")
+            false
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // OBTENER PARTIDOS - FILTROS AVANZADOS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Obtiene todos los partidos del día actual
+     * Útil para la pantalla de selección de partidos
+     *
+     * @return Lista de partidos de hoy
+     */
+    suspend fun obtenerPartidosDeHoy(): List<Partido> {
+        return try {
+            val hoy = java.time.LocalDate.now().toString()  // Formato: 2026-01-15
+
+            val snapshot = rootReference
+                .child("Partidos")
+                .orderByChild("FECHA_PARTIDO")
+                .equalTo(hoy)
+                .get()
+                .await()
+
+            val partidos = mutableListOf<Partido>()
+
+            snapshot.children.forEach { child ->
+                val partido = child.getValue(Partido::class.java)
+                if (partido != null) {
+                    partidos.add(partido)
+                }
+            }
+
+            Log.d(TAG, "📅 Partidos de hoy obtenidos: ${partidos.size}")
+            partidos
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al obtener partidos de hoy: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Obtiene partidos disponibles (sin asignar) del día actual
+     * Filtra los que ya están ocupados por otros corresponsales
+     *
+     * @param usuarioActual Usuario actual (para ver si tiene alguno asignado)
+     * @return Lista de partidos disponibles
+     */
+    suspend fun obtenerPartidosDisponiblesHoy(
+        usuarioActual: String
+    ): List<Partido> {
+        val todosPartidos = obtenerPartidosDeHoy()
+
+        return todosPartidos.filter { partido ->
+            // Disponible si:
+            // 1. No tiene usuario asignado, O
+            // 2. Está asignado al usuario actual, O
+            // 3. No está finalizado
+            (partido.usuarioAsignado == null ||
+                    partido.usuarioAsignado == usuarioActual) &&
+                    !partido.finalizado()
+        }
+    }
+
+    /**
+     * Obtiene un partido específico por su código
+     *
+     * @param codigoPartido Código del partido
+     * @return Partido o null si no existe
+     */
+    suspend fun obtenerPartidoPorCodigo(codigoPartido: String): Partido? {
+        return try {
+            val snapshot = rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .get()
+                .await()
+
+            snapshot.getValue(Partido::class.java)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al obtener partido $codigoPartido: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Actualiza múltiples campos de un partido
+     * Método genérico para cualquier actualización
+     *
+     * @param codigoPartido Código del partido
+     * @param updates Mapa de campos a actualizar
+     * @return true si se actualizó correctamente
+     */
+    suspend fun actualizarPartido(
+        codigoPartido: String,
+        updates: Map<String, Any?>
+    ): Boolean {
+        return try {
+            rootReference
+                .child("Partidos")
+                .child(codigoPartido)
+                .updateChildren(updates)
+                .await()
+
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al actualizar partido: ${e.message}")
+            false
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ACTUALIZAR PERMISOS DE USUARIO
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Actualiza el partido asignado en los permisos del usuario
+     * Se usa cuando un corresponsal se auto-asigna un partido
+     *
+     * @param nombreUsuario Nombre del usuario
+     * @param codigoPartido Código del partido asignado
+     * @return true si se actualizó correctamente
+     */
+    suspend fun actualizarPartidoAsignadoUsuario(
+        nombreUsuario: String,
+        codigoPartido: String
+    ): Boolean {
+        return try {
+            val updates = mapOf(
+                "permisos/codigoPartido" to codigoPartido
+            )
+
+            database.reference
+                .child("AppConfig")
+                .child("Usuarios")
+                .child(nombreUsuario)
+                .updateChildren(updates)
+                .await()
+
+            Log.d(TAG, "✅ Partido asignado actualizado en usuario $nombreUsuario")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al actualizar partido asignado: ${e.message}")
+            false
+        }
+    }
+
 }

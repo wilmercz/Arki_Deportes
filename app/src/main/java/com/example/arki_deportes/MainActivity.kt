@@ -101,8 +101,17 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import com.example.arki_deportes.data.auth.AuthenticationManager
 import com.example.arki_deportes.data.model.Usuario
 import com.example.arki_deportes.data.model.ResultadoAutenticacion
-import com.example.arki_deportes.ui.series.SerieListRoute     // ← DESCOMENTA DESPUÉS
-import com.example.arki_deportes.ui.series.SerieFormScreen    // ← DESCOMENTA DESPUÉS
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.material.icons.filled.KeyboardHide
+
+import com.example.arki_deportes.data.context.UsuarioContext
+import com.example.arki_deportes.data.context.PartidoContext
+import com.example.arki_deportes.data.context.DeporteContext
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
+import com.example.arki_deportes.data.context.CampeonatoContext
+import com.example.arki_deportes.utils.SportType
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -167,6 +176,11 @@ class MainActivity : ComponentActivity() {
 
         // Habilitar edge-to-edge (pantalla completa)
         enableEdgeToEdge()
+
+        // ✅ AGREGAR ESTAS 3 LÍNEAS:
+        UsuarioContext.initialize(this)
+        PartidoContext.initialize(this)
+        DeporteContext.initialize(this)
 
         // Configurar el contenido de la UI
         setContent {
@@ -238,9 +252,6 @@ class MainActivity : ComponentActivity() {
                         campeonatoListRoute = { navigatorParam: AppNavigator ->
                             PantallaCampeonatoList(navigatorParam, openDrawer = openDrawer)
                         },
-                        serieListRoute = { navigatorParam: AppNavigator ->        // ← AGREGAR
-                            PantallaSerieList(navigatorParam, openDrawer = openDrawer)
-                        },
                         grupoListRoute = { navigatorParam: AppNavigator ->
                             PantallaGrupoList(navigatorParam, openDrawer = openDrawer)
                         },
@@ -255,9 +266,6 @@ class MainActivity : ComponentActivity() {
                         // ═══════════════════════════════════════════════════════════════
                         campeonatoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
                             PantallaCampeonatoForm(navigatorParam, codigo)
-                        },
-                        serieFormRoute = { navigatorParam: AppNavigator, codigo: String? ->  // ← AGREGAR
-                            PantallaSerieForm(navigatorParam, codigo)
                         },
                         grupoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
                             PantallaGrupoForm(navigatorParam, codigo)
@@ -375,36 +383,6 @@ class MainActivity : ComponentActivity() {
     fun PantallaCampeonatoForm(navigator: AppNavigator, codigo: String?) {
         CampeonatoFormScreen(
             codigoCampeonato = codigo,
-            onBack = {
-                if (!navigator.navigateBack()) {
-                    navigator.navigateToCatalogs()
-                }
-            }
-        )
-    }
-
-    @Composable
-    fun PantallaSerieList(navigator: AppNavigator, openDrawer: () -> Unit) {
-        SerieListRoute(
-            onNavigateBack = {
-                if (!navigator.navigateBack()) {
-                    navigator.navigateToHybridHome()
-                }
-            },
-            onOpenDrawer = openDrawer,
-            onCreateSerie = {
-                navigator.navigateToSerieForm(null)
-            },
-            onEditSerie = { codigo: String ->  // ✅ Agregar ": String"
-                navigator.navigateToSerieForm(codigo)
-            }
-        )
-    }
-
-    @Composable
-    fun PantallaSerieForm(navigator: AppNavigator, codigo: String?) {
-        SerieFormScreen(
-            codigoSerie = codigo,
             onBack = {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToCatalogs()
@@ -715,28 +693,35 @@ class MainActivity : ComponentActivity() {
     fun PantallaInicio(navigator: AppNavigator) {
         var estadoApp by remember { mutableStateOf(EstadoApp.CARGANDO) }
         var autenticacionCompleta by remember { mutableStateOf(false) }
+        var mensajeError by remember { mutableStateOf("") }
+
 
         // Esperar a que la autenticación anónima complete
         LaunchedEffect(Unit) {
-            // Esperar a que Firebase Auth complete la autenticación
-            delay(2500) // Aumentar el tiempo de espera
+            Log.d(TAG, "🔄 Verificando Firebase Auth...")
 
-            // Verificar si ya estamos autenticados
-            val user = auth.currentUser
-            if (user != null) {
-                Log.d(TAG, "✅ Usuario autenticado: ${user.uid}")
-                autenticacionCompleta = true
-            } else {
-                Log.w(TAG, "⚠️ Autenticación no completada, reintentando...")
-                delay(1000)
-                val userRetry = auth.currentUser
-                if (userRetry != null) {
-                    Log.d(TAG, "✅ Usuario autenticado (segundo intento): ${userRetry.uid}")
+            var intentos = 0
+            val maxIntentos = 10
+
+            while (intentos < maxIntentos) {
+                delay(500) // Verificar cada 500ms
+
+                val user = auth.currentUser
+                if (user != null) {
+                    Log.d(TAG, "✅ Firebase Auth listo después de ${intentos * 500}ms")
+                    Log.d(TAG, "   UID: ${user.uid}")
                     autenticacionCompleta = true
-                } else {
-                    Log.e(TAG, "❌ No se pudo autenticar")
-                    estadoApp = EstadoApp.REQUIERE_LOGIN
+                    break
                 }
+
+                intentos++
+                Log.d(TAG, "⏳ Intento $intentos/$maxIntentos...")
+            }
+
+            if (!autenticacionCompleta) {
+                Log.e(TAG, "❌ Firebase Auth no se inicializó en ${maxIntentos * 500}ms")
+                mensajeError = "Error al inicializar Firebase. Reinicia la app."
+                estadoApp = EstadoApp.REQUIERE_LOGIN
             }
         }
 
@@ -763,7 +748,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } else {
-                Log.d(TAG, "🔐 No hay contraseña memorizada, mostrar login")
+                Log.d(TAG, "🔓 No hay contraseña memorizada, mostrar login")
                 estadoApp = EstadoApp.REQUIERE_LOGIN
             }
         }
@@ -774,18 +759,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════
-// MOSTRAR PANTALLA SEGÚN EL ESTADO
-// ═══════════════════════════════════════════════════════════════
-
         // Mostrar pantalla según el estado
         when (estadoApp) {
             EstadoApp.CARGANDO -> PantallaCargando()
-
-            EstadoApp.REQUIERE_LOGIN -> PantallaLogin(navigator)   // <- aquí el cambio
-
+            EstadoApp.REQUIERE_LOGIN -> PantallaLogin(navigator, mensajeError)
             EstadoApp.AUTENTICADO -> PantallaCargando()
         }
+
 
     }
 
@@ -843,12 +823,14 @@ class MainActivity : ComponentActivity() {
      * Pantalla de login con contraseña
      */
     @Composable
-    fun PantallaLogin(navigator: AppNavigator) {
+    fun PantallaLogin(navigator: AppNavigator, errorInicial: String = "") {
         var usuario by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         var passwordVisible by remember { mutableStateOf(false) }
-        var mensajeError by remember { mutableStateOf("") }
+        var mensajeError by remember { mutableStateOf(errorInicial) }
         var cargando by remember { mutableStateOf(false) }
+        var mostrarError by remember { mutableStateOf(false) }
+        val focusManager = LocalFocusManager.current
 
         Box(
             modifier = Modifier
@@ -886,6 +868,15 @@ class MainActivity : ComponentActivity() {
                     color = Color.Gray,
                     textAlign = TextAlign.Center
                 )
+
+                OutlinedButton(
+                    onClick = { focusManager.clearFocus() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.KeyboardHide, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Ocultar Teclado")
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -930,7 +921,7 @@ class MainActivity : ComponentActivity() {
                     keyboardActions = KeyboardActions(
                         onDone = {
                             if (usuario.isNotBlank() && password.isNotBlank()) {
-                                // Ejecutar login
+                                // Se ejecutará el login
                             }
                         }
                     ),
@@ -976,10 +967,25 @@ class MainActivity : ComponentActivity() {
                         if (usuario.isBlank() || password.isBlank()) {
                             mensajeError = "Completa todos los campos"
                         } else {
+                            // ✅ SOLUCIÓN: Verificar Firebase Auth ANTES de hacer login
+                            val firebaseUser = auth.currentUser
+
+                            if (firebaseUser == null) {
+                                mensajeError = "Error: Firebase no está listo. Reinicia la app."
+                                Log.e(TAG, "❌ Firebase Auth no está inicializado")
+                                return@Button
+                            }
+
                             cargando = true
                             mensajeError = ""
 
-                            Log.d(TAG, "🔐 Intentando login: $usuario")
+                            Log.d(TAG, "╔═══════════════════════════════════════╗")
+                            Log.d(TAG, "🔐 INICIANDO LOGIN")
+                            Log.d(TAG, "   Usuario ingresado: '$usuario'")
+                            Log.d(TAG, "   Password length: ${password.length}")
+                            Log.d(TAG, "   Firebase Auth UID: ${firebaseUser.uid}")
+                            Log.d(TAG, "   Ruta Firebase: /AppConfig/Usuarios/$usuario")
+                            Log.d(TAG, "╚═══════════════════════════════════════╝")
 
                             authManager.login(usuario, password) { resultado ->
                                 cargando = false
@@ -987,26 +993,44 @@ class MainActivity : ComponentActivity() {
                                 when (resultado) {
                                     is ResultadoAutenticacion.Exito -> {
                                         val user = resultado.usuario
-                                        Log.d(TAG, "✅ Login exitoso: ${user.usuario}")
-                                        Log.d(TAG, "👤 Nombre: ${user.nombre}")
-                                        Log.d(TAG, "🎭 Rol: ${user.rol}")
-                                        navigator.navigateToHybridHome(clearBackStack = true)
+
+                                        // ✅ 1. Establecer usuario en contexto
+                                        UsuarioContext.setUsuario(user)
+
+                                        // ✅ 2. Verificar si tiene partido asignado
+                                        val partidoAsignado = user.permisos.codigoPartido
+
+                                        if (!partidoAsignado.isNullOrEmpty()) {
+                                            // ✅ CASO CORRESPONSAL: Tiene partido asignado
+                                            Log.d(TAG, "🎯 Corresponsal con partido: $partidoAsignado")
+
+                                            // Cargar partido y navegar
+                                            cargarPartidoYNavegar(partidoAsignado, navigator)
+                                        } else {
+                                            // ✅ CASO ADMIN/OPERADOR: Sin partido específico
+                                            Log.d(TAG, "👑 Usuario sin partido asignado: acceso completo")
+                                            navigator.navigateToHome(clearBackStack = true)
+                                        }
                                     }
+
                                     is ResultadoAutenticacion.CredencialesInvalidas -> {
-                                        Log.w(TAG, "❌ Credenciales inválidas")
-                                        mensajeError = Constants.Mensajes.USUARIO_O_PASSWORD_INCORRECTO
+                                        mensajeError = "Usuario o contraseña incorrectos"
+                                        mostrarError = true
                                     }
+
                                     is ResultadoAutenticacion.UsuarioNoAutorizado -> {
-                                        Log.w(TAG, "⛔ Usuario no autorizado")
-                                        mensajeError = Constants.Mensajes.USUARIO_NO_AUTORIZADO
+                                        mensajeError = "Usuario no autorizado. Contacte al administrador."
+                                        mostrarError = true
                                     }
-                                    is ResultadoAutenticacion.UsuarioNoEncontrado -> {
-                                        Log.w(TAG, "❌ Usuario no encontrado")
-                                        mensajeError = Constants.Mensajes.USUARIO_NO_ENCONTRADO
-                                    }
+
                                     is ResultadoAutenticacion.Error -> {
-                                        Log.e(TAG, "❌ Error: ${resultado.mensaje}")
                                         mensajeError = resultado.mensaje
+                                        mostrarError = true
+                                    }
+
+                                    else -> {
+                                        mensajeError = "Error desconocido"
+                                        mostrarError = true
                                     }
                                 }
                             }
@@ -1063,5 +1087,65 @@ class MainActivity : ComponentActivity() {
         CARGANDO,           // Iniciando y verificando
         REQUIERE_LOGIN,     // Necesita ingresar contraseña
         AUTENTICADO         // Ya autenticado correctamente
+    }
+
+
+
+    /**
+     * Carga el partido asignado y navega según el estado
+     */
+    private fun cargarPartidoYNavegar(
+        codigoPartido: String,
+        navigator: AppNavigator
+    ) {
+        lifecycleScope.launch {
+            try {
+                // 1. Cargar partido desde Firebase
+                val repository = FirebaseCatalogRepository(FirebaseDatabase.getInstance())
+                val partido = repository.obtenerPartidoPorCodigo(codigoPartido)
+
+                if (partido != null) {
+                    // Verificar si el partido está caducado
+                    if (partido.estaCaducado()) {
+                        Log.d(TAG, "⚠️ Partido caducado, mostrar selección")
+                        // Partido caducado → mostrar pantalla de selección
+                        navigator.navigateToPartidoSeleccion(clearBackStack = true)
+                        return@launch
+                    }
+
+                    // 2. Establecer PartidoContext
+                    PartidoContext.setPartidoActivo(partido)
+
+                    // 3. Cargar campeonato del partido
+                    val campeonato = repository.obtenerCampeonato(
+                        partido.CAMPEONATOCODIGO
+                    )
+
+                    if (campeonato != null) {
+                        // 4. Establecer DeporteContext según campeonato
+                        val deporte = SportType.fromId(campeonato.DEPORTE)
+                        DeporteContext.seleccionarDeporte(deporte)
+
+                        // 5. Establecer CampeonatoContext
+                        CampeonatoContext.seleccionarCampeonato(campeonato)
+                    }
+
+                    // 6. Navegar directo a Tiempo Real
+                    Log.d(TAG, "✅ Navegando a Tiempo Real: ${partido.getNombrePartido()}")
+                    navigator.navigateToTiempoReal(
+                        partidoId = codigoPartido,
+                        clearBackStack = true
+                    )
+                } else {
+                    // Partido no encontrado → mostrar selección
+                    Log.e(TAG, "❌ Partido no encontrado: $codigoPartido")
+                    navigator.navigateToPartidoSeleccion(clearBackStack = true)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error al cargar partido: ${e.message}")
+                // En caso de error → ir a Home
+                navigator.navigateToHome(clearBackStack = true)
+            }
+        }
     }
 }
