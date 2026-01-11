@@ -211,4 +211,104 @@ class FirebaseCatalogRepository(
     suspend fun deletePartido(codigoPartido: String) {
         partidosReference().child(codigoPartido).removeValue().await()
     }
+
+    /**
+     * Observa un partido específico en tiempo real
+     *
+     * Ruta Firebase: /DatosFutbol/Campeonatos/{campeonatoId}/Partidos/{partidoId}
+     * VB.NET Equivalente: RutaPartidoFB = RaizFireBase & "/DatosFutbol/Campeonatos/" & CodigoCampeonato & "/Partidos/" & CodigoPartido
+     *
+     * @param campeonatoId ID del campeonato
+     * @param partidoId ID del partido
+     * @return Flow que emite el partido cuando hay cambios
+     */
+    fun observePartido(campeonatoId: String, partidoId: String): Flow<Partido> = callbackFlow {
+        val reference = database.reference
+            .child(rootNode)       // ✅ "ARKI_DEPORTES"
+            .child("DatosFutbol")
+            .child("Campeonatos")
+            .child(campeonatoId)
+            .child("Partidos")
+            .child(partidoId)
+
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val partido = snapshot.getValue(Partido::class.java)
+                if (partido != null) {
+                    trySend(partido)
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                close(error.toException())
+            }
+        }
+
+        reference.addValueEventListener(listener)
+        awaitClose { reference.removeEventListener(listener) }
+    }
+
+    /**
+     * Actualiza campos específicos de un partido
+     *
+     * Ruta Firebase: /DatosFutbol/Campeonatos/{campeonatoId}/Partidos/{partidoId}
+     * VB.NET Equivalente: FirebaseManager.EnqueueSet(RutaPartidoFB & "CAMPO", valor, prioridad)
+     *
+     * @param campeonatoId ID del campeonato
+     * @param partidoId ID del partido
+     * @param updates Mapa de campos a actualizar
+     * @return Result con éxito o error
+     */
+    suspend fun updatePartidoFields(
+        campeonatoId: String,
+        partidoId: String,
+        updates: Map<String, Any?>
+    ): Result<Unit> = try {
+        val reference = database.reference
+            .child(rootNode)
+            .child("DatosFutbol")
+            .child("Campeonatos")
+            .child(campeonatoId)
+            .child("Partidos")
+            .child(partidoId)
+
+        reference.updateChildren(updates).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    /**
+     * Sincroniza el partido al nodo PARTIDOACTUAL (para overlays)
+     *
+     * Ruta Firebase: /PARTIDOACTUAL
+     * VB.NET Equivalente: Nodo especial para overlays web
+     *
+     * @param partido Partido a sincronizar
+     * @return Result con éxito o error
+     */
+    suspend fun sincronizarPartidoActual(partido: Partido): Result<Unit> = try {
+        val reference = database.reference.child("PARTIDOACTUAL")
+
+        val data = mapOf(
+            "Equipo1" to partido.Equipo1,
+            "Equipo2" to partido.Equipo2,
+            "Goles1" to partido.GOLES1,
+            "Goles2" to partido.GOLES2,
+            "NumeroDeTiempo" to partido.NumeroDeTiempo,
+            "TIEMPOJUEGO" to partido.TIEMPOJUEGO,
+            "Amarillas1" to partido.TAMARILLAS1,
+            "Amarillas2" to partido.TAMARILLAS2,
+            "Rojas1" to partido.TROJAS1,
+            "Rojas2" to partido.TROJAS2,
+            "Esquinas1" to partido.ESQUINAS1,
+            "Esquinas2" to partido.ESQUINAS2,
+            "Fecha" to partido.Fecha
+        )
+
+        reference.setValue(data).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

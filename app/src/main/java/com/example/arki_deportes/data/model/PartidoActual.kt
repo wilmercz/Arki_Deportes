@@ -230,6 +230,11 @@ data class PartidoActual(
     private fun sportType(): SportType = SportType.fromId(DEPORTE)
 
     /**
+     * Convierte el Partido a Map para guardarlo en Firebase
+     * Necesario para .setValue(partido.toMap())
+     */
+
+    /**
      * Obtiene el texto del estado en español amigable
      *
      * @return String con el estado legible
