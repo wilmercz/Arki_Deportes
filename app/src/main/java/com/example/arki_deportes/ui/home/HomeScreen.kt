@@ -521,9 +521,10 @@ private fun Partido.getDeporteTexto(): String = "Fútbol"
 private fun Partido.getMarcadorLabel(): String = "Marcador"
 
 private fun Partido.getMarcador(): String {
-    val g1 = GOLES1.trim()
-    val g2 = GOLES2.trim()
-    return if (TIEMPOSJUGADOS == 0 && g1 == "0" && g2 == "0") "vs" else "$g1 - $g2"
+    val g1 = GOLES1  // ← Int directo (sin .trim())
+    val g2 = GOLES2  // ← Int directo (sin .trim())
+    return if (TIEMPOSJUGADOS == 0 && g1 == 0 && g2 == 0) "vs" else "$g1 - $g2"
+    //                                      ↑ Comparar con 0 (Int) no "0" (String)
 }
 
 private fun Partido.getTiempoJuegoLabel(): String = "Tiempo"

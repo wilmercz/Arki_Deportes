@@ -304,7 +304,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Agregando gol equipo 1: $goles")
 
             val updates = mapOf(
-                "GOLES1" to goles.toString()
+                "GOLES1" to goles
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -326,7 +326,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Restando gol equipo 1: $goles")
 
             val updates = mapOf(
-                "GOLES1" to goles.toString()
+                "GOLES1" to goles
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -356,7 +356,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Agregando gol equipo 2: $goles")
 
             val updates = mapOf(
-                "GOLES2" to goles.toString()
+                "GOLES2" to goles
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -378,7 +378,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Restando gol equipo 2: $goles")
 
             val updates = mapOf(
-                "GOLES2" to goles.toString()
+                "GOLES2" to goles
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -405,7 +405,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Agregando amarilla equipo 1: $amarillas")
 
             val updates = mapOf(
-                "TAMARILLAS1" to amarillas.toString()
+                "TAMARILLAS1" to amarillas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -427,7 +427,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Restando amarilla equipo 1: $amarillas")
 
             val updates = mapOf(
-                "TAMARILLAS1" to amarillas.toString()
+                "TAMARILLAS1" to amarillas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -449,7 +449,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Agregando amarilla equipo 2: $amarillas")
 
             val updates = mapOf(
-                "TAMARILLAS2" to amarillas.toString()
+                "TAMARILLAS2" to amarillas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -471,7 +471,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Restando amarilla equipo 2: $amarillas")
 
             val updates = mapOf(
-                "TAMARILLAS2" to amarillas.toString()
+                "TAMARILLAS2" to amarillas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -498,7 +498,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Agregando roja equipo 1: $rojas")
 
             val updates = mapOf(
-                "TROJAS1" to rojas.toString()
+                "TROJAS1" to rojas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -520,7 +520,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Restando roja equipo 1: $rojas")
 
             val updates = mapOf(
-                "TROJAS1" to rojas.toString()
+                "TROJAS1" to rojas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -542,7 +542,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Agregando roja equipo 2: $rojas")
 
             val updates = mapOf(
-                "TROJAS2" to rojas.toString()
+                "TROJAS2" to rojas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -564,7 +564,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Restando roja equipo 2: $rojas")
 
             val updates = mapOf(
-                "TROJAS2" to rojas.toString()
+                "TROJAS2" to rojas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -591,7 +591,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Agregando esquina equipo 1: $esquinas")
 
             val updates = mapOf(
-                "ESQUINAS1" to esquinas.toString()
+                "ESQUINAS1" to esquinas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -613,7 +613,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Restando esquina equipo 1: $esquinas")
 
             val updates = mapOf(
-                "ESQUINAS1" to esquinas.toString()
+                "ESQUINAS1" to esquinas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -635,7 +635,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Agregando esquina equipo 2: $esquinas")
 
             val updates = mapOf(
-                "ESQUINAS2" to esquinas.toString()
+                "ESQUINAS2" to esquinas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -657,7 +657,7 @@ class TiempoRealViewModel(
             Log.d(TAG, "Restando esquina equipo 2: $esquinas")
 
             val updates = mapOf(
-                "ESQUINAS2" to esquinas.toString()
+                "ESQUINAS2" to esquinas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)

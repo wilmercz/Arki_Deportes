@@ -225,7 +225,14 @@ class MainActivity : ComponentActivity() {
                         navigator = navigator,
                         loginRoute = { navigatorParam -> PantallaInicio(navigatorParam) },
                         hybridHomeRoute = { navigatorParam -> PantallaBienvenida(navigatorParam, openDrawer = openDrawer) },
-                        realTimeRoute = { navigatorParam -> PantallaTiempoReal(navigatorParam, openDrawer = openDrawer) },
+                        realTimeRoute = { navigatorParam, campeonatoId, partidoId ->
+                            PantallaTiempoReal(
+                                navigator = navigatorParam,
+                                campeonatoId = campeonatoId,
+                                partidoId = partidoId,
+                                openDrawer = openDrawer
+                            )
+                        },
                         catalogsRoute = { navigatorParam -> PantallaCatalogos(navigatorParam, openDrawer = openDrawer) },
                         mencionesRoute = { navigatorParam -> PantallaMenciones(navigatorParam, openDrawer = openDrawer) },
                         equipoProduccionRoute = { navigatorParam -> PantallaEquipoProduccion(navigatorParam, openDrawer = openDrawer) },
@@ -261,8 +268,12 @@ class MainActivity : ComponentActivity() {
 
 
     @Composable
-    fun PantallaTiempoReal(navigator: AppNavigator, openDrawer: () -> Unit) {
-
+    fun PantallaTiempoReal(
+        navigator: AppNavigator,
+        campeonatoId: String,
+        partidoId: String,
+        openDrawer: () -> Unit
+    ) {
         // ✅ Este es el tipo que espera tu TiempoRealViewModel
         val repository = remember(database, configManager) {
             FirebaseCatalogRepository(
@@ -271,9 +282,6 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        // ✅ IDs temporales para compilar (luego los conectamos al "partido actual")
-        val campeonatoId = remember { "" }
-        val partidoId = remember { "" }
 
         val viewModel: TiempoRealViewModel = viewModel(
             factory = TiempoRealViewModelFactory(repository, campeonatoId, partidoId)
@@ -288,6 +296,7 @@ class MainActivity : ComponentActivity() {
             }
         )
     }
+
 
     @Composable
     fun PantallaCatalogos(navigator: AppNavigator, openDrawer: () -> Unit) {
@@ -730,24 +739,23 @@ class MainActivity : ComponentActivity() {
     /**
      * Carga el partido asignado y navega según el estado
      */
-    private fun cargarPartidoYNavegar(  // ← RESTAURAR
-        codigoPartido: String,
+    private fun cargarPartidoYNavegar(
+        campeonatoId: String,
+        partidoId: String,
         navigator: AppNavigator
     ) {
         lifecycleScope.launch {
             try {
                 val repository = FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
-                val partido = repository.getPartido(codigoPartido)
+
+                // ✅ obtener partido con campeonatoId
+                val partido = repository.getPartido(campeonatoId, partidoId)
 
                 if (partido != null) {
-                    // TODO: Verificar si está caducado
-                    // if (partido.estaCaducado()) { ... }
-
-                    // Establecer contextos
                     PartidoContext.setPartidoActivo(partido)
 
-                    // Cargar campeonato
-                    val campeonato = repository.getCampeonato(partido.CAMPEONATOCODIGO)
+                    // ✅ cargar campeonato por el mismo campeonatoId
+                    val campeonato = repository.getCampeonato(campeonatoId)
                     if (campeonato != null) {
                         CampeonatoContext.seleccionarCampeonato(campeonato)
 
@@ -755,13 +763,13 @@ class MainActivity : ComponentActivity() {
                         DeporteContext.seleccionarDeporte(deporte)
                     }
 
-                    // Navegar a Tiempo Real
+                    // ✅ navegar con ambos IDs
                     navigator.navigateToTiempoReal(
-                        partidoId = codigoPartido,
+                        campeonatoId = campeonatoId,
+                        partidoId = partidoId,
                         clearBackStack = true
                     )
                 } else {
-                    // Partido no encontrado
                     navigator.navigateToHybridHome(clearBackStack = true)
                 }
             } catch (e: Exception) {
@@ -770,6 +778,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
     /**
      * Pantalla de login con contraseña
      */
@@ -999,16 +1008,15 @@ class MainActivity : ComponentActivity() {
                                     UsuarioContext.setUsuario(user)
 
                                     // ✅ 2. Verificar si tiene partido asignado
-                                    val partidoAsignado = user.permisos.codigoPartido
+                                    val partidoId = user.permisos.codigoPartido
+                                    val campeonatoId = user.permisos.codigoCampeonato
 
-                                    if (!partidoAsignado.isNullOrEmpty() &&
-                                        partidoAsignado != "NINGUNO") {
-                                        // 🎯 CASO CORRESPONSAL: Tiene partido asignado
-                                        Log.d(TAG, "🎯 Corresponsal con partido: $partidoAsignado")
-                                        cargarPartidoYNavegar(partidoAsignado, navigator)
+                                    if (!campeonatoId.isNullOrBlank() && campeonatoId != "NINGUNO" &&
+                                        !partidoId.isNullOrBlank() && partidoId != "NINGUNO"
+                                    ) {
+                                        Log.d(TAG, "🎯 Asignado: campeonato=$campeonatoId partido=$partidoId")
+                                        cargarPartidoYNavegar(campeonatoId, partidoId, navigator)
                                     } else {
-                                        // 👑 CASO ADMIN/OPERADOR: Sin partido específico
-                                        Log.d(TAG, "👑 Usuario sin partido asignado: acceso completo")
                                         navigator.navigateToHybridHome(clearBackStack = true)
                                     }
                                 }

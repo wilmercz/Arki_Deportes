@@ -33,7 +33,7 @@ object ShareUtils {
     /**
      * Construye el mensaje para compartir un partido.
      * Adaptado al modelo Partido.kt actual (VB.NET compatible).
-     */
+
     fun buildPartidoShareMessage(partido: Partido): String {
         val equipo1 = partido.Equipo1.ifBlank { "Equipo 1" }
         val equipo2 = partido.Equipo2.ifBlank { "Equipo 2" }
@@ -45,6 +45,7 @@ object ShareUtils {
             estadio = partido.ESTADIO,
             lugar = partido.LUGAR
         )
+
 
         val marcador = buildMarcador(partido.GOLES1, partido.GOLES2)
 
@@ -70,6 +71,7 @@ object ShareUtils {
             append("#ArkiDeportes")
         }.trim()
     }
+     */
 
     /**
      * Construye el mensaje para compartir una mención.
@@ -111,6 +113,10 @@ object ShareUtils {
         partido: Partido,
         chooserTitle: String? = null
     ) {
+
+        //ESA FUNCION ESTA DESACTIVADA TEMPORALMENTE PARA COMPILAR LA APP
+        //DEBEMOS ACTUALIZAR PRIMERO LA FUNCION  buildPartidoShareMessage PORQUE EL MODELO DE DATOS ES MAS AMPLIO
+        /*
         val message = buildPartidoShareMessage(partido)
         shareText(
             context = context,
@@ -119,6 +125,8 @@ object ShareUtils {
             packageName = WHATSAPP_PACKAGE,
             missingAppMessage = "Necesitas instalar WhatsApp para compartir el partido."
         )
+
+         */
     }
 
     /**

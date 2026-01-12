@@ -1,5 +1,6 @@
 package com.example.arki_deportes.data.repository
 
+import android.util.Log
 import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.model.Grupo
@@ -117,29 +118,6 @@ class FirebaseCatalogRepository(
         awaitClose { reference.removeEventListener(listener) }
     }
 
-    fun observePartidos(campeonatoCodigo: String? = null): Flow<List<Partido>> = callbackFlow {
-        val reference: Query = if (campeonatoCodigo.isNullOrBlank()) {
-            partidosReference()
-        } else {
-            partidosReference().orderByChild("CAMPEONATOCODIGO").equalTo(campeonatoCodigo)
-        }
-
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val partidos = snapshot.children.mapNotNull { child ->
-                    child.getValue(Partido::class.java)
-                }
-                trySend(partidos.sortedBy { it.FECHA_PARTIDO })
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                close(error.toException())
-            }
-        }
-        reference.addValueEventListener(listener)
-        awaitClose { reference.removeEventListener(listener) }
-    }
-
     // ─────────────────────────────────────────────────────────────────────────────
     // Operaciones de lectura única
     // ─────────────────────────────────────────────────────────────────────────────
@@ -159,10 +137,41 @@ class FirebaseCatalogRepository(
         return snapshot.getValue(Equipo::class.java)
     }
 
-    suspend fun getPartido(codigoPartido: String): Partido? {
-        val snapshot = partidosReference().child(codigoPartido).get().await()
-        return snapshot.getValue(Partido::class.java)
+    suspend fun getPartido(campeonatoId: String, partidoId: String): Partido? {
+        return try {
+            if (campeonatoId.isBlank() || partidoId.isBlank()) return null
+
+            Log.d("FirebaseCatalogRepo", "🔍 Buscando partido (directo): $campeonatoId / $partidoId")
+
+            val snap = database.reference
+                .child(rootNode)
+                .child("DatosFutbol")
+                .child("Campeonatos")
+                .child(campeonatoId)
+                .child("Partidos")
+                .child(partidoId)
+                .get()
+                .await()
+
+            if (!snap.exists()) {
+                Log.w("FirebaseCatalogRepo", "❌ Partido no existe en $campeonatoId: $partidoId")
+                return null
+            }
+
+            val partido = snap.getValue(Partido::class.java)
+            if (partido == null) {
+                Log.w("FirebaseCatalogRepo", "❌ Partido null al parsear: $partidoId")
+                return null
+            }
+
+            // ✅ asegurar que el modelo quede consistente
+            partido.copy(CAMPEONATOCODIGO = campeonatoId)
+        } catch (e: Exception) {
+            Log.e("FirebaseCatalogRepo", "❌ Error getPartido directo: ${e.message}", e)
+            null
+        }
     }
+
 
     // ─────────────────────────────────────────────────────────────────────────────
     // Operaciones de guardado
@@ -224,22 +233,26 @@ class FirebaseCatalogRepository(
      */
     fun observePartido(campeonatoId: String, partidoId: String): Flow<Partido> = callbackFlow {
         val reference = database.reference
-            .child(rootNode)       // ✅ "ARKI_DEPORTES"
+            .child(rootNode)
             .child("DatosFutbol")
             .child("Campeonatos")
             .child(campeonatoId)
             .child("Partidos")
             .child(partidoId)
 
+        Log.d("FirebaseCatalogRepo", "👁️ Observando: $partidoId en $campeonatoId")
+
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val partido = snapshot.getValue(Partido::class.java)
                 if (partido != null) {
+                    Log.d("FirebaseCatalogRepo", "📥 Actualizado: ${partido.Equipo1} vs ${partido.Equipo2}")
                     trySend(partido)
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
+                Log.e("FirebaseCatalogRepo", "❌ Error: ${error.message}")
                 close(error.toException())
             }
         }
@@ -247,6 +260,7 @@ class FirebaseCatalogRepository(
         reference.addValueEventListener(listener)
         awaitClose { reference.removeEventListener(listener) }
     }
+
 
     /**
      * Actualiza campos específicos de un partido
@@ -272,9 +286,16 @@ class FirebaseCatalogRepository(
             .child("Partidos")
             .child(partidoId)
 
+        Log.d("FirebaseCatalogRepo", "💾 Actualizando: $partidoId")
+        Log.d("FirebaseCatalogRepo", "   Campeonato: $campeonatoId")
+        Log.d("FirebaseCatalogRepo", "   Campos: ${updates.keys}")
+
         reference.updateChildren(updates).await()
+
+        Log.d("FirebaseCatalogRepo", "✅ Actualizado exitosamente")
         Result.success(Unit)
     } catch (e: Exception) {
+        Log.e("FirebaseCatalogRepo", "❌ Error: ${e.message}", e)
         Result.failure(e)
     }
 

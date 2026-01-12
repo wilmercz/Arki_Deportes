@@ -71,10 +71,13 @@ private fun SharePreviewCard(partido: Partido) {
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
+        /* desactivado temporalmente para compilar
         Text(
             text = ShareUtils.buildPartidoShareMessage(partido),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(16.dp)
         )
+
+         */
     }
 }

@@ -61,9 +61,11 @@ fun PartidoFormScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    /* DESACTIVADO TEMPORALMENTE
     LaunchedEffect(codigoPartido) {
         viewModel.loadPartido(codigoPartido)
     }
+    */
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -79,6 +81,9 @@ fun PartidoFormScreen(
         }
     }
 
+
+    /* 'DESACTIVADO TEMPORALMENTE SOLO PARA COMPILAR LA APP
+    //ESTO DEBE MEJORAR YA QUE EL MODELO DE DATOS PARTIDO SE AMPLIO PARA SE COMPATIBLE CON VBNET
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -268,6 +273,8 @@ fun PartidoFormScreen(
             }
         }
     }
+
+     */
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -1,27 +1,24 @@
 // ui/realtime/components/CronometroPanel.kt
 
+
 package com.example.arki_deportes.ui.realtime.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Color
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CRONÓMETRO PANEL
+ * CRONÓMETRO PANEL - CON TABS PARA AHORRAR ESPACIO
  * ═══════════════════════════════════════════════════════════════════════════
- *
- * Panel superior que muestra el cronómetro y controles
- *
- * Botones:
- * - INICIAR: Inicia el partido (0T→1T o 2T→3T)
- * - DETENER: Detiene el partido (1T→2T o 3T→4T)
- * - Ajustes: +/- tiempo (1s, 10s, 30s, 1m, 5m)
  */
 @Composable
 fun CronometroPanel(
@@ -32,27 +29,115 @@ fun CronometroPanel(
     onAjustar: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var selectedTab by remember { mutableStateOf(0) }
+
     Card(
         modifier = modifier,
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             // ═══════════════════════════════════════════════════════════
-            // DISPLAY DEL CRONÓMETRO
+            // TABS
             // ═══════════════════════════════════════════════════════════
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("⏱️ Cronómetro") }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("🎮 Controles") }
+                )
+
+                // Solo mostrar tab de ajustes si está jugando
+                if (numeroTiempo == "1T" || numeroTiempo == "3T") {
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("⚙️ Ajustes") }
+                    )
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // CONTENIDO DE LOS TABS
+            // ═══════════════════════════════════════════════════════════
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                when (selectedTab) {
+                    0 -> TabCronometro(tiempoActual, numeroTiempo)
+                    1 -> TabControles(numeroTiempo, onIniciar, onDetener)
+                    2 -> TabAjustes(onAjustar)
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 1: VISUALIZACIÓN DEL CRONÓMETRO
+// ═══════════════════════════════════════════════════════════════════════════
+@Composable
+private fun TabCronometro(tiempoActual: String, numeroTiempo: String) {
+    // ✅ Determinar si está corriendo
+    val estaCorriendo = numeroTiempo == "1T" || numeroTiempo == "3T"
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // ═══════════════════════════════════════════════════════════
+        // TIEMPO GRANDE CON INDICADOR DE ESTADO
+        // ═══════════════════════════════════════════════════════════
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            // ✅ Indicador pulsante cuando está corriendo
+            if (estaCorriendo) {
+                IndicadorPulsante()
+                Spacer(Modifier.width(16.dp))
+            }
+
             Text(
                 text = tiempoActual,
-                fontSize = 48.sp,
+                fontSize = 60.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = if (estaCorriendo)
+                    MaterialTheme.colorScheme.primary // Verde/Azul cuando corre
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant // Gris cuando está detenido
             )
+        }
 
+        // ═══════════════════════════════════════════════════════════
+        // ESTADO DEL PARTIDO - MINIMALISTA (NO PARECE BOTÓN)
+        // ═══════════════════════════════════════════════════════════
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            // Solo texto simple con icono
+            Text(
+                text = when (numeroTiempo) {
+                    "0T" -> "⏸️"
+                    "1T" -> "▶️"
+                    "2T" -> "☕"
+                    "3T" -> "▶️"
+                    "4T" -> "✅"
+                    else -> "•"
+                },
+                fontSize = 12.sp
+            )
+            Spacer(Modifier.width(6.dp))
             Text(
                 text = when (numeroTiempo) {
                     "0T" -> "No iniciado"
@@ -62,99 +147,257 @@ fun CronometroPanel(
                     "4T" -> "Finalizado"
                     else -> numeroTiempo
                 },
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Normal // ← Menos peso = menos parecido a botón
             )
-
-            Divider()
-
-            // ═══════════════════════════════════════════════════════════
-            // BOTONES PRINCIPALES
-            // ═══════════════════════════════════════════════════════════
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Botón INICIAR (solo si no está jugando)
-                if (numeroTiempo == "0T" || numeroTiempo == "2T") {
-                    Button(
-                        onClick = onIniciar,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(if (numeroTiempo == "0T") "INICIAR" else "SEGUNDO TIEMPO")
-                    }
-                }
-
-                // Botón DETENER (solo si está jugando)
-                if (numeroTiempo == "1T" || numeroTiempo == "3T") {
-                    Button(
-                        onClick = onDetener,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Text(if (numeroTiempo == "1T") "FIN 1ER TIEMPO" else "FINALIZAR")
-                    }
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════
-            // BOTONES DE AJUSTE (solo si está jugando)
-            // ═══════════════════════════════════════════════════════════
-            if (numeroTiempo == "1T" || numeroTiempo == "3T") {
-                Divider()
-
-                Text(
-                    text = "Ajustes de Tiempo",
-                    style = MaterialTheme.typography.labelMedium
-                )
-
-                // Botones POSITIVOS (+)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    AjusteButton("+1s", 1, onAjustar, Modifier.weight(1f))
-                    AjusteButton("+10s", 10, onAjustar, Modifier.weight(1f))
-                    AjusteButton("+30s", 30, onAjustar, Modifier.weight(1f))
-                    AjusteButton("+1m", 60, onAjustar, Modifier.weight(1f))
-                    AjusteButton("+5m", 300, onAjustar, Modifier.weight(1f))
-                }
-
-                // Botones NEGATIVOS (-)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    AjusteButton("-1s", -1, onAjustar, Modifier.weight(1f))
-                    AjusteButton("-10s", -10, onAjustar, Modifier.weight(1f))
-                    AjusteButton("-30s", -30, onAjustar, Modifier.weight(1f))
-                    AjusteButton("-1m", -60, onAjustar, Modifier.weight(1f))
-                    AjusteButton("-5m", -300, onAjustar, Modifier.weight(1f))
-                }
-            }
         }
     }
 }
 
 /**
- * Botón de ajuste de tiempo
+ * Indicador visual pulsante para cuando el cronómetro está corriendo
  */
+@Composable
+private fun IndicadorPulsante() {
+    // ✅ Animación infinita de pulso
+    val infiniteTransition = rememberInfiniteTransition(label = "pulso")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "escala"
+    )
+
+    Box(
+        modifier = Modifier.size(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Círculo pulsante
+        Canvas(modifier = Modifier.size(16.dp)) {
+            drawCircle(
+                color = Color(0xFF4CAF50), // Verde success
+                radius = size.minDimension / 2 * scale
+            )
+        }
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 2: CONTROLES (INICIAR/DETENER)
+// ═══════════════════════════════════════════════════════════════════════════
+@Composable
+private fun TabControles(
+    numeroTiempo: String,
+    onIniciar: () -> Unit,
+    onDetener: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        when (numeroTiempo) {
+            "0T" -> {
+                // No iniciado
+                Text(
+                    text = "Partido listo para iniciar",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Button(
+                    onClick = onIniciar,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text("▶️ INICIAR PRIMER TIEMPO", fontSize = 16.sp)
+                }
+            }
+
+            "1T" -> {
+                // Primer tiempo jugando
+                Text(
+                    text = "Primer tiempo en curso",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Button(
+                    onClick = onDetener,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("⏸️ FINALIZAR PRIMER TIEMPO", fontSize = 16.sp)
+                }
+            }
+
+            "2T" -> {
+                // Descanso
+                Text(
+                    text = "Medio tiempo - Descanso",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+
+                Button(
+                    onClick = onIniciar,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text("▶️ INICIAR SEGUNDO TIEMPO", fontSize = 16.sp)
+                }
+            }
+
+            "3T" -> {
+                // Segundo tiempo jugando
+                Text(
+                    text = "Segundo tiempo en curso",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Button(
+                    onClick = onDetener,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("🏁 FINALIZAR PARTIDO", fontSize = 16.sp)
+                }
+            }
+
+            "4T" -> {
+                // Finalizado
+                Text(
+                    text = "✅ Partido finalizado",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 3: AJUSTES MANUALES
+// ═══════════════════════════════════════════════════════════════════════════
+@Composable
+private fun TabAjustes(onAjustar: (Int) -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Advertencia
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "⚠️", fontSize = 24.sp)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Ajustes Manuales",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Text(
+                        text = "Usar solo para corregir errores del cronómetro",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+        }
+
+        Text(
+            text = "➕ Añadir tiempo",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        // Botones POSITIVOS
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AjusteButton("+1s", 1, onAjustar, Modifier.weight(1f), isPositive = true)
+            AjusteButton("+10s", 10, onAjustar, Modifier.weight(1f), isPositive = true)
+            AjusteButton("+30s", 30, onAjustar, Modifier.weight(1f), isPositive = true)
+            AjusteButton("+1m", 60, onAjustar, Modifier.weight(1f), isPositive = true)
+            AjusteButton("+5m", 300, onAjustar, Modifier.weight(1f), isPositive = true)
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        Text(
+            text = "➖ Restar tiempo",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        // Botones NEGATIVOS
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AjusteButton("-1s", -1, onAjustar, Modifier.weight(1f), isPositive = false)
+            AjusteButton("-10s", -10, onAjustar, Modifier.weight(1f), isPositive = false)
+            AjusteButton("-30s", -30, onAjustar, Modifier.weight(1f), isPositive = false)
+            AjusteButton("-1m", -60, onAjustar, Modifier.weight(1f), isPositive = false)
+            AjusteButton("-5m", -300, onAjustar, Modifier.weight(1f), isPositive = false)
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BOTÓN DE AJUSTE MEJORADO
+// ═══════════════════════════════════════════════════════════════════════════
 @Composable
 private fun AjusteButton(
     texto: String,
     segundos: Int,
     onAjustar: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isPositive: Boolean
 ) {
-    OutlinedButton(
+    Button(
         onClick = { onAjustar(segundos) },
-        modifier = modifier,
+        modifier = modifier.height(48.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isPositive)
+                MaterialTheme.colorScheme.primary
+            else
+                MaterialTheme.colorScheme.secondary
+        ),
         contentPadding = PaddingValues(4.dp)
     ) {
         Text(
             text = texto,
-            fontSize = 10.sp
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
         )
     }
 }
+

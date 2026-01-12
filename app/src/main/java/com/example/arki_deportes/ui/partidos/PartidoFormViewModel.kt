@@ -30,20 +30,48 @@ data class PartidoFormData(
     val codigoPartido: String = "",
     val campeonatoCodigo: String = "",
     val campeonatoNombre: String = "",
+
+    val serieCodigo: String = "",
     val grupoCodigo: String = "",
+    val grupoNombre: String = "",
+
     val equipo1Codigo: String = "",
     val equipo2Codigo: String = "",
+
     val fechaPartido: String = "",
     val horaPartido: String = "",
+
     val estadio: String = "",
     val provincia: String = "",
+    val lugar: String = "",
+
+    val arbitro1: String = "",
+
     val transmision: Boolean = false,
+    val anio: Int = 0,
+
     val etapa: Int = Constants.EtapasPartido.NINGUNO,
-    val goles1: String = "",
-    val goles2: String = "",
-    val textoFacebook: String = "",
-    val lugar: String = ""
+    val fase: String = "",
+    val numeroPartido: Int = 0,
+
+    val tiempoJuego: String = "",
+    val tiemposJugados: Int = 0,
+
+    val goles1: Int = 0,
+    val goles2: Int = 0,
+
+    val esquinas1: Int = 0,
+    val esquinas2: Int = 0,
+
+    val tamarillas1: Int = 0,
+    val tamarillas2: Int = 0,
+
+    val trojas1: Int = 0,
+    val trojas2: Int = 0,
+
+    val textoFacebook: String = ""
 )
+
 
 data class PartidoFormUiState(
     val formData: PartidoFormData = PartidoFormData(),
@@ -75,6 +103,7 @@ class PartidoFormViewModel(
         observeCampeonatos()
     }
 
+    /* DESACTIVADO TEMPORALMENTE
     fun loadPartido(codigoPartido: String?) {
         if (codigoPartido.isNullOrBlank()) {
             _uiState.update { PartidoFormUiState(campeonatos = it.campeonatos) }
@@ -86,16 +115,17 @@ class PartidoFormViewModel(
             _uiState.update { it.copy(isLoading = true, message = null) }
             try {
                 val partido = repository.getPartido(codigoPartido)
+
                 if (partido != null) {
                     originalPartido = partido
 
                     subscribeToGrupos(partido.CAMPEONATOCODIGO)
-                    subscribeToEquipos(partido.CAMPEONATOCODIGO, null)
+                    subscribeToEquipos(partido.CAMPEONATOCODIGO, partido.GRUPOCODIGO.ifBlank { null })
 
-                    // Resolver nombre del campeonato si ya está cargado
+
                     val campeonatoNombre = _uiState.value.campeonatos
                         .firstOrNull { it.CODIGO == partido.CAMPEONATOCODIGO }
-                        ?.CAMPEONATO ?: ""
+                        ?.CAMPEONATO.orEmpty()
 
                     _uiState.update {
                         it.copy(
@@ -103,19 +133,46 @@ class PartidoFormViewModel(
                                 codigoPartido = partido.CODIGOPARTIDO,
                                 campeonatoCodigo = partido.CAMPEONATOCODIGO,
                                 campeonatoNombre = campeonatoNombre,
-                                equipo1Codigo = partido.CodigoEquipo1 ?: "",
-                                equipo2Codigo = partido.CodigoEquipo2 ?: "",
-                                fechaPartido = partido.FECHA_PARTIDO ?: "",
-                                horaPartido = partido.HORA_PARTIDO ?: "",
-                                estadio = partido.ESTADIO ?: "",
-                                // Estos campos ya no existen en el modelo Partido actual
-                                provincia = "",
-                                transmision = false,
+
+                                serieCodigo = partido.SERIECODIGO,
+                                grupoCodigo = partido.GRUPOCODIGO,
+                                grupoNombre = partido.GRUPONOMBRE,
+
+                                equipo1Codigo = partido.CodigoEquipo1,
+                                equipo2Codigo = partido.CodigoEquipo2,
+
+                                fechaPartido = partido.FECHA_PARTIDO,
+                                horaPartido = partido.HORA_PARTIDO,
+
+                                estadio = partido.ESTADIO,
+                                provincia = partido.PROVINCIA,
+                                lugar = partido.LUGAR,
+
+                                arbitro1 = partido.ARBITRO1,
+
+                                transmision = partido.TRANSMISION,
+                                anio = partido.ANIO,
+
                                 etapa = partido.Etapa,
+                                fase = partido.FASE,
+                                numeroPartido = partido.NUMERO_PARTIDO,
+
+                                tiempoJuego = partido.TIEMPOJUEGO,
+                                tiemposJugados = partido.TIEMPOSJUGADOS,
+
                                 goles1 = partido.GOLES1,
                                 goles2 = partido.GOLES2,
-                                textoFacebook = "",
-                                lugar = partido.LUGAR ?: ""
+
+                                esquinas1 = partido.ESQUINAS1,
+                                esquinas2 = partido.ESQUINAS2,
+
+                                tamarillas1 = partido.TAMARILLAS1,
+                                tamarillas2 = partido.TAMARILLAS2,
+
+                                trojas1 = partido.TROJAS1,
+                                trojas2 = partido.TROJAS2,
+
+                                textoFacebook = partido.TEXTOFACEBOOK
                             ),
                             isEditMode = true,
                             isLoading = false
@@ -142,6 +199,8 @@ class PartidoFormViewModel(
             }
         }
     }
+*/
+
 
     private fun observeCampeonatos() {
         campeonatosJob?.cancel()
@@ -205,24 +264,30 @@ class PartidoFormViewModel(
             copy(
                 campeonatoCodigo = codigo,
                 campeonatoNombre = campeonato?.CAMPEONATO ?: "",
+                serieCodigo = "",
                 grupoCodigo = "",
+                grupoNombre = "",
                 equipo1Codigo = "",
                 equipo2Codigo = ""
             )
         }
     }
 
+
     fun onGrupoSelected(codigo: String) {
         val campeonatoCodigo = _uiState.value.formData.campeonatoCodigo
+        val grupo = _uiState.value.grupos.firstOrNull { it.CODIGOGRUPO == codigo } // ajusta si el campo se llama distinto
         subscribeToEquipos(campeonatoCodigo, codigo)
         updateForm {
             copy(
                 grupoCodigo = codigo,
+                grupoNombre = grupo?.GRUPO ?: "",
                 equipo1Codigo = "",
                 equipo2Codigo = ""
             )
         }
     }
+
 
     fun onEquipo1Selected(codigo: String) = updateForm { copy(equipo1Codigo = codigo) }
 
@@ -240,9 +305,15 @@ class PartidoFormViewModel(
 
     fun onEtapaChange(value: Int) = updateForm { copy(etapa = value) }
 
-    fun onGoles1Change(value: String) = updateForm { copy(goles1 = value.filter { it.isDigit() }) }
+    fun onGoles1Change(value: String) {
+        val numero = value.filter { it.isDigit() }.toIntOrNull() ?: 0
+        updateForm { copy(goles1 = numero) }
+    }
 
-    fun onGoles2Change(value: String) = updateForm { copy(goles2 = value.filter { it.isDigit() }) }
+    fun onGoles2Change(value: String) {
+        val numero = value.filter { it.isDigit() }.toIntOrNull() ?: 0
+        updateForm { copy(goles2 = numero) }
+    }
 
     fun onTextoFacebookChange(value: String) = updateForm { copy(textoFacebook = value) }
 
@@ -276,45 +347,74 @@ class PartidoFormViewModel(
         val codigo = if (form.codigoPartido.isNotBlank()) {
             form.codigoPartido
         } else {
-            generateCodigo(equipo1?.EQUIPO ?: "EQUIPO1", equipo2?.EQUIPO ?: "EQUIPO2", timestamp)
+            generateCodigo(
+                equipo1?.EQUIPO ?: "EQUIPO1",
+                equipo2?.EQUIPO ?: "EQUIPO2",
+                timestamp
+            )
         }
 
-        // ✅ Guardar SOLO campos existentes del modelo Partido actual
-        val partido = com.example.arki_deportes.data.model.Partido(
+        val isNew = form.codigoPartido.isBlank()
+
+        val partido = Partido(
             CODIGOPARTIDO = codigo,
             CAMPEONATOCODIGO = form.campeonatoCodigo,
+            CAMPEONATOTXT = form.campeonatoNombre,
 
+            // ✅ Nombres EXACTOS del constructor (ojo: Equipo1, CodigoEquipo1)
             Equipo1 = equipo1?.EQUIPO ?: "",
             Equipo2 = equipo2?.EQUIPO ?: "",
-
             CodigoEquipo1 = equipo1?.CODIGOEQUIPO ?: "",
             CodigoEquipo2 = equipo2?.CODIGOEQUIPO ?: "",
 
-            FECHA_PARTIDO = form.fechaPartido.ifBlank { null },
-            HORA_PARTIDO = form.horaPartido.ifBlank { null },
-            ESTADIO = form.estadio.ifBlank { null },
-            LUGAR = form.lugar.ifBlank { null },
+            // ✅ Tu modelo tiene ambos: FECHA_PARTIDO/HORA_PARTIDO y también "Fecha"
+            // Aquí guardo FECHA_PARTIDO / HORA_PARTIDO (los que ya usas en el formulario)
+            FECHA_PARTIDO = form.fechaPartido,
+            HORA_PARTIDO = form.horaPartido,
 
+            ESTADIO = form.estadio,
+            LUGAR = form.lugar,
+
+            PROVINCIA = form.provincia,
+            ARBITRO1 = form.arbitro1,
+
+            ANIO = form.anio,
+            TRANSMISION = form.transmision,
+
+            // ✅ Etapa en tu modelo se llama "Etapa"
             Etapa = form.etapa,
+            FASE = form.fase,
+            NUMERO_PARTIDO = form.numeroPartido,
 
-            GOLES1 = form.goles1.ifBlank { originalPartido?.GOLES1 ?: "0" },
-            GOLES2 = form.goles2.ifBlank { originalPartido?.GOLES2 ?: "0" },
-
-            // Mantener estado/cronómetro anterior si estás editando
+            // ✅ Mantener valores previos si estás editando
             TIEMPOJUEGO = originalPartido?.TIEMPOJUEGO ?: "00:00",
             NumeroDeTiempo = originalPartido?.NumeroDeTiempo ?: "0T",
             TiempodeJuego = originalPartido?.TiempodeJuego ?: 45,
             TIEMPOSJUGADOS = originalPartido?.TIEMPOSJUGADOS ?: 0,
             ESTADO = originalPartido?.ESTADO ?: 0,
 
-            // Si quieres conservar contadores cuando editas
-            ESQUINAS1 = originalPartido?.ESQUINAS1 ?: "0",
-            ESQUINAS2 = originalPartido?.ESQUINAS2 ?: "0",
-            TAMARILLAS1 = originalPartido?.TAMARILLAS1 ?: "0",
-            TAMARILLAS2 = originalPartido?.TAMARILLAS2 ?: "0",
-            TROJAS1 = originalPartido?.TROJAS1 ?: "0",
-            TROJAS2 = originalPartido?.TROJAS2 ?: "0"
-        )
+            GOLES1 = form.goles1,
+            GOLES2 = form.goles2,
+
+            ESQUINAS1 = originalPartido?.ESQUINAS1 ?: 0,
+            ESQUINAS2 = originalPartido?.ESQUINAS2 ?: 0,
+            TAMARILLAS1 = originalPartido?.TAMARILLAS1 ?: 0,
+            TAMARILLAS2 = originalPartido?.TAMARILLAS2 ?: 0,
+            TROJAS1 = originalPartido?.TROJAS1 ?: 0,
+            TROJAS2 = originalPartido?.TROJAS2 ?: 0,
+
+            SERIECODIGO = form.serieCodigo,
+            SERIENOMBRE = originalPartido?.SERIENOMBRE ?: "",
+
+            GRUPOCODIGO = form.grupoCodigo,
+            GRUPONOMBRE = form.grupoNombre,
+
+            TEXTOFACEBOOK = form.textoFacebook,
+
+            SINCRONIZADO = if (isNew) false else (originalPartido?.SINCRONIZADO ?: false),
+            ORIGEN = if (isNew) "ANDROID" else (originalPartido?.ORIGEN ?: "ANDROID"),
+            ORIGEN_DESCRIPCION = if (isNew) "Formulario Partido" else (originalPartido?.ORIGEN_DESCRIPCION ?: "Formulario Partido")
+            )
 
 
         val validationError = Validations.validarPartido(partido)
@@ -355,6 +455,7 @@ class PartidoFormViewModel(
         }
     }
 
+
     fun deletePartido() {
         val codigo = _uiState.value.formData.codigoPartido
         if (codigo.isBlank() || _uiState.value.isDeleting) return
@@ -389,11 +490,5 @@ class PartidoFormViewModel(
         return "${safe1}_${safe2}_${timestamp}"
     }
 
-    private fun deriveYear(fecha: String): Int {
-        return runCatching {
-            if (fecha.length >= 4) fecha.substring(0, 4).toInt() else LocalDate.now().year
-        }.getOrDefault(LocalDate.now().year)
-    }
 
-    private fun currentDate(): String = LocalDate.now().format(DATE_FORMATTER)
 }

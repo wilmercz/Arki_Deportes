@@ -55,7 +55,7 @@ interface AppNavigator {
     fun navigateToRealTime()
 
     // ✅ AGREGAR ESTA FUNCIÓN:
-    fun navigateToTiempoReal(partidoId: String, clearBackStack: Boolean = false)
+    fun navigateToTiempoReal(campeonatoId: String, partidoId: String, clearBackStack: Boolean = false)
 
     /**
      * Navega a la pantalla de catálogos
@@ -154,17 +154,12 @@ private class DefaultAppNavigator(
     }
 
     // ✅ AGREGAR ESTA FUNCIÓN CON override:
-    override fun navigateToTiempoReal(
-        partidoId: String,
-        clearBackStack: Boolean
-    ) {
-        val route = "tiempo_real/$partidoId"
+    override fun navigateToTiempoReal(campeonatoId: String, partidoId: String, clearBackStack: Boolean) {
+        val route = "tiempo_real/$campeonatoId/$partidoId"
         navController.navigate(route) {
             launchSingleTop = true
             if (clearBackStack) {
-                popUpTo(navController.graph.startDestinationId) {
-                    inclusive = true
-                }
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
             }
         }
     }
@@ -262,7 +257,7 @@ fun AppNavGraph(
     navigator: AppNavigator,
     loginRoute: @Composable (AppNavigator) -> Unit,
     hybridHomeRoute: @Composable (AppNavigator) -> Unit,
-    realTimeRoute: @Composable (AppNavigator) -> Unit,
+    realTimeRoute: @Composable (AppNavigator, String, String) -> Unit,
     catalogsRoute: @Composable (AppNavigator) -> Unit,
     mencionesRoute: @Composable (AppNavigator) -> Unit,
     equipoProduccionRoute: @Composable (AppNavigator) -> Unit,
@@ -279,18 +274,19 @@ fun AppNavGraph(
     ) {
         composable(AppDestinations.LOGIN) { loginRoute(navigator) }
         composable(AppDestinations.HYBRID_HOME) { hybridHomeRoute(navigator) }
-        composable(AppDestinations.REAL_TIME) { realTimeRoute(navigator) }
+        composable(AppDestinations.REAL_TIME) { realTimeRoute(navigator, "", "") }
+
         // ✅ AGREGAR ESTA RUTA:
         composable(
-            route = "tiempo_real/{partidoId}",
+            route = "tiempo_real/{campeonatoId}/{partidoId}",
             arguments = listOf(
-                navArgument("partidoId") {
-                    type = NavType.StringType
-                }
+                navArgument("campeonatoId") { type = NavType.StringType },
+                navArgument("partidoId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val partidoId = backStackEntry.arguments?.getString("partidoId") ?: ""
-            realTimeRoute(navigator)
+            val campeonatoId = backStackEntry.arguments?.getString("campeonatoId").orEmpty()
+            val partidoId = backStackEntry.arguments?.getString("partidoId").orEmpty()
+            realTimeRoute(navigator, campeonatoId, partidoId)
         }
 
         composable(AppDestinations.CATALOGS) { catalogsRoute(navigator) }

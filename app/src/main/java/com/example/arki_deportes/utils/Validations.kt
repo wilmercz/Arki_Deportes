@@ -139,21 +139,21 @@ object Validations {
      * ```
      */
     fun validarPartido(partido: Partido): String? {
-        val fecha = partido.FECHA_PARTIDO?.trim().orEmpty()
-        val hora = partido.HORA_PARTIDO?.trim().orEmpty()
-        val estadio = partido.ESTADIO?.trim().orEmpty()
+        val fecha = partido.FECHA_PARTIDO.trim()
+        val hora = partido.HORA_PARTIDO.trim()
+        val estadio = partido.ESTADIO.trim()
 
         return when {
             partido.CAMPEONATOCODIGO.isBlank() ->
                 "Debe seleccionar un campeonato"
 
-            partido.Equipo1.isBlank() ->
+            partido.CodigoEquipo1.isBlank() || partido.Equipo1.isBlank() ->
                 "Debe seleccionar el equipo 1"
 
-            partido.Equipo2.isBlank() ->
+            partido.CodigoEquipo2.isBlank() || partido.Equipo2.isBlank() ->
                 "Debe seleccionar el equipo 2"
 
-            partido.Equipo1 == partido.Equipo2 ->
+            partido.CodigoEquipo1 == partido.CodigoEquipo2 ->
                 "Los equipos deben ser diferentes"
 
             fecha.isBlank() ->
@@ -171,18 +171,21 @@ object Validations {
             estadio.isBlank() ->
                 "El estadio/cancha es obligatorio"
 
-            partido.GOLES1.isNotBlank() && partido.GOLES1.toIntOrNull() == null ->
-                "Los goles del equipo 1 deben ser un número"
+            // ✅ GOLES: ahora son Int, valida rango razonable (ajústalo si quieres)
+            partido.GOLES1 !in 0..99 ->
+                "Los goles del equipo 1 deben estar entre 0 y 99"
 
-            partido.GOLES2.isNotBlank() && partido.GOLES2.toIntOrNull() == null ->
-                "Los goles del equipo 2 deben ser un número"
+            partido.GOLES2 !in 0..99 ->
+                "Los goles del equipo 2 deben estar entre 0 y 99"
 
+            // ✅ ETAPA: tu comentario decía 0..3
             partido.Etapa !in 0..3 ->
-                "La etapa debe ser 0 (Ninguno), 1 (Cuartos), 2 (Semifinal) o 3 (Final)"
+                "La etapa debe ser 0 (Grupos), 1 (Cuartos), 2 (Semifinal) o 3 (Final)"
 
             else -> null
         }
     }
+
 
     private fun esDeporteValido(deporte: String): Boolean {
         return SportType.options().any { it.id.equals(deporte, ignoreCase = true) }

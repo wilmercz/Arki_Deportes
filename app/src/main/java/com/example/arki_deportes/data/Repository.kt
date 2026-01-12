@@ -287,35 +287,101 @@ class Repository(
         fechaReferencia: LocalDate = LocalDate.now(),
         dias: Long = 7L
     ): List<Partido> = suspendCancellableCoroutine { continuation ->
+
+        Log.d(TAG, "═══════════════════════════════════════")
+        Log.d(TAG, "🔍 OBTENIENDO PARTIDOS")
+        Log.d(TAG, "   Fecha referencia: $fechaReferencia")
+        Log.d(TAG, "   Rango: ±$dias días")
+        Log.d(TAG, "═══════════════════════════════════════")
+
         val reference = database.reference
             .child(nodoRaiz)
-            .child(Constants.FirebaseCollections.PARTIDOS)
+            .child("DatosFutbol")
+            .child("Campeonatos")
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val start = fechaReferencia.minusDays(dias)
                 val end = fechaReferencia.plusDays(dias)
 
-                val partidos = snapshot.children
-                    .mapNotNull { it.getValue(Partido::class.java) }
-                    .filter { partido ->
-                        val fecha = parseFecha(partido.FECHA_PARTIDO)
-                        fecha != null && !fecha.isBefore(start) && !fecha.isAfter(end)
-                    }
-                    .sortedWith(
-                        compareBy<Partido> { parseFechaHora(it) ?: LocalDateTime.MAX }
-                            .thenBy { it.CODIGOPARTIDO }
-                    )
+                val todosPartidos = mutableListOf<Partido>()
 
-                val total = snapshot.childrenCount
-                val descartados = total - partidos.size.toLong()
-                Log.d(
-                    TAG,
-                    "obtenerPartidosRango: total=$total, enRango=${partidos.size}, descartados=$descartados"
+                Log.d(TAG, "📥 Snapshot recibido: ${snapshot.childrenCount} campeonatos")
+                Log.d(TAG, "")
+
+                snapshot.children.forEachIndexed { index, campeonatoSnapshot ->
+                    val campeonatoId = campeonatoSnapshot.key ?: return@forEachIndexed
+                    Log.d(TAG, "📂 Campeonato ${index + 1}: $campeonatoId")
+
+                    val partidosSnapshot = campeonatoSnapshot.child("Partidos")
+                    val partidosCount = partidosSnapshot.childrenCount
+                    Log.d(TAG, "   └─ Partidos en este campeonato: $partidosCount")
+
+                    partidosSnapshot.children.forEachIndexed { pIndex, partidoSnapshot ->
+                        try {
+                            val partido = partidoSnapshot.getValue(Partido::class.java)
+
+                            if (partido != null) {
+                                // ✅ NUEVA LÓGICA: Usar Equipo1/Equipo2 o CodigoEquipo1/CodigoEquipo2
+                                val equipo1 = if (partido.Equipo1.isNotBlank()) {
+                                    partido.Equipo1
+                                } else {
+                                    partido.CodigoEquipo1.ifBlank { "Equipo 1" }
+                                }
+
+                                val equipo2 = if (partido.Equipo2.isNotBlank()) {
+                                    partido.Equipo2
+                                } else {
+                                    partido.CodigoEquipo2.ifBlank { "Equipo 2" }
+                                }
+
+                                // ✅ NUEVA LÓGICA: Si no hay FECHA_PARTIDO, usar FECHAALTA o incluir siempre
+                                val fechaPartido = partido.FECHA_PARTIDO?.trim()
+
+                                if (fechaPartido.isNullOrBlank()) {
+                                    // No tiene fecha: incluir de todas formas
+                                    Log.d(TAG, "   ⚽ $equipo1 vs $equipo2 (sin fecha → incluido)")
+                                    todosPartidos.add(partido)
+                                } else {
+                                    // Tiene fecha: verificar rango
+                                    val fecha = parseFecha(fechaPartido)
+                                    if (fecha != null && !fecha.isBefore(start) && !fecha.isAfter(end)) {
+                                        Log.d(TAG, "   ⚽ $equipo1 vs $equipo2 (fecha: $fechaPartido)")
+                                        todosPartidos.add(partido)
+                                    } else {
+                                        Log.d(TAG, "   ⏭️ $equipo1 vs $equipo2 (fuera de rango)")
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "   ❌ Error parseando partido ${pIndex + 1}: ${e.message}")
+                        }
+                    }
+
+                    Log.d(TAG, "")
+                }
+
+                // Ordenar por fecha
+                val partidosOrdenados = todosPartidos.sortedWith(
+                    compareBy<Partido> { parseFechaHora(it) ?: LocalDateTime.MAX }
+                        .thenBy { it.CODIGOPARTIDO }
                 )
 
+                Log.d(TAG, "═══════════════════════════════════════")
+                Log.d(TAG, "📊 RESUMEN ANTES DE FILTRAR")
+                Log.d(TAG, "   Campeonatos procesados: ${snapshot.childrenCount}")
+                Log.d(TAG, "   Total partidos encontrados: ${partidosOrdenados.size}")
+                Log.d(TAG, "═══════════════════════════════════════")
+                Log.d(TAG, "")
+                Log.d(TAG, "═══════════════════════════════════════")
+                Log.d(TAG, "✅ RESULTADO FINAL")
+                Log.d(TAG, "   Total encontrados: ${partidosOrdenados.size}")
+                Log.d(TAG, "   Después de filtrar: ${partidosOrdenados.size}")
+                Log.d(TAG, "   Rango: $start a $end")
+                Log.d(TAG, "═══════════════════════════════════════")
+
                 if (!continuation.isCompleted) {
-                    continuation.resume(partidos)
+                    continuation.resume(partidosOrdenados)
                 }
             }
 

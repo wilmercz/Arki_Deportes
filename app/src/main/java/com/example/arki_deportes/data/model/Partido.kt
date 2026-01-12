@@ -25,6 +25,7 @@ data class Partido(
 
     val CODIGOPARTIDO: String = "",
     val CAMPEONATOCODIGO: String = "",
+    var CAMPEONATOTXT: String = "",
 
     // ═══════════════════════════════════════════════════════════════════════
     // EQUIPOS
@@ -42,8 +43,8 @@ data class Partido(
      *
      * Nota: NO es crítico para funcionalidad básica
      */
-    val BanderaEquipo1: String? = null,
-    val BanderaEquipo2: String? = null,
+    val BanderaEquipo1: String = "",
+    val BanderaEquipo2: String = "",
 
     // ═══════════════════════════════════════════════════════════════════════
     // FECHA DEL PARTIDO
@@ -53,7 +54,7 @@ data class Partido(
      * Fecha del partido
      * VB.NET: Public Property Fecha() As String
      */
-    val Fecha: String? = null,
+    val Fecha: String = "",
 
     // ═══════════════════════════════════════════════════════════════════════
     // CRONÓMETRO (SISTEMA VB.NET)
@@ -67,20 +68,20 @@ data class Partido(
      * Formato: "yyyy-MM-dd HH:mm:ss"
      * Ejemplo: "2025-01-10 15:30:00"
      */
-    val Cronometro: String? = null,
+    val Cronometro: String = "",
 
     /**
      * Copia del Cronometro en Firebase
      * VB.NET: FirebaseManager.EnqueueSet("FECHA_PLAY", Cronometro)
      */
-    val FECHA_PLAY: String? = null,
+    val FECHA_PLAY: String = "",
 
     /**
      * Hora en formato "H-M-S"
      * VB.NET: Hour(Cronometro) & "-" & Minute(Cronometro) & "-" & Second(Cronometro)
      * Ejemplo: "15-30-0"
      */
-    val HORA_PLAY: String? = null,
+    val HORA_PLAY: String = "",
 
     /**
      * Número del tiempo actual
@@ -129,77 +130,69 @@ data class Partido(
      */
     val TIEMPOJUEGO: String = "00:00",
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // MARCADOR - GOLES
-    // ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// MARCADOR - GOLES
+// ═══════════════════════════════════════════════════════════════════════
 
     /**
      * Goles del equipo 1
-     * VB.NET: Public Property Goles1() As Integer? = 0
-     * Firebase: GOLES1 (como String)
+     * Firebase: GOLES1 (como Int)
      */
-    val GOLES1: String = "0",
+    val GOLES1: Int = 0,
 
     /**
      * Goles del equipo 2
-     * VB.NET: Public Property Goles2() As Integer? = 0
-     * Firebase: GOLES2 (como String)
+     * Firebase: GOLES2 (como Int)
      */
-    val GOLES2: String = "0",
+    val GOLES2: Int = 0,
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ESQUINAS (CORNERS)
-    // ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// ESQUINAS (CORNERS)
+// ═══════════════════════════════════════════════════════════════════════
 
     /**
      * Esquinas del equipo 1
-     * VB.NET: Public Property Esquinas1() As Integer = 0
-     * Firebase: ESQUINAS1 (como String)
+     * Firebase: ESQUINAS1 (como Int)
      */
-    val ESQUINAS1: String = "0",
+    val ESQUINAS1: Int = 0,
 
     /**
      * Esquinas del equipo 2
-     * VB.NET: Public Property Esquinas2() As Integer = 0
-     * Firebase: ESQUINAS2 (como String)
+     * Firebase: ESQUINAS2 (como Int)
      */
-    val ESQUINAS2: String = "0",
+    val ESQUINAS2: Int = 0,
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // TARJETAS AMARILLAS
-    // ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// TARJETAS AMARILLAS
+// ═══════════════════════════════════════════════════════════════════════
 
     /**
      * Tarjetas amarillas equipo 1
-     * VB.NET: Public Property Amarillas1() As Integer = 0
-     * Firebase: TAMARILLAS1 (con "T", como String)
+     * Firebase: TAMARILLAS1 (como Int)
      */
-    val TAMARILLAS1: String = "0",
+    val TAMARILLAS1: Int = 0,
 
     /**
      * Tarjetas amarillas equipo 2
-     * VB.NET: Public Property Amarillas2() As Integer = 0
-     * Firebase: TAMARILLAS2 (con "T", como String)
+     * Firebase: TAMARILLAS2 (como Int)
      */
-    val TAMARILLAS2: String = "0",
+    val TAMARILLAS2: Int = 0,
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // TARJETAS ROJAS
-    // ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// TARJETAS ROJAS
+// ═══════════════════════════════════════════════════════════════════════
 
     /**
      * Tarjetas rojas equipo 1
-     * VB.NET: Public Property Rojas1() As Integer = 0
-     * Firebase: TROJAS1 (con "T", como String)
+     * Firebase: TROJAS1 (como Int)
      */
-    val TROJAS1: String = "0",
+    val TROJAS1: Int = 0,
 
     /**
      * Tarjetas rojas equipo 2
-     * VB.NET: Public Property Rojas2() As Integer = 0
-     * Firebase: TROJAS2 (con "T", como String)
+     * Firebase: TROJAS2 (como Int)
      */
-    val TROJAS2: String = "0",
+    val TROJAS2: Int = 0,
 
     // ═══════════════════════════════════════════════════════════════════════
     // PENALES (FUTURO)
@@ -236,17 +229,77 @@ data class Partido(
     // OTROS DATOS (Desde BD, no en clase VB pero sí en Firebase)
     // ═══════════════════════════════════════════════════════════════════════
 
-    val ESTADIO: String? = null,
-    val LUGAR: String? = null,
-    val FECHA_PARTIDO: String? = null,
-    val HORA_PARTIDO: String? = null,
+    val ESTADIO: String = "",
+    val LUGAR: String = "",
+    val FECHA_PARTIDO: String = "",
+    val HORA_PARTIDO: String = "",
 
     // ═══════════════════════════════════════════════════════════════════════
     // CONTROL DE CORRESPONSAL
     // ═══════════════════════════════════════════════════════════════════════
 
-    val usuarioAsignado: String? = null,
-    val timestampAsignacion: Long? = null
+    val usuarioAsignado: String = "",
+    val timestampAsignacion: Long? = null,
+
+    // ==============================
+// Fechas / auditoría
+// ==============================
+    var FECHAALTA: String = "",
+    var TIMESTAMP_CREACION: String = "",
+    var TIMESTAMP_MODIFICACION: String = "",
+
+// ==============================
+// Redes / publicación
+// ==============================
+    var TEXTOFACEBOOK: String = "",
+    var LINK: String = "",
+
+// ==============================
+// Ubicación
+// ==============================
+    var PROVINCIA: String = "",
+    var CANTON: String = "",
+    var PARROQUIA: String = "",
+
+// ==============================
+// Arbitraje
+// ==============================
+    var ARBITRO1: String = "",
+
+// ==============================
+// Temporada / transmisión
+// ==============================
+    var ANIO: Int = 0,
+    var TRANSMISION: Boolean = false,
+
+// ==============================
+// Fase / numeración
+// ==============================
+    var FASE: String = "",
+    var NUMERO_PARTIDO: Int = 0,
+
+// ==============================
+// Ganador
+// ==============================
+    var NOMBREGANADOR: String = "",
+    var CODIGOGANADOR: String = "",
+
+// ==============================
+// Serie / grupo
+// ==============================
+    var SERIECODIGO: String = "",
+    var SERIENOMBRE: String = "",
+    var GRUPOCODIGO: String = "",
+    var GRUPONOMBRE: String = "",
+
+// ==============================
+// Sincronización / control
+// ==============================
+    var SINCRONIZADO: Boolean = false,
+    var HASH_REGISTRO: String = "",
+    var LLAVE: String = "",
+    var ORIGEN: String = "",
+    var ORIGEN_DESCRIPCION: String = ""
 
 ) {
     /**
@@ -356,20 +409,19 @@ data class Partido(
     }
 
     /**
-     * Convierte String a Int para contadores
+     * Convierte campos a Int (ahora son directos)
      */
-    fun getGoles1Int(): Int = GOLES1.toIntOrNull() ?: 0
-    fun getGoles2Int(): Int = GOLES2.toIntOrNull() ?: 0
-    fun getAmarillas1Int(): Int = TAMARILLAS1.toIntOrNull() ?: 0
-    fun getAmarillas2Int(): Int = TAMARILLAS2.toIntOrNull() ?: 0
-    fun getRojas1Int(): Int = TROJAS1.toIntOrNull() ?: 0
-    fun getRojas2Int(): Int = TROJAS2.toIntOrNull() ?: 0
-    fun getEsquinas1Int(): Int = ESQUINAS1.toIntOrNull() ?: 0
-    fun getEsquinas2Int(): Int = ESQUINAS2.toIntOrNull() ?: 0
+    fun getGoles1Int(): Int = GOLES1
+    fun getGoles2Int(): Int = GOLES2
+    fun getAmarillas1Int(): Int = TAMARILLAS1
+    fun getAmarillas2Int(): Int = TAMARILLAS2
+    fun getRojas1Int(): Int = TROJAS1
+    fun getRojas2Int(): Int = TROJAS2
+    fun getEsquinas1Int(): Int = ESQUINAS1
+    fun getEsquinas2Int(): Int = ESQUINAS2
 
     /**
      * Convierte el Partido a Map para guardarlo en Firebase
-     * SOLO incluye campos que existen en este modelo
      */
     fun toMap(): Map<String, Any?> {
         return mapOf(
@@ -390,14 +442,14 @@ data class Partido(
             "TIEMPOSJUGADOS" to TIEMPOSJUGADOS,
             "ESTADO" to ESTADO,
             "TIEMPOJUEGO" to TIEMPOJUEGO,
-            "GOLES1" to GOLES1,
-            "GOLES2" to GOLES2,
-            "ESQUINAS1" to ESQUINAS1,
-            "ESQUINAS2" to ESQUINAS2,
-            "TAMARILLAS1" to TAMARILLAS1,
-            "TAMARILLAS2" to TAMARILLAS2,
-            "TROJAS1" to TROJAS1,
-            "TROJAS2" to TROJAS2,
+            "GOLES1" to GOLES1,           // ← Ahora Int directo
+            "GOLES2" to GOLES2,           // ← Ahora Int directo
+            "ESQUINAS1" to ESQUINAS1,     // ← Ahora Int directo
+            "ESQUINAS2" to ESQUINAS2,     // ← Ahora Int directo
+            "TAMARILLAS1" to TAMARILLAS1, // ← Ahora Int directo
+            "TAMARILLAS2" to TAMARILLAS2, // ← Ahora Int directo
+            "TROJAS1" to TROJAS1,         // ← Ahora Int directo
+            "TROJAS2" to TROJAS2,         // ← Ahora Int directo
             "Penales1" to Penales1,
             "Penales2" to Penales2,
             "Etapa" to Etapa,

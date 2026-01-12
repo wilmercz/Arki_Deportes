@@ -11,18 +11,6 @@ import com.example.arki_deportes.ui.realtime.components.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * TIEMPO REAL SCREEN - PANTALLA PRINCIPAL DE CONTROL
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * Pantalla dividida en 3 paneles:
- * 1. Panel Superior: Cronómetro y controles
- * 2. Panel Medio: Equipos (izquierda/derecha) con botones
- * 3. Panel Inferior: Tabs (Información, Botonera, Publicidad)
- *
- * @author ARKI SISTEMAS
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TiempoRealScreen(
@@ -36,17 +24,7 @@ fun TiempoRealScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text("Control de Partido")
-                        state.partido?.let {
-                            Text(
-                                text = it.getEstadoTexto(),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                },
+                title = { Text("Control de Partido") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Volver")
@@ -64,7 +42,7 @@ fun TiempoRealScreen(
         ) {
             state.partido?.let { partido ->
                 // ═══════════════════════════════════════════════════════
-                // PANEL 1: CRONÓMETRO (Superior)
+                // PANEL 1: CRONÓMETRO (Compacto con Tabs)
                 // ═══════════════════════════════════════════════════════
                 CronometroPanel(
                     tiempoActual = state.tiempoActual,
@@ -76,101 +54,98 @@ fun TiempoRealScreen(
                 )
 
                 // ═══════════════════════════════════════════════════════
-                // PANEL 2: EQUIPOS (Medio - dividido en 2)
+                // PANEL 2: MARCADOR (Siempre visible, minimalista)
                 // ═══════════════════════════════════════════════════════
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // PANEL 2A: EQUIPO 1 (Izquierda)
-                    EquipoCard(
-                        nombreEquipo = partido.Equipo1,
-                        goles = partido.getGoles1Int(),
-                        amarillas = partido.getAmarillas1Int(),
-                        rojas = partido.getRojas1Int(),
-                        esquinas = partido.getEsquinas1Int(),
-                        onAgregarGol = viewModel::agregarGolEquipo1,
-                        onRestarGol = viewModel::restarGolEquipo1,
-                        onAgregarAmarilla = viewModel::agregarAmarillaEquipo1,
-                        onRestarAmarilla = viewModel::restarAmarillaEquipo1,
-                        onAgregarRoja = viewModel::agregarRojaEquipo1,
-                        onRestarRoja = viewModel::restarRojaEquipo1,
-                        onAgregarEsquina = viewModel::agregarEsquinaEquipo1,
-                        onRestarEsquina = viewModel::restarEsquinaEquipo1,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // PANEL 2B: EQUIPO 2 (Derecha)
-                    EquipoCard(
-                        nombreEquipo = partido.Equipo2,
-                        goles = partido.getGoles2Int(),
-                        amarillas = partido.getAmarillas2Int(),
-                        rojas = partido.getRojas2Int(),
-                        esquinas = partido.getEsquinas2Int(),
-                        onAgregarGol = viewModel::agregarGolEquipo2,
-                        onRestarGol = viewModel::restarGolEquipo2,
-                        onAgregarAmarilla = viewModel::agregarAmarillaEquipo2,
-                        onRestarAmarilla = viewModel::restarAmarillaEquipo2,
-                        onAgregarRoja = viewModel::agregarRojaEquipo2,
-                        onRestarRoja = viewModel::restarRojaEquipo2,
-                        onAgregarEsquina = viewModel::agregarEsquinaEquipo2,
-                        onRestarEsquina = viewModel::restarEsquinaEquipo2,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                MarcadorPanel(
+                    equipo1 = partido.Equipo1,
+                    equipo2 = partido.Equipo2,
+                    goles1 = partido.getGoles1Int(),
+                    goles2 = partido.getGoles2Int(),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 // ═══════════════════════════════════════════════════════
-                // PANEL 3: TABS (Inferior)
+                // PANEL 3: TABS COMBINADAS (Resto del espacio)
                 // ═══════════════════════════════════════════════════════
                 var selectedTab by remember { mutableStateOf(0) }
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.8f)
+                        .weight(1f)
                 ) {
                     TabRow(selectedTabIndex = selectedTab) {
                         Tab(
                             selected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
-                            text = { Text("Información") }
+                            text = { Text("⚽ Controles") }
                         )
                         Tab(
                             selected = selectedTab == 1,
                             onClick = { selectedTab = 1 },
-                            text = { Text("Botonera") }
+                            text = { Text("ℹ️ Info") }
                         )
                         Tab(
                             selected = selectedTab == 2,
                             onClick = { selectedTab = 2 },
-                            text = { Text("Publicidad") }
+                            text = { Text("🎵 Audio") }
+                        )
+                        Tab(
+                            selected = selectedTab == 3,
+                            onClick = { selectedTab = 3 },
+                            text = { Text("📢 Pub") }
                         )
                     }
 
                     when (selectedTab) {
-                        0 -> InformacionTab(
+                        0 -> ControlPartidoTab(
+                            equipo1 = partido.Equipo1,
+                            equipo2 = partido.Equipo2,
+                            goles1 = partido.getGoles1Int(),
+                            goles2 = partido.getGoles2Int(),
+                            amarillas1 = partido.getAmarillas1Int(),
+                            amarillas2 = partido.getAmarillas2Int(),
+                            rojas1 = partido.getRojas1Int(),
+                            rojas2 = partido.getRojas2Int(),
+                            esquinas1 = partido.getEsquinas1Int(),
+                            esquinas2 = partido.getEsquinas2Int(),
+                            onAgregarGol1 = viewModel::agregarGolEquipo1,
+                            onRestarGol1 = viewModel::restarGolEquipo1,
+                            onAgregarGol2 = viewModel::agregarGolEquipo2,
+                            onRestarGol2 = viewModel::restarGolEquipo2,
+                            onAgregarAmarilla1 = viewModel::agregarAmarillaEquipo1,
+                            onRestarAmarilla1 = viewModel::restarAmarillaEquipo1,
+                            onAgregarAmarilla2 = viewModel::agregarAmarillaEquipo2,
+                            onRestarAmarilla2 = viewModel::restarAmarillaEquipo2,
+                            onAgregarRoja1 = viewModel::agregarRojaEquipo1,
+                            onRestarRoja1 = viewModel::restarRojaEquipo1,
+                            onAgregarRoja2 = viewModel::agregarRojaEquipo2,
+                            onRestarRoja2 = viewModel::restarRojaEquipo2,
+                            onAgregarEsquina1 = viewModel::agregarEsquinaEquipo1,
+                            onRestarEsquina1 = viewModel::restarEsquinaEquipo1,
+                            onAgregarEsquina2 = viewModel::agregarEsquinaEquipo2,
+                            onRestarEsquina2 = viewModel::restarEsquinaEquipo2,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        1 -> InformacionTab(
                             partido = partido,
                             modoTransmision = state.modoTransmision,
                             onToggleTransmision = viewModel::toggleModoTransmision,
                             modifier = Modifier.fillMaxSize()
                         )
-                        1 -> BotoneraTab(
+                        2 -> BotoneraTab(
                             modifier = Modifier.fillMaxSize()
                         )
-                        2 -> PublicidadTab(
+                        3 -> PublicidadTab(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
                 }
             }
 
-            // Loading/Error states
+            // Loading/Error
             if (state.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(16.dp)
-                )
+                CircularProgressIndicator(modifier = Modifier.padding(16.dp))
             }
 
             state.error?.let { error ->
