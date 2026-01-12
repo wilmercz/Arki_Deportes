@@ -139,47 +139,48 @@ object Validations {
      * ```
      */
     fun validarPartido(partido: Partido): String? {
+        val fecha = partido.FECHA_PARTIDO?.trim().orEmpty()
+        val hora = partido.HORA_PARTIDO?.trim().orEmpty()
+        val estadio = partido.ESTADIO?.trim().orEmpty()
+
         return when {
             partido.CAMPEONATOCODIGO.isBlank() ->
                 "Debe seleccionar un campeonato"
 
-            partido.EQUIPO1.isBlank() ->
+            partido.Equipo1.isBlank() ->
                 "Debe seleccionar el equipo 1"
 
-            partido.EQUIPO2.isBlank() ->
+            partido.Equipo2.isBlank() ->
                 "Debe seleccionar el equipo 2"
 
-            partido.EQUIPO1 == partido.EQUIPO2 ->
+            partido.Equipo1 == partido.Equipo2 ->
                 "Los equipos deben ser diferentes"
 
-            partido.FECHA_PARTIDO.isBlank() ->
+            fecha.isBlank() ->
                 "La fecha del partido es obligatoria"
 
-            partido.HORA_PARTIDO.isBlank() ->
+            hora.isBlank() ->
                 "La hora del partido es obligatoria"
 
-            !esFechaValida(partido.FECHA_PARTIDO) ->
+            !esFechaValida(fecha) ->
                 "La fecha del partido no es válida"
 
-            !esHoraValida(partido.HORA_PARTIDO) ->
+            !esHoraValida(hora) ->
                 "La hora del partido no es válida (formato: HH:mm)"
 
-            partido.ESTADIO.isBlank() ->
+            estadio.isBlank() ->
                 "El estadio/cancha es obligatorio"
 
-            partido.GOLES1.isNotBlank() && !partido.GOLES1.esNumero() ->
+            partido.GOLES1.isNotBlank() && partido.GOLES1.toIntOrNull() == null ->
                 "Los goles del equipo 1 deben ser un número"
 
-            partido.GOLES2.isNotBlank() && !partido.GOLES2.esNumero() ->
+            partido.GOLES2.isNotBlank() && partido.GOLES2.toIntOrNull() == null ->
                 "Los goles del equipo 2 deben ser un número"
 
-            partido.ETAPA !in 0..3 ->
+            partido.Etapa !in 0..3 ->
                 "La etapa debe ser 0 (Ninguno), 1 (Cuartos), 2 (Semifinal) o 3 (Final)"
 
-            !esDeporteValido(partido.DEPORTE) ->
-                "Selecciona un deporte válido"
-
-            else -> null // Todo está bien
+            else -> null
         }
     }
 

@@ -11,15 +11,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -78,8 +80,8 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text(text = "Inicio") },
                 navigationIcon = {
-                    onOpenDrawer?.let {
-                        IconButton(onClick = it) {
+                    onOpenDrawer?.let { open ->
+                        IconButton(onClick = open) {
                             Icon(
                                 imageVector = Icons.Filled.Menu,
                                 contentDescription = "Abrir menú"
@@ -103,12 +105,18 @@ fun HomeScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // ─────────────────────────────────────────────────────────
+                // Partido en vivo
+                // ─────────────────────────────────────────────────────────
                 when {
                     state.isLoadingLive -> item { LoadingLiveCard() }
                     state.isLive && state.liveMatch != null -> item { LiveMatchCard(state.liveMatch) }
                     state.liveError != null -> item { ErrorMessage(message = state.liveError) }
                 }
 
+                // ─────────────────────────────────────────────────────────
+                // Lista de partidos
+                // ─────────────────────────────────────────────────────────
                 if (state.partidos.isNotEmpty()) {
                     item { SectionTitle(text = "Partidos ±7 días") }
                     items(state.partidos) { partido ->
@@ -132,9 +140,7 @@ fun HomeScreen(
 private fun LoadingLiveCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Box(
             modifier = Modifier
@@ -199,6 +205,7 @@ private fun LiveMatchCard(partido: PartidoActual) {
                     etiqueta = partido.getAnotacionesLabel(),
                     modifier = Modifier.weight(1f)
                 )
+
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -213,8 +220,8 @@ private fun LiveMatchCard(partido: PartidoActual) {
                         fontSize = 34.sp,
                         fontWeight = FontWeight.Black
                     )
-                    Text(
 
+                    Text(
                         text = partido.getTiempoLabel(),
                         style = MaterialTheme.typography.labelMedium
                     )
@@ -224,6 +231,7 @@ private fun LiveMatchCard(partido: PartidoActual) {
                         textAlign = TextAlign.Center
                     )
                 }
+
                 TeamScore(
                     nombre = partido.EQUIPO2,
                     valor = partido.GOLES2,
@@ -235,7 +243,7 @@ private fun LiveMatchCard(partido: PartidoActual) {
             SurfaceStatus(text = partido.getEstadoTexto(), icon = partido.getEstadoIcono())
 
             if (partido.muestraEstadisticasDisciplina()) {
-                Divider(color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.3f))
                 DisciplinaryStats(partido)
             }
         }
@@ -270,7 +278,7 @@ private fun TeamScore(nombre: String, valor: Int, etiqueta: String, modifier: Mo
 
 @Composable
 private fun SurfaceStatus(text: String, icon: String) {
-    androidx.compose.material3.Surface(
+    Surface(
         color = MaterialTheme.colorScheme.error,
         contentColor = MaterialTheme.colorScheme.onError,
         shape = MaterialTheme.shapes.medium
@@ -297,9 +305,7 @@ private fun SectionTitle(text: String) {
 private fun PartidoCard(partido: Partido) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -308,36 +314,9 @@ private fun PartidoCard(partido: Partido) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = partido.getTextoCompleto(),
+                text = "${partido.Equipo1.ifBlank { "Por definir" }} vs ${partido.Equipo2.ifBlank { "Por definir" }}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = buildString {
-                    append(formatFecha(partido.FECHA_PARTIDO))
-                    val hora = formatHora(partido.HORA_PARTIDO)
-                    if (hora.isNotBlank()) {
-                        append(" · ")
-                        append(hora)
-                    }
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-
-            )
-
-            val estadoJuego = partido.getEstadoTiempoDeJuegoDescripcion()
-            if (estadoJuego.isNotBlank()) {
-                Text(
-                    text = estadoJuego,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (partido.estaEnCurso()) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-
             )
 
             Text(
@@ -345,7 +324,6 @@ private fun PartidoCard(partido: Partido) {
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
             )
-
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -355,62 +333,47 @@ private fun PartidoCard(partido: Partido) {
                     imageVector = Icons.Outlined.CalendarMonth,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
-
                 )
-            }
-
-            val cronometro = partido.getCronometroDescripcion()
-            if (cronometro.isNotBlank()) {
                 Text(
-                    text = cronometro,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = buildString {
+                        append(formatFecha(partido.Fecha))
+                        val hora = formatHora(partido.HORA_PLAY) // no hay HORA_PARTIDO en el modelo
+                        if (hora.isNotBlank()) {
+                            append(" · ")
+                            append(hora)
+                        }
+                    },
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
-
-
-            Text(
-                text = partido.getDeporteTexto(),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            val estadoCronometro = partido.getEstadoCronometroDescripcion()
-
 
             val tiempoJuego = partido.getTiempoJuegoDescripcion()
-            val descripcionTiempo = when {
-                estadoCronometro.isNotBlank() -> "${partido.getTiempoJuegoLabel()}: $estadoCronometro"
-                tiempoJuego.isNotBlank() -> "${partido.getTiempoJuegoLabel()}: $tiempoJuego"
-                else -> ""
-            }
-            if (descripcionTiempo.isNotBlank()) {
+            if (tiempoJuego.isNotBlank()) {
                 Text(
-                    text = descripcionTiempo,
+                    text = "${partido.getTiempoJuegoLabel()}: $tiempoJuego",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            if (partido.CAMPEONATOTXT.isNotBlank()) {
+            // Etapa (usa el campo real Etapa)
+            val etapaTexto = Constants.EtapasPartido.getTexto(partido.Etapa)
+            if (partido.Etapa != Constants.EtapasPartido.NINGUNO) {
                 Text(
-                    text = partido.CAMPEONATOTXT,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            val etapa = Constants.EtapasPartido.getTexto(partido.ETAPA)
-            if (partido.ETAPA != Constants.EtapasPartido.NINGUNO) {
-                Text(
-                    text = etapa,
+                    text = etapaTexto,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
             }
 
-            if (partido.TRANSMISION) {
-                TransmissionBadge()
+            // Marcador
+            if (partido.getMarcador() != "vs") {
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                Text(
+                    text = "${partido.getMarcadorLabel()}: ${partido.getMarcador()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -442,22 +405,6 @@ private fun DisciplinaryStats(partido: PartidoActual) {
                 Text(text = "🟥 ${partido.TARJETAS_ROJAS2}")
             }
         }
-    }
-}
-
-@Composable
-private fun TransmissionBadge() {
-    androidx.compose.material3.Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        shape = MaterialTheme.shapes.small
-    ) {
-        Text(
-            text = "En transmisión",
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold
-        )
     }
 }
 
@@ -508,44 +455,80 @@ private fun ErrorMessage(message: String) {
     }
 }
 
-private fun formatFecha(fecha: String): String {
-    if (fecha.isBlank()) {
-        return "Fecha por confirmar"
-    }
+/**
+ * Fecha tolerante:
+ * - intenta ISO yyyy-MM-dd
+ * - intenta dd/MM/yyyy
+ * - si falla, devuelve el texto original o "Fecha por confirmar"
+ */
+private fun formatFecha(fecha: String?): String {
+    val raw = fecha?.trim().orEmpty()
+    if (raw.isBlank()) return "Fecha por confirmar"
 
-    val texto = fecha.trim()
-    val formatos = listOf(
-        DateTimeFormatter.ISO_LOCAL_DATE,
-        DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-        DateTimeFormatter.ofPattern("dd/MM/yyyy")
-    )
+    // 1) ISO_LOCAL_DATE
+    try {
+        val parsed = LocalDate.parse(raw, DateTimeFormatter.ISO_LOCAL_DATE)
+        return parsed.format(displayDateFormatter)
+    } catch (_: Exception) {}
 
-    formatos.forEach { formatter ->
-        runCatching { LocalDate.parse(texto, formatter) }
-            .getOrNull()
-            ?.let { return it.format(displayDateFormatter) }
-    }
+    // 2) dd/MM/yyyy
+    try {
+        val df = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
+        val parsed = LocalDate.parse(raw, df)
+        return parsed.format(displayDateFormatter)
+    } catch (_: Exception) {}
 
-    return fecha
+    return raw
 }
 
-private fun formatHora(hora: String): String {
-    if (hora.isBlank()) return ""
+/**
+ * Hora tolerante:
+ * - HORA_PLAY suele venir tipo "15-30-0"
+ * - o puede venir "HH:mm"
+ */
+private fun formatHora(hora: String?): String {
+    val raw = hora?.trim().orEmpty()
+    if (raw.isBlank()) return ""
 
-    val texto = hora.trim()
-    val formatos = listOf(
-        DateTimeFormatter.ofPattern("HH:mm"),
-        DateTimeFormatter.ofPattern("HH:mm:ss")
-    )
-
-    formatos.forEach { formatter ->
-        runCatching { LocalTime.parse(texto, formatter) }
-            .getOrNull()
-            ?.let { return it.format(displayTimeFormatter) }
+    // Si viene "15-30-0"
+    if (raw.contains("-")) {
+        val parts = raw.split("-")
+        if (parts.size >= 2) {
+            val hh = parts[0].padStart(2, '0')
+            val mm = parts[1].padStart(2, '0')
+            return "$hh:$mm"
+        }
+        return raw
     }
 
-    return hora
+    // Si viene "HH:mm"
+    return try {
+        LocalTime.parse(raw, DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())).toString()
+    } catch (_: Exception) {
+        raw
+    }
 }
 
-private val displayDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd 'de' MMMM", Locale.getDefault())
-private val displayTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+private val displayDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd 'de' MMMM", Locale.getDefault())
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Extensions UI para Partido (sin tocar el modelo)
+// ─────────────────────────────────────────────────────────────────────────────
+
+private fun Partido.getDeporteTexto(): String = "Fútbol"
+
+private fun Partido.getMarcadorLabel(): String = "Marcador"
+
+private fun Partido.getMarcador(): String {
+    val g1 = GOLES1.trim()
+    val g2 = GOLES2.trim()
+    return if (TIEMPOSJUGADOS == 0 && g1 == "0" && g2 == "0") "vs" else "$g1 - $g2"
+}
+
+private fun Partido.getTiempoJuegoLabel(): String = "Tiempo"
+
+private fun Partido.getTiempoJuegoDescripcion(): String {
+    val t = TIEMPOJUEGO.trim()
+    return if (t.isBlank() || t == "00:00") "" else t
+}

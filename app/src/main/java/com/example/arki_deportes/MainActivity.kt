@@ -36,8 +36,9 @@ import com.example.arki_deportes.ui.catalogs.CatalogsRoute
 import com.example.arki_deportes.ui.home.HomeRoute
 import com.example.arki_deportes.ui.home.HomeViewModel
 import com.example.arki_deportes.ui.home.HomeViewModelFactory
+import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 
-import com.example.arki_deportes.ui.realtime.TiempoRealRoute
+import com.example.arki_deportes.ui.realtime.TiempoRealScreen
 import com.example.arki_deportes.ui.realtime.TiempoRealViewModel
 import com.example.arki_deportes.ui.realtime.TiempoRealViewModelFactory
 
@@ -56,6 +57,7 @@ import com.example.arki_deportes.navigation.DrawerContent
 
 import com.example.arki_deportes.navigation.rememberAppNavigator
 
+
 import com.example.arki_deportes.ui.produccion.EquipoProduccionRoute
 import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModel
 import com.example.arki_deportes.ui.produccion.EquipoProduccionViewModelFactory
@@ -66,14 +68,52 @@ import com.example.arki_deportes.ui.grupos.GrupoFormScreen
 import com.example.arki_deportes.ui.partidos.PartidoFormScreen
 import com.example.arki_deportes.ui.settings.SettingsRoute
 import com.example.arki_deportes.utils.Constants
+import com.example.arki_deportes.data.auth.AuthenticationManager
+import com.example.arki_deportes.data.context.PartidoContext
+import com.example.arki_deportes.data.context.CampeonatoContext
+import com.example.arki_deportes.data.context.DeporteContext
+import com.example.arki_deportes.data.context.UsuarioContext
+import com.example.arki_deportes.data.model.ResultadoAutenticacion
 import com.google.firebase.auth.FirebaseAuth
+
+// Compose Foundation
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+
+// Compose Material Icons - Person, Lock, KeyboardHide
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.KeyboardHide
+
+// Text Input
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalFocusManager  // ← NUEVO
+import androidx.compose.material.icons.filled.KeyboardHide  // ← NUEVO
 
+import com.example.arki_deportes.utils.SportType
+
+// ────────────────────────────────────────────────────────────────────────────
+// Accompanist (SwipeRefresh)
+// ────────────────────────────────────────────────────────────────────────────
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+
+// ────────────────────────────────────────────────────────────────────────────
+// Coroutines
+// ────────────────────────────────────────────────────────────────────────────
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -118,6 +158,8 @@ class MainActivity : ComponentActivity() {
     // ═══════════════════════════════════════════════════════════════════════
     // CICLO DE VIDA
     // ═══════════════════════════════════════════════════════════════════════
+// ✅ AGREGAR ESTA LÍNEA:
+    private lateinit var authManager: AuthenticationManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -131,6 +173,7 @@ class MainActivity : ComponentActivity() {
         // Inicializar Firebase y configuración
         inicializarFirebase()
         inicializarConfiguracion()
+        inicializarAuthManager()  // ← AÑADIR
 
         // Autenticación anónima con Firebase (permite leer/escribir sin login de usuario)
         signInAnonymously()
@@ -156,14 +199,7 @@ class MainActivity : ComponentActivity() {
                 val closeDrawer: () -> Unit = {
                     scope.launch { drawerState.close() }
                 }
-                val handleLogout: () -> Unit = {
 
-                val openDrawer = {
-                    scope.launch { drawerState.open() }
-                }
-                val closeDrawer = {
-                    scope.launch { drawerState.close() }
-                }
                 val handleLogout = {
 
                     borrarPasswordLocal()
@@ -187,55 +223,23 @@ class MainActivity : ComponentActivity() {
                     AppNavGraph(
                         navController = navController,
                         navigator = navigator,
-
-                        loginRoute = { navigatorParam: AppNavigator -> PantallaInicio(navigatorParam) },
-                        hybridHomeRoute = { navigatorParam: AppNavigator ->
-                            PantallaBienvenida(navigatorParam, openDrawer = openDrawer)
-                        },
-                        realTimeRoute = { navigatorParam: AppNavigator ->
-                            PantallaTiempoReal(navigatorParam, openDrawer = openDrawer)
-                        },
-                        catalogsRoute = { navigatorParam: AppNavigator ->
-                            PantallaCatalogos(navigatorParam, openDrawer = openDrawer)
-                        },
-                        mencionesRoute = { navigatorParam: AppNavigator ->
-                            PantallaMenciones(navigatorParam, openDrawer = openDrawer)
-                        },
-                        equipoProduccionRoute = { navigatorParam: AppNavigator ->
-                            PantallaEquipoProduccion(navigatorParam, openDrawer = openDrawer)
-                        },
-                        settingsRoute = { navigatorParam: AppNavigator ->
+                        loginRoute = { navigatorParam -> PantallaInicio(navigatorParam) },
+                        hybridHomeRoute = { navigatorParam -> PantallaBienvenida(navigatorParam, openDrawer = openDrawer) },
+                        realTimeRoute = { navigatorParam -> PantallaTiempoReal(navigatorParam, openDrawer = openDrawer) },
+                        catalogsRoute = { navigatorParam -> PantallaCatalogos(navigatorParam, openDrawer = openDrawer) },
+                        mencionesRoute = { navigatorParam -> PantallaMenciones(navigatorParam, openDrawer = openDrawer) },
+                        equipoProduccionRoute = { navigatorParam -> PantallaEquipoProduccion(navigatorParam, openDrawer = openDrawer) },
+                        settingsRoute = { navigatorParam ->
                             PantallaConfiguracion(
                                 navigator = navigatorParam,
                                 openDrawer = openDrawer,
                                 onLogout = handleLogout
                             )
                         },
-                        campeonatoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
-                            PantallaCampeonatoForm(navigatorParam, codigo)
-                        },
-                        grupoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
-                            PantallaGrupoForm(navigatorParam, codigo)
-                        },
-                        equipoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
-                            PantallaEquipoForm(navigatorParam, codigo)
-                        },
-                        partidoFormRoute = { navigatorParam: AppNavigator, codigo: String? ->
-                            PantallaPartidoForm(navigatorParam, codigo)
-                        }
-
-                        loginRoute = { PantallaInicio(it) },
-                        hybridHomeRoute = { PantallaBienvenida(it, openDrawer = openDrawer) },
-                        realTimeRoute = { PantallaTiempoReal(it, openDrawer = openDrawer) },
-                        catalogsRoute = { PantallaCatalogos(it, openDrawer = openDrawer) },
-                        mencionesRoute = { PantallaMenciones(it, openDrawer = openDrawer) },
-                        equipoProduccionRoute = { PantallaEquipoProduccion(it, openDrawer = openDrawer) },
-                        settingsRoute = { PantallaConfiguracion(it, openDrawer = openDrawer, onLogout = handleLogout) },
                         campeonatoFormRoute = { navigatorParam, codigo -> PantallaCampeonatoForm(navigatorParam, codigo) },
                         grupoFormRoute = { navigatorParam, codigo -> PantallaGrupoForm(navigatorParam, codigo) },
                         equipoFormRoute = { navigatorParam, codigo -> PantallaEquipoForm(navigatorParam, codigo) },
                         partidoFormRoute = { navigatorParam, codigo -> PantallaPartidoForm(navigatorParam, codigo) }
-
                     )
                 }
             }
@@ -243,23 +247,45 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Inicializa el AuthenticationManager
+     */
+    private fun inicializarAuthManager() {
+        try {
+            authManager = AuthenticationManager(database, configManager)
+            Log.d(TAG, "✅ AuthenticationManager inicializado")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al inicializar AuthManager", e)
+        }
+    }
+
+
     @Composable
     fun PantallaTiempoReal(navigator: AppNavigator, openDrawer: () -> Unit) {
+
+        // ✅ Este es el tipo que espera tu TiempoRealViewModel
         val repository = remember(database, configManager) {
-            Repository(database, configManager)
+            FirebaseCatalogRepository(
+                database = database,
+                rootNode = configManager.obtenerNodoRaiz() // usa tu método real
+            )
         }
+
+        // ✅ IDs temporales para compilar (luego los conectamos al "partido actual")
+        val campeonatoId = remember { "" }
+        val partidoId = remember { "" }
+
         val viewModel: TiempoRealViewModel = viewModel(
-            factory = TiempoRealViewModelFactory(repository)
+            factory = TiempoRealViewModelFactory(repository, campeonatoId, partidoId)
         )
 
-        TiempoRealRoute(
+        TiempoRealScreen(
             viewModel = viewModel,
             onNavigateBack = {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToHybridHome()
                 }
-            },
-            onOpenDrawer = openDrawer
+            }
         )
     }
 
@@ -636,13 +662,7 @@ class MainActivity : ComponentActivity() {
         // Mostrar pantalla según el estado
         when (estadoApp) {
             EstadoApp.CARGANDO -> PantallaCargando()
-            EstadoApp.REQUIERE_LOGIN -> PantallaLogin { password ->
-                validarPassword(password) { esValida ->
-                    if (esValida) {
-                        estadoApp = EstadoApp.AUTENTICADO
-                    }
-                }
-            }
+            EstadoApp.REQUIERE_LOGIN -> PantallaLogin(navigator)
             EstadoApp.AUTENTICADO -> PantallaCargando()
         }
     }
@@ -706,15 +726,63 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
+    /**
+     * Carga el partido asignado y navega según el estado
+     */
+    private fun cargarPartidoYNavegar(  // ← RESTAURAR
+        codigoPartido: String,
+        navigator: AppNavigator
+    ) {
+        lifecycleScope.launch {
+            try {
+                val repository = FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
+                val partido = repository.getPartido(codigoPartido)
+
+                if (partido != null) {
+                    // TODO: Verificar si está caducado
+                    // if (partido.estaCaducado()) { ... }
+
+                    // Establecer contextos
+                    PartidoContext.setPartidoActivo(partido)
+
+                    // Cargar campeonato
+                    val campeonato = repository.getCampeonato(partido.CAMPEONATOCODIGO)
+                    if (campeonato != null) {
+                        CampeonatoContext.seleccionarCampeonato(campeonato)
+
+                        val deporte = SportType.fromId(campeonato.DEPORTE)
+                        DeporteContext.seleccionarDeporte(deporte)
+                    }
+
+                    // Navegar a Tiempo Real
+                    navigator.navigateToTiempoReal(
+                        partidoId = codigoPartido,
+                        clearBackStack = true
+                    )
+                } else {
+                    // Partido no encontrado
+                    navigator.navigateToHybridHome(clearBackStack = true)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al cargar partido: ${e.message}")
+                navigator.navigateToHybridHome(clearBackStack = true)
+            }
+        }
+    }
     /**
      * Pantalla de login con contraseña
      */
     @Composable
-    fun PantallaLogin(onPasswordSubmit: (String) -> Unit) {
+    fun PantallaLogin(navigator: AppNavigator) {
+        var usuario by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         var passwordVisible by remember { mutableStateOf(false) }
         var mensajeError by remember { mutableStateOf("") }
         var cargando by remember { mutableStateOf(false) }
+
+        // ✅ FocusManager para ocultar teclado
+        val focusManager = LocalFocusManager.current
 
         Box(
             modifier = Modifier
@@ -727,9 +795,11 @@ class MainActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Logo
+                // ═══════════════════════════════════════════════════════
+                // LOGO
+                // ═══════════════════════════════════════════════════════
                 Card(
-                    modifier = Modifier.size(100.dp),
+                    modifier = Modifier.size(120.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primary
@@ -739,15 +809,18 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "⚽", fontSize = 48.sp)
+                        Text(text = "⚽", fontSize = 64.sp)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // ═══════════════════════════════════════════════════════
+                // TÍTULO
+                // ═══════════════════════════════════════════════════════
                 Text(
                     text = Constants.APP_NOMBRE,
-                    fontSize = 28.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -755,15 +828,63 @@ class MainActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Ingresa la contraseña de acceso",
+                    text = "Ingresa tus credenciales",
                     fontSize = 14.sp,
                     color = Color.Gray,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                // ═══════════════════════════════════════════════════════
+                // ✅ BOTÓN OCULTAR TECLADO
+                // ═══════════════════════════════════════════════════════
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Campo de contraseña
+                OutlinedButton(
+                    onClick = {
+                        focusManager.clearFocus()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardHide,
+                        contentDescription = "Ocultar teclado"
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Ocultar Teclado")
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // ═══════════════════════════════════════════════════════
+                // CAMPO USUARIO
+                // ═══════════════════════════════════════════════════════
+                OutlinedTextField(
+                    value = usuario,
+                    onValueChange = {
+                        usuario = it
+                        mensajeError = ""
+                    },
+                    label = { Text("Usuario") },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Usuario"
+                        )
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Next
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // ═══════════════════════════════════════════════════════
+                // CAMPO CONTRASEÑA
+                // ═══════════════════════════════════════════════════════
                 OutlinedTextField(
                     value = password,
                     onValueChange = {
@@ -776,6 +897,27 @@ class MainActivity : ComponentActivity() {
                         VisualTransformation.None
                     else
                         PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            // Trigger login si los campos están completos
+                            if (usuario.isNotBlank() && password.isNotBlank()) {
+                                // El login se ejecutará desde el botón
+                            }
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Contraseña"
+                        )
+                    },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
@@ -789,38 +931,100 @@ class MainActivity : ComponentActivity() {
                                     "Mostrar contraseña"
                             )
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !cargando,
-                    isError = mensajeError.isNotEmpty()
+                    }
                 )
 
+                // ═══════════════════════════════════════════════════════
+                // MENSAJE DE ERROR
+                // ═══════════════════════════════════════════════════════
                 if (mensajeError.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = mensajeError,
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
                     )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Botón de acceder
+                // ═══════════════════════════════════════════════════════
+                // BOTÓN LOGIN
+                // ═══════════════════════════════════════════════════════
                 Button(
                     onClick = {
-                        if (password.isBlank()) {
-                            mensajeError = "Ingresa una contraseña"
-                        } else {
-                            cargando = true
-                            mensajeError = ""
-                            onPasswordSubmit(password)
+                        // Ocultar teclado primero
+                        focusManager.clearFocus()
 
-                            // Resetear estado después de 2 segundos si falla
-                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                                cargando = false
-                                mensajeError = "Contraseña incorrecta"
-                            }, 2000)
+                        // Validaciones
+                        if (usuario.isBlank()) {
+                            mensajeError = "Ingresa tu usuario"
+                            return@Button
+                        }
+
+                        if (password.isBlank()) {
+                            mensajeError = "Ingresa tu contraseña"
+                            return@Button
+                        }
+
+                        // Verificar Firebase Auth
+                        val firebaseUser = auth.currentUser
+                        if (firebaseUser == null) {
+                            mensajeError = "Error: Firebase no está listo. Reinicia la app."
+                            Log.e(TAG, "❌ Firebase Auth no está inicializado")
+                            return@Button
+                        }
+
+                        cargando = true
+                        mensajeError = ""
+
+                        Log.d(TAG, "╔═══════════════════════════════════════╗")
+                        Log.d(TAG, "🔐 INICIANDO LOGIN")
+                        Log.d(TAG, "   Usuario ingresado: '$usuario'")
+                        Log.d(TAG, "   Password length: ${password.length}")
+                        Log.d(TAG, "   Firebase Auth UID: ${firebaseUser.uid}")
+                        Log.d(TAG, "   Ruta Firebase: /AppConfig/Usuarios/$usuario")
+                        Log.d(TAG, "╚═══════════════════════════════════════╝")
+
+                        // ✅ AUTENTICACIÓN
+                        authManager.login(usuario, password) { resultado ->
+                            cargando = false
+
+                            when (resultado) {
+                                is ResultadoAutenticacion.Exito -> {
+                                    val user = resultado.usuario
+
+                                    // ✅ 1. Establecer usuario en contexto
+                                    UsuarioContext.setUsuario(user)
+
+                                    // ✅ 2. Verificar si tiene partido asignado
+                                    val partidoAsignado = user.permisos.codigoPartido
+
+                                    if (!partidoAsignado.isNullOrEmpty() &&
+                                        partidoAsignado != "NINGUNO") {
+                                        // 🎯 CASO CORRESPONSAL: Tiene partido asignado
+                                        Log.d(TAG, "🎯 Corresponsal con partido: $partidoAsignado")
+                                        cargarPartidoYNavegar(partidoAsignado, navigator)
+                                    } else {
+                                        // 👑 CASO ADMIN/OPERADOR: Sin partido específico
+                                        Log.d(TAG, "👑 Usuario sin partido asignado: acceso completo")
+                                        navigator.navigateToHybridHome(clearBackStack = true)
+                                    }
+                                }
+
+                                is ResultadoAutenticacion.CredencialesInvalidas -> {
+                                    mensajeError = "Usuario o contraseña incorrectos"
+                                }
+
+                                is ResultadoAutenticacion.UsuarioNoAutorizado -> {
+                                    mensajeError = "Usuario no autorizado. Contacte al administrador."
+                                }
+
+                                is ResultadoAutenticacion.Error -> {
+                                    mensajeError = resultado.mensaje
+                                }
+                            }
                         }
                     },
                     modifier = Modifier
@@ -834,14 +1038,17 @@ class MainActivity : ComponentActivity() {
                             color = Color.White
                         )
                     } else {
-                        Text("Acceder", fontSize = 16.sp)
+                        Text("Iniciar Sesión", fontSize = 16.sp)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // ═══════════════════════════════════════════════════════
+                // TEXTO DE AYUDA
+                // ═══════════════════════════════════════════════════════
                 Text(
-                    text = "💡 Solicita la contraseña al administrador",
+                    text = "💡 Solicita tus credenciales al administrador",
                     fontSize = 12.sp,
                     color = Color.Gray,
                     textAlign = TextAlign.Center
@@ -849,6 +1056,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 
     /**
      * Pantalla de bienvenida (después de autenticar correctamente)

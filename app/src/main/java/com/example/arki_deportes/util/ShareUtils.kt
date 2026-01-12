@@ -24,62 +24,49 @@ object ShareUtils {
     private val inputDateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
     private val outputDateFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("EEEE d 'de' MMMM yyyy", displayLocale)
+
+    // En tu app suele venir "HH:mm"
     private val inputTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     private val outputTimeFormatter: DateTimeFormatter =
         DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(displayLocale)
 
     /**
      * Construye el mensaje para compartir un partido.
+     * Adaptado al modelo Partido.kt actual (VB.NET compatible).
      */
     fun buildPartidoShareMessage(partido: Partido): String {
-        val equipos = listOf(
-            partido.EQUIPO1.ifBlank { "Equipo 1" },
-            partido.EQUIPO2.ifBlank { "Equipo 2" }
-        )
+        val equipo1 = partido.Equipo1.ifBlank { "Equipo 1" }
+        val equipo2 = partido.Equipo2.ifBlank { "Equipo 2" }
 
         val fecha = formatDate(partido.FECHA_PARTIDO)
         val hora = formatTime(partido.HORA_PARTIDO)
+
         val ubicacion = buildLocation(
             estadio = partido.ESTADIO,
-            lugar = partido.LUGAR,
-            provincia = partido.PROVINCIA
+            lugar = partido.LUGAR
         )
 
+        val marcador = buildMarcador(partido.GOLES1, partido.GOLES2)
+
         return buildString {
-            appendLine("⚽ ${equipos[0]} vs ${equipos[1]}")
+            appendLine("⚽ $equipo1 vs $equipo2")
 
-            if (fecha.isNotBlank()) {
-                appendLine("📅 $fecha")
-            }
-            if (hora.isNotBlank()) {
-                appendLine("🕒 $hora")
-            }
-            if (ubicacion.isNotBlank()) {
-                appendLine("📍 $ubicacion")
-            }
-            if (partido.CAMPEONATOTXT.isNotBlank()) {
-                appendLine("🏆 ${partido.CAMPEONATOTXT}")
-            }
-            if (partido.ETAPA != 0) {
-                appendLine("🔁 Etapa: ${partido.getNombreEtapa()}")
-            }
-            if (partido.TRANSMISION) {
-                appendLine("🎥 Transmisión en vivo")
-            }
-
-            val marcador = partido.getMarcador()
-            if (marcador != "vs") {
+            if (marcador.isNotBlank()) {
                 appendLine("🔢 Marcador: $marcador")
             }
 
-            if (partido.TEXTOFACEBOOK.isNotBlank()) {
-                appendLine()
-                appendLine(partido.TEXTOFACEBOOK.trim())
+            if (fecha.isNotBlank()) appendLine("📅 $fecha")
+            if (hora.isNotBlank()) appendLine("🕒 $hora")
+            if (ubicacion.isNotBlank()) appendLine("📍 $ubicacion")
+
+            // Etapa sí existe en tu modelo (Etapa: Int)
+            val etapaTxt = getNombreEtapa(partido.Etapa)
+            if (etapaTxt.isNotBlank()) {
+                appendLine("🔁 Etapa: $etapaTxt")
             }
 
-            if (length > 0) {
-                appendLine()
-            }
+            // Hashtag final
+            if (length > 0) appendLine()
             append("#ArkiDeportes")
         }.trim()
     }
@@ -105,19 +92,12 @@ object ShareUtils {
             .distinct()
 
         return buildString {
-            if (title.isNotBlank()) {
-                appendLine(title.trim())
-            }
-            if (description.isNotBlank()) {
-                appendLine(description.trim())
-            }
-            if (!link.isNullOrBlank()) {
-                appendLine(link.trim())
-            }
+            if (title.isNotBlank()) appendLine(title.trim())
+            if (description.isNotBlank()) appendLine(description.trim())
+            if (!link.isNullOrBlank()) appendLine(link.trim())
+
             if (formattedHashtags.isNotEmpty()) {
-                if (length > 0) {
-                    appendLine()
-                }
+                if (length > 0) appendLine()
                 append(formattedHashtags.joinToString(separator = " "))
             }
         }.trim()
@@ -208,35 +188,67 @@ object ShareUtils {
         }
     }
 
-    private fun buildLocation(estadio: String, lugar: String, provincia: String): String {
-        return listOf(estadio, lugar, provincia)
-            .map { it.trim() }
+    private fun buildLocation(estadio: String?, lugar: String?): String {
+        return listOf(estadio, lugar)
+            .mapNotNull { it?.trim() }
             .filter { it.isNotEmpty() }
             .distinct()
             .joinToString(separator = ", ")
     }
 
-    private fun formatDate(raw: String): String {
+    private fun formatDate(raw: String?): String {
+        val value = raw?.trim().orEmpty()
+        if (value.isBlank()) return ""
         return try {
-            if (raw.isBlank()) {
-                ""
-            } else {
-                LocalDate.parse(raw.trim(), inputDateFormatter).format(outputDateFormatter)
-            }
+            LocalDate.parse(value, inputDateFormatter).format(outputDateFormatter)
         } catch (_: Exception) {
-            raw
+            value
         }
     }
 
-    private fun formatTime(raw: String): String {
+    private fun formatTime(raw: String?): String {
+        val value = raw?.trim().orEmpty()
+        if (value.isBlank()) return ""
         return try {
-            if (raw.isBlank()) {
-                ""
-            } else {
-                LocalTime.parse(raw.trim(), inputTimeFormatter).format(outputTimeFormatter)
-            }
+            LocalTime.parse(value, inputTimeFormatter).format(outputTimeFormatter)
         } catch (_: Exception) {
-            raw
+            value
+        }
+    }
+
+    /**
+     * Si ya hay un marcador real (no ambos vacíos), lo muestra.
+     */
+    private fun buildMarcador(g1: String, g2: String): String {
+        val a = g1.trim()
+        val b = g2.trim()
+
+        val ai = a.toIntOrNull()
+        val bi = b.toIntOrNull()
+
+        // Si ambos son null y están vacíos -> no mostrar
+        if ((ai == null && a.isBlank()) && (bi == null && b.isBlank())) return ""
+
+        // Normaliza: si no parsea, deja el string
+        val left = ai?.toString() ?: a.ifBlank { "0" }
+        val right = bi?.toString() ?: b.ifBlank { "0" }
+        return "$left - $right"
+    }
+
+    /**
+     * Etapa del campeonato según tu modelo:
+     * 0 = Grupos / Fase regular
+     * 1 = Cuartos
+     * 2 = Semifinal
+     * 3 = Final
+     */
+    private fun getNombreEtapa(etapa: Int): String {
+        return when (etapa) {
+            0 -> "" // normalmente no hace falta mostrar "Grupos"
+            1 -> "Cuartos de final"
+            2 -> "Semifinal"
+            3 -> "Final"
+            else -> ""
         }
     }
 }

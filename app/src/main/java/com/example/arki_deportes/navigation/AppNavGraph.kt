@@ -7,7 +7,9 @@ import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.navArgument
+import androidx.navigation.navArgument // ✅ correcto
+
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * APP NAVIGATOR - INTERFAZ DE NAVEGACIÓN COMPLETA
@@ -51,6 +53,9 @@ interface AppNavigator {
      * Navega a la pantalla de tiempo real
      */
     fun navigateToRealTime()
+
+    // ✅ AGREGAR ESTA FUNCIÓN:
+    fun navigateToTiempoReal(partidoId: String, clearBackStack: Boolean = false)
 
     /**
      * Navega a la pantalla de catálogos
@@ -148,6 +153,22 @@ private class DefaultAppNavigator(
         }
     }
 
+    // ✅ AGREGAR ESTA FUNCIÓN CON override:
+    override fun navigateToTiempoReal(
+        partidoId: String,
+        clearBackStack: Boolean
+    ) {
+        val route = "tiempo_real/$partidoId"
+        navController.navigate(route) {
+            launchSingleTop = true
+            if (clearBackStack) {
+                popUpTo(navController.graph.startDestinationId) {
+                    inclusive = true
+                }
+            }
+        }
+    }
+
     override fun navigateToCatalogs() {
         navController.navigate(AppDestinations.CATALOGS) {
             launchSingleTop = true
@@ -215,6 +236,8 @@ private class DefaultAppNavigator(
             launchSingleTop = true
         }
     }
+
+
 }
 
 /**
@@ -226,6 +249,8 @@ private class DefaultAppNavigator(
 fun rememberAppNavigator(navController: NavHostController): AppNavigator {
     return remember(navController) { DefaultAppNavigator(navController) }
 }
+
+
 
 /**
  * Grafo de navegación principal de la app.
@@ -255,6 +280,19 @@ fun AppNavGraph(
         composable(AppDestinations.LOGIN) { loginRoute(navigator) }
         composable(AppDestinations.HYBRID_HOME) { hybridHomeRoute(navigator) }
         composable(AppDestinations.REAL_TIME) { realTimeRoute(navigator) }
+        // ✅ AGREGAR ESTA RUTA:
+        composable(
+            route = "tiempo_real/{partidoId}",
+            arguments = listOf(
+                navArgument("partidoId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val partidoId = backStackEntry.arguments?.getString("partidoId") ?: ""
+            realTimeRoute(navigator)
+        }
+
         composable(AppDestinations.CATALOGS) { catalogsRoute(navigator) }
         composable(AppDestinations.MENCIONES) { mencionesRoute(navigator) }
         composable(AppDestinations.EQUIPO_PRODUCCION) { equipoProduccionRoute(navigator) }

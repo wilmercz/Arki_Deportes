@@ -330,13 +330,14 @@ class Repository(
         continuation.invokeOnCancellation { reference.removeEventListener(listener) }
     }
 
-    /**
-     * Parsea una fecha en los formatos más comunes guardados en Firebase.
-     */
-    private fun parseFecha(fecha: String): LocalDate? {
-        if (fecha.isBlank()) return null
 
-        val texto = fecha.trim()
+    /**
+     * Parsea fecha y hora de un partido para ordenamiento
+     */
+    private fun parseFecha(fecha: String?): LocalDate? {
+        val texto = fecha?.trim().orEmpty()
+        if (texto.isBlank()) return null
+
         val formatos = listOf(
             DateTimeFormatter.ISO_LOCAL_DATE,
             DateTimeFormatter.ofPattern("yyyy-MM-dd"),
@@ -347,37 +348,17 @@ class Repository(
             runCatching { return LocalDate.parse(texto, formatter) }
         }
 
-
-
-        val fechaLimpia = fecha.trim()
-        fechaFormatters.forEach { formatter ->
-            try {
-                return LocalDate.parse(fechaLimpia, formatter)
-            } catch (_: Exception) {
-                // Continúa con el siguiente formato disponible
-            }
-        }
-
-        Log.w(TAG, "No se pudo parsear la fecha: $fecha")
-
+        Log.w(TAG, "No se pudo parsear la fecha: $texto")
         return null
-    }
-
-    /**
-     * Parsea fecha y hora de un partido para ordenamiento
-     */
-    private fun parseFechaHora(partido: Partido): LocalDateTime? {
-        val fecha = parseFecha(partido.FECHA_PARTIDO) ?: return null
-        val hora = parseHora(partido.HORA_PARTIDO) ?: LocalTime.MIDNIGHT
-        return LocalDateTime.of(fecha, hora)
     }
 
     /**
      * Parsea una hora en formato HH:mm o HH:mm:ss.
      */
-    private fun parseHora(hora: String): LocalTime? {
-        if (hora.isBlank()) return null
-        val texto = hora.trim()
+    private fun parseHora(hora: String?): LocalTime? {
+        val texto = hora?.trim().orEmpty()
+        if (texto.isBlank()) return null
+
         val formatos = listOf(
             DateTimeFormatter.ofPattern("HH:mm"),
             DateTimeFormatter.ofPattern("HH:mm:ss")
@@ -390,4 +371,9 @@ class Repository(
         return null
     }
 
+    private fun parseFechaHora(partido: Partido): LocalDateTime? {
+        val fecha = parseFecha(partido.FECHA_PARTIDO) ?: return null
+        val hora = parseHora(partido.HORA_PARTIDO) ?: LocalTime.MIDNIGHT
+        return LocalDateTime.of(fecha, hora)
+    }
 }
