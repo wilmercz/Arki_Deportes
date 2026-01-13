@@ -36,7 +36,9 @@ data class PartidoFormData(
     val grupoNombre: String = "",
 
     val equipo1Codigo: String = "",
+    val equipo1Nombre: String = "", // ← FALTA
     val equipo2Codigo: String = "",
+    val equipo2Nombre: String = "", // ← FALTA
 
     val fechaPartido: String = "",
     val horaPartido: String = "",
@@ -138,8 +140,8 @@ class PartidoFormViewModel(
                                 grupoCodigo = partido.GRUPOCODIGO,
                                 grupoNombre = partido.GRUPONOMBRE,
 
-                                equipo1Codigo = partido.CodigoEquipo1,
-                                equipo2Codigo = partido.CodigoEquipo2,
+                                equipo1Codigo = partido.CODIGOEQUIPO1,
+                                equipo2Codigo = partido.CODIGOEQUIPO2,
 
                                 fechaPartido = partido.FECHA_PARTIDO,
                                 horaPartido = partido.HORA_PARTIDO,
@@ -361,11 +363,11 @@ class PartidoFormViewModel(
             CAMPEONATOCODIGO = form.campeonatoCodigo,
             CAMPEONATOTXT = form.campeonatoNombre,
 
-            // ✅ Nombres EXACTOS del constructor (ojo: Equipo1, CodigoEquipo1)
-            Equipo1 = equipo1?.EQUIPO ?: "",
-            Equipo2 = equipo2?.EQUIPO ?: "",
-            CodigoEquipo1 = equipo1?.CODIGOEQUIPO ?: "",
-            CodigoEquipo2 = equipo2?.CODIGOEQUIPO ?: "",
+            // ✅ Nombres EXACTOS del constructor (ojo: Equipo1, CODIGOEQUIPO1)
+            EQUIPO1 = equipo1?.EQUIPO ?: "",
+            EQUIPO2 = equipo2?.EQUIPO ?: "",
+            CODIGOEQUIPO1 = equipo1?.CODIGOEQUIPO ?: "",
+            CODIGOEQUIPO2 = equipo2?.CODIGOEQUIPO ?: "",
 
             // ✅ Tu modelo tiene ambos: FECHA_PARTIDO/HORA_PARTIDO y también "Fecha"
             // Aquí guardo FECHA_PARTIDO / HORA_PARTIDO (los que ya usas en el formulario)
@@ -382,14 +384,13 @@ class PartidoFormViewModel(
             TRANSMISION = form.transmision,
 
             // ✅ Etapa en tu modelo se llama "Etapa"
-            Etapa = form.etapa,
+            ETAPA = form.etapa,
             FASE = form.fase,
             NUMERO_PARTIDO = form.numeroPartido,
 
             // ✅ Mantener valores previos si estás editando
-            TIEMPOJUEGO = originalPartido?.TIEMPOJUEGO ?: "00:00",
+            TIEMPOJUEGO = originalPartido?.TIEMPOJUEGO ?: "45",
             NumeroDeTiempo = originalPartido?.NumeroDeTiempo ?: "0T",
-            TiempodeJuego = originalPartido?.TiempodeJuego ?: 45,
             TIEMPOSJUGADOS = originalPartido?.TIEMPOSJUGADOS ?: 0,
             ESTADO = originalPartido?.ESTADO ?: 0,
 

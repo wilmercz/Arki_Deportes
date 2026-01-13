@@ -137,11 +137,21 @@ class FirebaseCatalogRepository(
         return snapshot.getValue(Equipo::class.java)
     }
 
+    // FirebaseCatalogRepository.kt
+
     suspend fun getPartido(campeonatoId: String, partidoId: String): Partido? {
         return try {
-            if (campeonatoId.isBlank() || partidoId.isBlank()) return null
+            if (campeonatoId.isBlank() || partidoId.isBlank()) {
+                Log.e("FirebaseCatalogRepo", "❌ IDs vacíos: campeonatoId='$campeonatoId', partidoId='$partidoId'")
+                return null
+            }
 
-            Log.d("FirebaseCatalogRepo", "🔍 Buscando partido (directo): $campeonatoId / $partidoId")
+            val path = "$rootNode/DatosFutbol/Campeonatos/$campeonatoId/Partidos/$partidoId"
+
+            Log.d("FirebaseCatalogRepo", "╔═══════════════════════════════════════════════════════")
+            Log.d("FirebaseCatalogRepo", "🔍 BUSCANDO PARTIDO EN FIREBASE")
+            Log.d("FirebaseCatalogRepo", "   Ruta: $path")
+            Log.d("FirebaseCatalogRepo", "╚═══════════════════════════════════════════════════════")
 
             val snap = database.reference
                 .child(rootNode)
@@ -154,24 +164,64 @@ class FirebaseCatalogRepository(
                 .await()
 
             if (!snap.exists()) {
-                Log.w("FirebaseCatalogRepo", "❌ Partido no existe en $campeonatoId: $partidoId")
+                Log.e("FirebaseCatalogRepo", "╔═══════════════════════════════════════════════════════")
+                Log.e("FirebaseCatalogRepo", "❌ SNAPSHOT NO EXISTE")
+                Log.e("FirebaseCatalogRepo", "   Path: $path")
+                Log.e("FirebaseCatalogRepo", "   snap.exists() = false")
+                Log.e("FirebaseCatalogRepo", "╚═══════════════════════════════════════════════════════")
                 return null
             }
+
+            Log.d("FirebaseCatalogRepo", "✅ Snapshot existe, parseando datos...")
+
+            // Mostrar TODOS los datos crudos de Firebase
+            Log.d("FirebaseCatalogRepo", "╔═══════════════════════════════════════════════════════")
+            Log.d("FirebaseCatalogRepo", "📋 DATOS CRUDOS DE FIREBASE:")
+            snap.children.forEach { child ->
+                Log.d("FirebaseCatalogRepo", "   ${child.key} = ${child.value}")
+            }
+            Log.d("FirebaseCatalogRepo", "╚═══════════════════════════════════════════════════════")
 
             val partido = snap.getValue(Partido::class.java)
+
             if (partido == null) {
-                Log.w("FirebaseCatalogRepo", "❌ Partido null al parsear: $partidoId")
+                Log.e("FirebaseCatalogRepo", "╔═══════════════════════════════════════════════════════")
+                Log.e("FirebaseCatalogRepo", "❌ ERROR AL PARSEAR PARTIDO")
+                Log.e("FirebaseCatalogRepo", "   snap.getValue(Partido::class.java) retornó null")
+                Log.e("FirebaseCatalogRepo", "   Posibles causas:")
+                Log.e("FirebaseCatalogRepo", "   - Nombres de campos no coinciden")
+                Log.e("FirebaseCatalogRepo", "   - Tipos de datos incorrectos")
+                Log.e("FirebaseCatalogRepo", "   - Constructor sin argumentos faltante")
+                Log.e("FirebaseCatalogRepo", "╚═══════════════════════════════════════════════════════")
                 return null
             }
 
-            // ✅ asegurar que el modelo quede consistente
+            Log.d("FirebaseCatalogRepo", "╔═══════════════════════════════════════════════════════")
+            Log.d("FirebaseCatalogRepo", "✅ PARTIDO PARSEADO EXITOSAMENTE")
+            Log.d("FirebaseCatalogRepo", "   CODIGOPARTIDO: '${partido.CODIGOPARTIDO}'")
+            Log.d("FirebaseCatalogRepo", "   CAMPEONATOCODIGO: '${partido.CAMPEONATOCODIGO}'")
+            Log.d("FirebaseCatalogRepo", "   EQUIPO1: '${partido.EQUIPO1}'")
+            Log.d("FirebaseCatalogRepo", "   EQUIPO2: '${partido.EQUIPO2}'")
+            Log.d("FirebaseCatalogRepo", "   CODIGOEQUIPO1: '${partido.CODIGOEQUIPO1}'")
+            Log.d("FirebaseCatalogRepo", "   CODIGOEQUIPO2: '${partido.CODIGOEQUIPO2}'")
+            Log.d("FirebaseCatalogRepo", "   GOLES1: ${partido.GOLES1}")
+            Log.d("FirebaseCatalogRepo", "   GOLES2: ${partido.GOLES2}")
+            Log.d("FirebaseCatalogRepo", "   NUMERODETIEMPO: '${partido.NumeroDeTiempo}'")
+            Log.d("FirebaseCatalogRepo", "   TIEMPOJUEGO: '${partido.TIEMPOJUEGO}'")
+            Log.d("FirebaseCatalogRepo", "╚═══════════════════════════════════════════════════════")
+
             partido.copy(CAMPEONATOCODIGO = campeonatoId)
+
         } catch (e: Exception) {
-            Log.e("FirebaseCatalogRepo", "❌ Error getPartido directo: ${e.message}", e)
+            Log.e("FirebaseCatalogRepo", "╔═══════════════════════════════════════════════════════")
+            Log.e("FirebaseCatalogRepo", "❌ EXCEPCIÓN EN getPartido")
+            Log.e("FirebaseCatalogRepo", "   Mensaje: ${e.message}")
+            Log.e("FirebaseCatalogRepo", "   Tipo: ${e.javaClass.simpleName}")
+            e.printStackTrace()
+            Log.e("FirebaseCatalogRepo", "╚═══════════════════════════════════════════════════════")
             null
         }
     }
-
 
     // ─────────────────────────────────────────────────────────────────────────────
     // Operaciones de guardado
@@ -246,7 +296,7 @@ class FirebaseCatalogRepository(
             override fun onDataChange(snapshot: DataSnapshot) {
                 val partido = snapshot.getValue(Partido::class.java)
                 if (partido != null) {
-                    Log.d("FirebaseCatalogRepo", "📥 Actualizado: ${partido.Equipo1} vs ${partido.Equipo2}")
+                    Log.d("FirebaseCatalogRepo", "📥 Actualizado: ${partido.EQUIPO1} vs ${partido.EQUIPO2}")
                     trySend(partido)
                 }
             }
@@ -312,8 +362,8 @@ class FirebaseCatalogRepository(
         val reference = database.reference.child("PARTIDOACTUAL")
 
         val data = mapOf(
-            "Equipo1" to partido.Equipo1,
-            "Equipo2" to partido.Equipo2,
+            "EQUIPO1" to partido.EQUIPO1,
+            "EQUIPO2" to partido.EQUIPO2,
             "Goles1" to partido.GOLES1,
             "Goles2" to partido.GOLES2,
             "NumeroDeTiempo" to partido.NumeroDeTiempo,
@@ -324,7 +374,7 @@ class FirebaseCatalogRepository(
             "Rojas2" to partido.TROJAS2,
             "Esquinas1" to partido.ESQUINAS1,
             "Esquinas2" to partido.ESQUINAS2,
-            "Fecha" to partido.Fecha
+            "FECHA" to partido.FECHA
         )
 
         reference.setValue(data).await()

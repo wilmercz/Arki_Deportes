@@ -43,7 +43,7 @@ fun InformacionTab(
         InfoRow("Lugar", partido.LUGAR ?: "No especificado")
         InfoRow("Fecha", partido.FECHA_PARTIDO ?: "No especificada")
         InfoRow("Hora", partido.HORA_PARTIDO ?: "No especificada")
-        InfoRow("Etapa", getEtapaTexto(partido.Etapa))
+        InfoRow("Etapa", getEtapaTexto(partido.ETAPA))
 
         Divider()
 

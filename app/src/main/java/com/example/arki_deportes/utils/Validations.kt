@@ -147,13 +147,13 @@ object Validations {
             partido.CAMPEONATOCODIGO.isBlank() ->
                 "Debe seleccionar un campeonato"
 
-            partido.CodigoEquipo1.isBlank() || partido.Equipo1.isBlank() ->
+            partido.CODIGOEQUIPO1.isBlank() || partido.EQUIPO1.isBlank() ->
                 "Debe seleccionar el equipo 1"
 
-            partido.CodigoEquipo2.isBlank() || partido.Equipo2.isBlank() ->
+            partido.CODIGOEQUIPO2.isBlank() || partido.EQUIPO2.isBlank() ->
                 "Debe seleccionar el equipo 2"
 
-            partido.CodigoEquipo1 == partido.CodigoEquipo2 ->
+            partido.CODIGOEQUIPO1 == partido.CODIGOEQUIPO2 ->
                 "Los equipos deben ser diferentes"
 
             fecha.isBlank() ->
@@ -179,7 +179,7 @@ object Validations {
                 "Los goles del equipo 2 deben estar entre 0 y 99"
 
             // ✅ ETAPA: tu comentario decía 0..3
-            partido.Etapa !in 0..3 ->
+            partido.ETAPA !in 0..3 ->
                 "La etapa debe ser 0 (Grupos), 1 (Cuartos), 2 (Semifinal) o 3 (Final)"
 
             else -> null

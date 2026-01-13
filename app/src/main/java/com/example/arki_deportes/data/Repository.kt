@@ -323,16 +323,16 @@ class Repository(
 
                             if (partido != null) {
                                 // ✅ NUEVA LÓGICA: Usar Equipo1/Equipo2 o CodigoEquipo1/CodigoEquipo2
-                                val equipo1 = if (partido.Equipo1.isNotBlank()) {
-                                    partido.Equipo1
+                                val equipo1 = if (partido.EQUIPO1.isNotBlank()) {
+                                    partido.EQUIPO1
                                 } else {
-                                    partido.CodigoEquipo1.ifBlank { "Equipo 1" }
+                                    partido.CODIGOEQUIPO1.ifBlank { "Equipo 1" }
                                 }
 
-                                val equipo2 = if (partido.Equipo2.isNotBlank()) {
-                                    partido.Equipo2
+                                val equipo2 = if (partido.EQUIPO2.isNotBlank()) {
+                                    partido.EQUIPO2
                                 } else {
-                                    partido.CodigoEquipo2.ifBlank { "Equipo 2" }
+                                    partido.CODIGOEQUIPO2.ifBlank { "Equipo 2" }
                                 }
 
                                 // ✅ NUEVA LÓGICA: Si no hay FECHA_PARTIDO, usar FECHAALTA o incluir siempre

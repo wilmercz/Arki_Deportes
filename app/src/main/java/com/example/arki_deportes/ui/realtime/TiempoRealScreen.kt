@@ -46,9 +46,10 @@ fun TiempoRealScreen(
                 // ═══════════════════════════════════════════════════════
                 CronometroPanel(
                     tiempoActual = state.tiempoActual,
-                    numeroTiempo = partido.NumeroDeTiempo,
+                    partido = partido,
                     onIniciar = viewModel::iniciarPartido,
                     onDetener = viewModel::detenerCronometro,
+                    onReiniciar = viewModel::reiniciarPartido,
                     onAjustar = viewModel::ajustarTiempo,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -57,8 +58,8 @@ fun TiempoRealScreen(
                 // PANEL 2: MARCADOR (Siempre visible, minimalista)
                 // ═══════════════════════════════════════════════════════
                 MarcadorPanel(
-                    equipo1 = partido.Equipo1,
-                    equipo2 = partido.Equipo2,
+                    equipo1 = partido.EQUIPO1,
+                    equipo2 = partido.EQUIPO2,
                     goles1 = partido.getGoles1Int(),
                     goles2 = partido.getGoles2Int(),
                     modifier = Modifier.fillMaxWidth()
@@ -99,8 +100,8 @@ fun TiempoRealScreen(
 
                     when (selectedTab) {
                         0 -> ControlPartidoTab(
-                            equipo1 = partido.Equipo1,
-                            equipo2 = partido.Equipo2,
+                            equipo1 = partido.EQUIPO1,
+                            equipo2 = partido.EQUIPO2,
                             goles1 = partido.getGoles1Int(),
                             goles2 = partido.getGoles2Int(),
                             amarillas1 = partido.getAmarillas1Int(),

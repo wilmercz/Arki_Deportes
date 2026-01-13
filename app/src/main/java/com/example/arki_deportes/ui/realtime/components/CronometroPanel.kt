@@ -2,7 +2,7 @@
 
 
 package com.example.arki_deportes.ui.realtime.components
-
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,33 +14,37 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Color
-
+import com.example.arki_deportes.data.model.Partido
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * CRONÓMETRO PANEL - CON TABS PARA AHORRAR ESPACIO
  * ═══════════════════════════════════════════════════════════════════════════
  */
+// ui/realtime/components/CronometroPanel.kt
+
 @Composable
 fun CronometroPanel(
     tiempoActual: String,
-    numeroTiempo: String,
+    partido: Partido,  // ← Recibir el partido completo
     onIniciar: () -> Unit,
     onDetener: () -> Unit,
+    onReiniciar: () -> Unit,
     onAjustar: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // ✅ Log cuando se recompone
+    Log.d("CronometroPanel", "🔄 Recomposición - Tiempo: $tiempoActual")
+
+    // ✅ Usar el método efectivo
+    val numeroTiempo = partido.getNumeroDeTiempoEfectivo()
+
     var selectedTab by remember { mutableStateOf(0) }
 
     Card(
         modifier = modifier,
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // ═══════════════════════════════════════════════════════════
-            // TABS
-            // ═══════════════════════════════════════════════════════════
+        Column(modifier = Modifier.fillMaxWidth()) {
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
@@ -63,17 +67,10 @@ fun CronometroPanel(
                 }
             }
 
-            // ═══════════════════════════════════════════════════════════
-            // CONTENIDO DE LOS TABS
-            // ═══════════════════════════════════════════════════════════
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 when (selectedTab) {
                     0 -> TabCronometro(tiempoActual, numeroTiempo)
-                    1 -> TabControles(numeroTiempo, onIniciar, onDetener)
+                    1 -> TabControles(numeroTiempo, onIniciar, onDetener, onReiniciar)
                     2 -> TabAjustes(onAjustar)
                 }
             }
@@ -194,13 +191,45 @@ private fun IndicadorPulsante() {
 private fun TabControles(
     numeroTiempo: String,
     onIniciar: () -> Unit,
-    onDetener: () -> Unit
+    onDetener: () -> Unit,
+    onReiniciar: () -> Unit
 ) {
+    var showConfirm by remember { mutableStateOf(false) }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("¿Reiniciar partido?") },
+            text = {
+                Text("Esto dejará el partido como NO INICIADO y borrará FECHA_PLAY/Cronometro. ¿Seguro?")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirm = false
+                    onReiniciar()
+                }) { Text("Sí, reiniciar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+
+        // ✅ Botón pequeño visible cuando NO es 0T y NO es 4T
+        //if (numeroTiempo != "0T" && numeroTiempo != "4T") {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { showConfirm = true }) {
+                    Text("🔄 Reiniciar", fontSize = 12.sp)
+                }
+            }
+        //}
+
         when (numeroTiempo) {
             "0T" -> {
                 // No iniciado

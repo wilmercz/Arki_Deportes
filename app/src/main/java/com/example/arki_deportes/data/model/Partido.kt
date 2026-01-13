@@ -31,10 +31,10 @@ data class Partido(
     // EQUIPOS
     // ═══════════════════════════════════════════════════════════════════════
 
-    val Equipo1: String = "",
-    val Equipo2: String = "",
-    val CodigoEquipo1: String = "",
-    val CodigoEquipo2: String = "",
+    val EQUIPO1: String = "",
+    val EQUIPO2: String = "",
+    val CODIGOEQUIPO1: String = "",
+    val CODIGOEQUIPO2: String = "",
 
     /**
      * Ruta de la imagen del escudo (opcional)
@@ -43,8 +43,8 @@ data class Partido(
      *
      * Nota: NO es crítico para funcionalidad básica
      */
-    val BanderaEquipo1: String = "",
-    val BanderaEquipo2: String = "",
+    val BANDERAEQUIPO1: String = "",
+    val BANDERAEQUIPO2: String = "",
 
     // ═══════════════════════════════════════════════════════════════════════
     // FECHA DEL PARTIDO
@@ -54,7 +54,7 @@ data class Partido(
      * Fecha del partido
      * VB.NET: Public Property Fecha() As String
      */
-    val Fecha: String = "",
+    val FECHA: String = "",
 
     // ═══════════════════════════════════════════════════════════════════════
     // CRONÓMETRO (SISTEMA VB.NET)
@@ -96,14 +96,6 @@ data class Partido(
     val NumeroDeTiempo: String = "0T",
 
     /**
-     * Duración de cada tiempo en minutos
-     * VB.NET: Public Property TiempodeJuego() As Integer = 45
-     *
-     * Por defecto 45 minutos para fútbol
-     */
-    val TiempodeJuego: Int = 45,
-
-    /**
      * Qué tiempo se está jugando
      * 0 = No iniciado
      * 1 = Primer tiempo
@@ -128,7 +120,7 @@ data class Partido(
      * Formato: "MM:SS" o "HH:MM:SS"
      * Ejemplo: "23:45", "90:00"
      */
-    val TIEMPOJUEGO: String = "00:00",
+    val TIEMPOJUEGO: String = "45",
 
 // ═══════════════════════════════════════════════════════════════════════
 // MARCADOR - GOLES
@@ -223,7 +215,7 @@ data class Partido(
      *
      * VB.NET: Public Property Etapa() As Integer = 0
      */
-    val Etapa: Int = 0,
+    val ETAPA: Int = 0,
 
     // ═══════════════════════════════════════════════════════════════════════
     // OTROS DATOS (Desde BD, no en clase VB pero sí en Firebase)
@@ -308,8 +300,8 @@ data class Partido(
     constructor() : this(
         CODIGOPARTIDO = "",
         CAMPEONATOCODIGO = "",
-        Equipo1 = "",
-        Equipo2 = "",
+        EQUIPO1 = "",
+        EQUIPO2 = "",
         NumeroDeTiempo = "0T"
     )
 
@@ -320,7 +312,7 @@ data class Partido(
     /**
      * Obtiene el nombre del partido
      */
-    fun getNombrePartido(): String = "$Equipo1 vs $Equipo2"
+    fun getNombrePartido(): String = "$EQUIPO1 vs $EQUIPO2"
 
     /**
      * Verifica si el partido está finalizado
@@ -365,20 +357,47 @@ data class Partido(
      * Basado en: (Now - Cronometro)
      */
     fun calcularTiempoActualSegundos(): Int {
-        val fechaInicio = FECHA_PLAY ?: Cronometro ?: return parsearTiempoJuego()
-
-        try {
-            val formato = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            val fechaDate = formato.parse(fechaInicio) ?: return parsearTiempoJuego()
-
-            val ahora = System.currentTimeMillis()
-            val inicio = fechaDate.time
-            val diferencia = ahora - inicio
-
-            return (diferencia / 1000).toInt()
-        } catch (e: Exception) {
-            return parsearTiempoJuego()
+        // ✅ Elegir FECHA_PLAY solo si tiene valor real; si no, usar Cronometro
+        val fechaInicioStr = when {
+            FECHA_PLAY.isNotBlank() -> FECHA_PLAY.trim()
+            Cronometro.isNotBlank() -> Cronometro.trim()
+            else -> return 0
         }
+
+        val inicioMillis = parseFechaInicioMillis(fechaInicioStr) ?: return 0
+
+        val diff = System.currentTimeMillis() - inicioMillis
+        if (diff <= 0) return 0
+
+        return (diff / 1000L).toInt()
+    }
+
+    private fun parseFechaInicioMillis(texto: String): Long? {
+        val t = texto.trim()
+        if (t.isBlank()) return null
+
+        // Si viniera con Z (UTC), lo soportamos también
+        val patrones = listOf(
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss"
+        )
+
+        for (pat in patrones) {
+            try {
+                val sdf = java.text.SimpleDateFormat(pat, java.util.Locale.US).apply {
+                    isLenient = false
+                    timeZone = if (t.endsWith("Z")) java.util.TimeZone.getTimeZone("UTC")
+                    else java.util.TimeZone.getDefault()
+                }
+                val d = sdf.parse(t) ?: continue
+                return d.time
+            } catch (_: Exception) {
+                // seguir probando otros formatos
+            }
+        }
+        return null
     }
 
     /**
@@ -409,6 +428,45 @@ data class Partido(
     }
 
     /**
+     * Obtiene el NumeroDeTiempo efectivo
+     *
+     * ✅ LÓGICA VB.NET:
+     * - Si ESTADO = 0 (en curso):
+     *   - TIEMPOSJUGADOS = 1 → "1T"
+     *   - TIEMPOSJUGADOS = 2 → "3T"
+     *   - Otro valor → "0T"
+     * - Si ESTADO = 1 (finalizado) → "4T"
+     * - Si NumeroDeTiempo ya tiene valor → usar ese valor
+     */
+    fun getNumeroDeTiempoEfectivo(): String {
+        // 1. Si NumeroDeTiempo ya tiene un valor válido, usarlo
+        if (NumeroDeTiempo.isNotBlank() && NumeroDeTiempo != "0T") {
+            return NumeroDeTiempo
+        }
+
+        // 2. Calcular desde ESTADO y TIEMPOSJUGADOS (compatible VB.NET)
+        val resultado = when {
+            // Si está finalizado
+            ESTADO == 1 -> "4T"
+
+            // Si está en curso (ESTADO = 0)
+            ESTADO == 0 -> {
+                when (TIEMPOSJUGADOS) {
+                    1 -> "1T"  // Primer tiempo
+                    2 -> "3T"  // Segundo tiempo
+                    else -> "0T"  // No iniciado
+                }
+            }
+
+            // Por defecto
+            else -> NumeroDeTiempo.ifBlank { "0T" }
+        }
+
+        return resultado
+    }
+
+
+    /**
      * Convierte campos a Int (ahora son directos)
      */
     fun getGoles1Int(): Int = GOLES1
@@ -427,18 +485,17 @@ data class Partido(
         return mapOf(
             "CODIGOPARTIDO" to CODIGOPARTIDO,
             "CAMPEONATOCODIGO" to CAMPEONATOCODIGO,
-            "Equipo1" to Equipo1,
-            "Equipo2" to Equipo2,
-            "CodigoEquipo1" to CodigoEquipo1,
-            "CodigoEquipo2" to CodigoEquipo2,
-            "BanderaEquipo1" to BanderaEquipo1,
-            "BanderaEquipo2" to BanderaEquipo2,
-            "Fecha" to Fecha,
+            "EQUIPO1" to EQUIPO1,
+            "EQUIPO2" to EQUIPO2,
+            "CODIGOEQUIPO1" to CODIGOEQUIPO1,
+            "CODIGOEQUIPO2" to CODIGOEQUIPO2,
+            "BANDERAEQUIPO1" to BANDERAEQUIPO1,
+            "BANDERAEQUIPO2" to BANDERAEQUIPO2,
+            "FECHA" to FECHA,
             "Cronometro" to Cronometro,
             "FECHA_PLAY" to FECHA_PLAY,
             "HORA_PLAY" to HORA_PLAY,
             "NumeroDeTiempo" to NumeroDeTiempo,
-            "TiempodeJuego" to TiempodeJuego,
             "TIEMPOSJUGADOS" to TIEMPOSJUGADOS,
             "ESTADO" to ESTADO,
             "TIEMPOJUEGO" to TIEMPOJUEGO,
@@ -452,7 +509,7 @@ data class Partido(
             "TROJAS2" to TROJAS2,         // ← Ahora Int directo
             "Penales1" to Penales1,
             "Penales2" to Penales2,
-            "Etapa" to Etapa,
+            "Etapa" to ETAPA,
             "ESTADIO" to ESTADIO,
             "LUGAR" to LUGAR,
             "FECHA_PARTIDO" to FECHA_PARTIDO,
@@ -481,23 +538,35 @@ data class Partido(
  * FirebaseManager.EnqueueSet("ESTADO", 0, 2)
  * ```
  */
-fun crearMapaIniciarPartido(primerTiempo: Boolean = true): Map<String, Any> {
+fun crearMapaIniciarPartido(primerTiempo: Boolean = true, duracionTiempo: Int = 45): Map<String, Any> {
     val ahora = Date()
-    val formato = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    val formato = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
+    val cronometroStr = formato.format(ahora)
+
     val cal = Calendar.getInstance()
     cal.time = ahora
-
-    val cronometroStr = formato.format(ahora)
-    val horaPlay = "${cal.get(Calendar.HOUR_OF_DAY)}-${cal.get(Calendar.MINUTE)}-${cal.get(Calendar.SECOND)}"
+    val horaPlay = String.format(
+        "%02d-%02d-%02d",
+        cal.get(Calendar.HOUR_OF_DAY),
+        cal.get(Calendar.MINUTE),
+        cal.get(Calendar.SECOND)
+    )
 
     return mapOf(
+        // Cronómetro - Momento de inicio
         "Cronometro" to cronometroStr,
         "FECHA_PLAY" to cronometroStr,
         "HORA_PLAY" to horaPlay,
+
+        // Estado del tiempo
         "NumeroDeTiempo" to if (primerTiempo) "1T" else "3T",
         "TIEMPOSJUGADOS" to if (primerTiempo) 1 else 2,
+
+        // Estado del partido
         "ESTADO" to 0,
-        "TIEMPOJUEGO" to "00:00"
+
+        // Duración configurada (NO tiempo transcurrido)
+        "TiempodeJuego" to duracionTiempo
     )
 }
 
@@ -532,12 +601,16 @@ fun crearMapaFinalizarPartido(): Map<String, Any> {
 }
 
 /**
- * Crea el mapa para actualizar el tiempo de juego
- * VB.NET: Se actualiza cada segundo en el timer
+ * Crea el mapa para finalizar con ganador
  */
-fun crearMapaTiempoJuego(minutos: Int, segundos: Int): Map<String, Any> {
+fun crearMapaFinalizarConGanador(nombreGanador: String, codigoGanador: String): Map<String, Any> {
     return mapOf(
-        "TIEMPOJUEGO" to String.format("%02d:%02d", minutos, segundos)
+        "NumeroDeTiempo" to "4T",
+        "ESTADO" to 1,
+        "NOMBREGANADOR" to nombreGanador,
+        "CODIGOGANADOR" to codigoGanador
     )
 }
+
+
 

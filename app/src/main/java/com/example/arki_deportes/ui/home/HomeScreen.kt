@@ -314,7 +314,7 @@ private fun PartidoCard(partido: Partido) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "${partido.Equipo1.ifBlank { "Por definir" }} vs ${partido.Equipo2.ifBlank { "Por definir" }}",
+                text = "${partido.EQUIPO1.ifBlank { "Por definir" }} vs ${partido.EQUIPO2.ifBlank { "Por definir" }}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -336,7 +336,7 @@ private fun PartidoCard(partido: Partido) {
                 )
                 Text(
                     text = buildString {
-                        append(formatFecha(partido.Fecha))
+                        append(formatFecha(partido.FECHA))
                         val hora = formatHora(partido.HORA_PLAY) // no hay HORA_PARTIDO en el modelo
                         if (hora.isNotBlank()) {
                             append(" · ")
@@ -357,8 +357,8 @@ private fun PartidoCard(partido: Partido) {
             }
 
             // Etapa (usa el campo real Etapa)
-            val etapaTexto = Constants.EtapasPartido.getTexto(partido.Etapa)
-            if (partido.Etapa != Constants.EtapasPartido.NINGUNO) {
+            val etapaTexto = Constants.EtapasPartido.getTexto(partido.ETAPA)
+            if (partido.ETAPA != Constants.EtapasPartido.NINGUNO) {
                 Text(
                     text = etapaTexto,
                     style = MaterialTheme.typography.bodySmall,
