@@ -394,7 +394,14 @@ class FirebaseCatalogRepository(
             "ESCUDO2_URL" to partido.BANDERAEQUIPO2,
             "ETAPA" to partido.ETAPA,
             "GRUPONOMBRE" to partido.GRUPONOMBRE,
-
+            "MARCADOR_PENALES" to partido.MARCADOR_PENALES,
+            "PENALES1" to partido.PENALES1,
+            "PENALES2" to partido.PENALES2,
+            "PENALES_INICIA" to partido.PENALES_INICIA,
+            "PENALES_TURNO" to partido.PENALES_TURNO,
+            "PENALES_TANDA" to partido.PENALES_TANDA,
+            "PENALES_SERIE1" to partido.PENALES_SERIE1,
+            "PENALES_SERIE2" to partido.PENALES_SERIE2,
             // Debug
             "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP
         )
@@ -403,5 +410,22 @@ class FirebaseCatalogRepository(
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
+    }
+
+    fun actualizarTransmision(
+        campeonatoId: String,
+        partidoId: String,
+        activa: Boolean
+    ) {
+        val ref = database.reference
+            .child("ARKI_DEPORTES")
+            .child("DatosFutbol")
+            .child("Campeonatos")
+            .child(campeonatoId)
+            .child("Partidos")
+            .child(partidoId)
+
+        ref.child("TRANSMISION").setValue(activa)
+        ref.child("ULTIMA_ACTUALIZACION").setValue(ServerValue.TIMESTAMP)
     }
 }

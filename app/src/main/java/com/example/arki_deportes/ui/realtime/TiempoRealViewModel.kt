@@ -45,7 +45,47 @@ data class TiempoRealUiState(
     val tiempoActual: String = "00:00",
     val error: String? = null,
     val modoTransmision: Boolean = false,
-    val actualizandoFirebase: Boolean = false
+    val actualizandoFirebase: Boolean = false,
+    /**
+     * Indica si el modo penales está activo
+     * Corresponde a MARCADOR_PENALES en Firebase
+     */
+    val penalesActivos: Boolean = false,
+
+    /**
+     * Equipo que INICIÓ la tanda (1 o 2)
+     * Permanente durante toda la tanda
+     * Corresponde a PENALES_INICIA en Firebase
+     */
+    val equipoQueInicia: Int = 1,
+
+    /**
+     * Equipo en TURNO actual (1 o 2)
+     * Alterna automáticamente después de cada tiro
+     * Corresponde a PENALES_TURNO en Firebase
+     */
+    val equipoEnTurno: Int = 1,
+
+    /**
+     * Número de tanda actual (1, 2, 3...)
+     * Se incrementa en muerte súbita
+     * Corresponde a PENALES_TANDA en Firebase
+     */
+    val tandaActual: Int = 1,
+
+    /**
+     * Historial de tiros equipo 1 (tanda actual)
+     * [1, 0, 1...] donde 1=gol, 0=fallo
+     * Corresponde a PENALES_SERIE1 en Firebase
+     */
+    val historiaPenales1: List<Int> = emptyList(),
+
+    /**
+     * Historial de tiros equipo 2 (tanda actual)
+     * [1, 1, 0...] donde 1=gol, 0=fallo
+     * Corresponde a PENALES_SERIE2 en Firebase
+     */
+    val historiaPenales2: List<Int> = emptyList()
 )
 
 class TiempoRealViewModel(
@@ -69,6 +109,7 @@ class TiempoRealViewModel(
         Log.d(TAG, "╚═══════════════════════════════════════════════════════")
 
         observarPartido()
+        observarPenales()
         iniciarActualizadorDeTiempo()
     }
 
@@ -119,6 +160,31 @@ class TiempoRealViewModel(
                             partido = partido,
                             isLoading = false,
                             error = null
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Observa los cambios en el sistema de penales desde Firebase
+     * Actualiza el UiState con los datos de penales
+     */
+    private fun observarPenales() {
+        viewModelScope.launch {
+            repository.observePartido(campeonatoId, partidoId)
+                .catch { error ->
+                    Log.e(TAG, "❌ Error observando penales: ${error.message}")
+                }
+                .collect { partido ->
+                    _uiState.update { state ->
+                        state.copy(
+                            penalesActivos = partido.MARCADOR_PENALES,
+                            equipoQueInicia = partido.PENALES_INICIA.coerceIn(1, 2),
+                            equipoEnTurno = partido.PENALES_TURNO.coerceIn(1, 2),
+                            tandaActual = partido.PENALES_TANDA.coerceAtLeast(1),
+                            historiaPenales1 = partido.PENALES_SERIE1,
+                            historiaPenales2 = partido.PENALES_SERIE2
                         )
                     }
                 }
@@ -897,6 +963,15 @@ class TiempoRealViewModel(
 
         Log.d(TAG, "Modo transmisión: $nuevoModo")
 
+
+        // 🔥 ESTO ES LO QUE FALTABA
+                repository.actualizarTransmision(
+                    campeonatoId = campeonatoId,
+                    partidoId = partidoId,
+                    activa = nuevoModo
+                )
+
+
         if (nuevoModo) {
             sincronizarConOverlay()
         }
@@ -930,4 +1005,362 @@ class TiempoRealViewModel(
         timerJob?.cancel()
         Log.d(TAG, "ViewModel limpiado")
     }
+
+    /******** TANDA DE PENALES
+     * Activa el modo penales
+     *
+     * ✅ ESCRIBE EN FIREBASE:
+     * - MARCADOR_PENALES = true (crítico para overlay web)
+     * - PENALES_INICIA = equipoInicia (quién cobra primero)
+     * - PENALES_TURNO = equipoInicia (inicialmente igual)
+     * - PENALES_TANDA = 1 (primera tanda)
+     * - ULTIMA_ACTUALIZACION = ServerValue.TIMESTAMP
+     *
+     * @param equipoInicia 1 o 2 - equipo que inicia la tanda
+     */
+    fun activarPenales(equipoInicia: Int) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(actualizandoFirebase = true) }
+
+            Log.d(TAG, "╔═══════════════════════════════════════════════════════╗")
+            Log.d(TAG, "🎯 ACTIVANDO MODO PENALES")
+            Log.d(TAG, "   Equipo que inicia: $equipoInicia")
+            Log.d(TAG, "╚═══════════════════════════════════════════════════════╝")
+
+            val updates = mapOf(
+                "MARCADOR_PENALES" to true,  // ← ✅ CRÍTICO: Overlay web lee esto
+                "PENALES_INICIA" to equipoInicia,
+                "PENALES_TURNO" to equipoInicia,
+                "PENALES_TANDA" to 1,
+                "PENALES_SERIE1" to emptyList<Int>(),
+                "PENALES_SERIE2" to emptyList<Int>(),
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            result.onSuccess {
+                Log.d(TAG, "✅ Modo penales activado correctamente")
+
+                // Sincronizar con overlay si está activo
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay()
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "❌ Error activando penales: ${error.message}")
+                _uiState.update { it.copy(error = error.message) }
+            }
+
+            _uiState.update { it.copy(actualizandoFirebase = false) }
+        }
+    }
+
+    /**
+     * Desactiva el modo penales
+     *
+     * ✅ ESCRIBE EN FIREBASE:
+     * - MARCADOR_PENALES = false (crítico para overlay web)
+     * - ULTIMA_ACTUALIZACION = ServerValue.TIMESTAMP
+     *
+     * ⚠️ NO resetea los contadores ni el historial
+     * Los datos se mantienen por si se reactiva
+     */
+    fun desactivarPenales() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(actualizandoFirebase = true) }
+
+            Log.d(TAG, "╔═══════════════════════════════════════════════════════╗")
+            Log.d(TAG, "⚪ DESACTIVANDO MODO PENALES")
+            Log.d(TAG, "╚═══════════════════════════════════════════════════════╝")
+
+            val updates = mapOf(
+                "MARCADOR_PENALES" to false,  // ← ✅ CRÍTICO: Overlay web lee esto
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            result.onSuccess {
+                Log.d(TAG, "✅ Modo penales desactivado correctamente")
+
+                // Sincronizar con overlay si está activo
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay()
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "❌ Error desactivando penales: ${error.message}")
+                _uiState.update { it.copy(error = error.message) }
+            }
+
+            _uiState.update { it.copy(actualizandoFirebase = false) }
+        }
+    }
+
+    /**
+     * Cambia el equipo que INICIA la tanda (corrección)
+     *
+     * @param nuevoEquipo 1 o 2
+     */
+    fun cambiarEquipoInicia(nuevoEquipo: Int) {
+        viewModelScope.launch {
+            Log.d(TAG, "🔄 Cambiando equipo inicial a: $nuevoEquipo")
+
+            val updates = mapOf(
+                "PENALES_INICIA" to nuevoEquipo,
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+        }
+    }
+
+    /**
+     * Cambia el turno manualmente (corrección)
+     *
+     * @param nuevoTurno 1 o 2
+     */
+    fun cambiarTurno(nuevoTurno: Int) {
+        viewModelScope.launch {
+            Log.d(TAG, "🔄 Cambiando turno a equipo: $nuevoTurno")
+
+            val updates = mapOf(
+                "PENALES_TURNO" to nuevoTurno,
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            if (_uiState.value.modoTransmision) {
+                sincronizarConOverlay()
+            }
+        }
+    }
+
+    /**
+     * Registra un GOL en el penal
+     *
+     * ✅ Incrementa el contador del equipo en turno
+     * ✅ Agrega 1 al historial
+     * ✅ Cambia el turno automáticamente
+     */
+    fun anotarGolPenal() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            val equipoEnTurno = _uiState.value.equipoEnTurno
+
+            Log.d(TAG, "╔═══════════════════════════════════════════════════════╗")
+            Log.d(TAG, "✅ GOL DE PENAL - Equipo $equipoEnTurno")
+            Log.d(TAG, "╚═══════════════════════════════════════════════════════╝")
+
+            val nuevoTurno = if (equipoEnTurno == 1) 2 else 1
+
+            val updates = if (equipoEnTurno == 1) {
+                mapOf(
+                    "PENALES1" to (partido.PENALES1 + 1),  // ← Incrementar contador
+                    "PENALES_SERIE1" to (_uiState.value.historiaPenales1 + 1),  // ← Agregar 1 (gol)
+                    "PENALES_TURNO" to nuevoTurno,  // ← Cambiar turno
+                    "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+                )
+            } else {
+                mapOf(
+                    "PENALES2" to (partido.PENALES2 + 1),
+                    "PENALES_SERIE2" to (_uiState.value.historiaPenales2 + 1),
+                    "PENALES_TURNO" to nuevoTurno,
+                    "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+                )
+            }
+
+            val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            result.onSuccess {
+                Log.d(TAG, "✅ Gol registrado. Turno cambió a equipo $nuevoTurno")
+
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay()
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "❌ Error registrando gol: ${error.message}")
+            }
+        }
+    }
+
+    /**
+     * Registra un FALLO en el penal
+     *
+     * ✅ NO incrementa el contador (solo goles cuentan)
+     * ✅ Agrega 0 al historial
+     * ✅ Cambia el turno automáticamente
+     */
+    fun anotarFalloPenal() {
+        viewModelScope.launch {
+            val equipoEnTurno = _uiState.value.equipoEnTurno
+
+            Log.d(TAG, "╔═══════════════════════════════════════════════════════╗")
+            Log.d(TAG, "❌ FALLO DE PENAL - Equipo $equipoEnTurno")
+            Log.d(TAG, "╚═══════════════════════════════════════════════════════╝")
+
+            val nuevoTurno = if (equipoEnTurno == 1) 2 else 1
+
+            val updates = if (equipoEnTurno == 1) {
+                mapOf(
+                    // ⚠️ NO incrementar Penales1 (solo goles cuentan)
+                    "PENALES_SERIE1" to (_uiState.value.historiaPenales1 + 0),  // ← Agregar 0 (fallo)
+                    "PENALES_TURNO" to nuevoTurno,
+                    "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+                )
+            } else {
+                mapOf(
+                    // ⚠️ NO incrementar Penales2
+                    "PENALES_SERIE2" to (_uiState.value.historiaPenales2 + 0),
+                    "PENALES_TURNO" to nuevoTurno,
+                    "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+                )
+            }
+
+            val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            result.onSuccess {
+                Log.d(TAG, "✅ Fallo registrado. Turno cambió a equipo $nuevoTurno")
+
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay()
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "❌ Error registrando fallo: ${error.message}")
+            }
+        }
+    }
+
+    /**
+     * Corrección manual: incrementa contador de penales equipo 1
+     */
+    fun agregarPenalManualEquipo1() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+
+            Log.d(TAG, "➕ Corrección manual: +1 penal equipo 1")
+
+            val updates = mapOf(
+                "Penales1" to (partido.PENALES1 + 1),
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            if (_uiState.value.modoTransmision) {
+                sincronizarConOverlay()
+            }
+        }
+    }
+
+    /**
+     * Corrección manual: decrementa contador de penales equipo 1
+     */
+    fun restarPenalManualEquipo1() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            val nuevoPenales = (partido.PENALES1 - 1).coerceAtLeast(0)
+
+            Log.d(TAG, "➖ Corrección manual: -1 penal equipo 1")
+
+            val updates = mapOf(
+                "Penales1" to nuevoPenales,
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            if (_uiState.value.modoTransmision) {
+                sincronizarConOverlay()
+            }
+        }
+    }
+
+    /**
+     * Corrección manual: incrementa contador de penales equipo 2
+     */
+    fun agregarPenalManualEquipo2() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+
+            Log.d(TAG, "➕ Corrección manual: +1 penal equipo 2")
+
+            val updates = mapOf(
+                "Penales2" to (partido.PENALES2 + 1),
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            if (_uiState.value.modoTransmision) {
+                sincronizarConOverlay()
+            }
+        }
+    }
+
+    /**
+     * Corrección manual: decrementa contador de penales equipo 2
+     */
+    fun restarPenalManualEquipo2() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            val nuevoPenales = (partido.PENALES2 - 1).coerceAtLeast(0)
+
+            Log.d(TAG, "➖ Corrección manual: -1 penal equipo 2")
+
+            val updates = mapOf(
+                "Penales2" to nuevoPenales,
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            if (_uiState.value.modoTransmision) {
+                sincronizarConOverlay()
+            }
+        }
+    }
+
+    /**
+     * Inicia una nueva tanda de penales (muerte súbita)
+     *
+     * ✅ Incrementa PENALES_TANDA
+     * ✅ Limpia PENALES_SERIE1 y PENALES_SERIE2
+     * ✅ Resetea turno al equipo que inició
+     * ⚠️ NO resetea Penales1 ni Penales2 (contadores globales)
+     */
+    fun nuevaTandaPenales() {
+        viewModelScope.launch {
+            val tandaActual = _uiState.value.tandaActual
+            val equipoQueInicia = _uiState.value.equipoQueInicia
+
+            Log.d(TAG, "╔═══════════════════════════════════════════════════════╗")
+            Log.d(TAG, "🔄 NUEVA TANDA DE PENALES (MUERTE SÚBITA)")
+            Log.d(TAG, "   Tanda actual: $tandaActual → ${tandaActual + 1}")
+            Log.d(TAG, "   Comienza equipo: $equipoQueInicia")
+            Log.d(TAG, "╚═══════════════════════════════════════════════════════╝")
+
+            val updates = mapOf(
+                "PENALES_TANDA" to (tandaActual + 1),  // ← Incrementar contador
+                "PENALES_SERIE1" to emptyList<Int>(),  // ← Limpiar historial
+                "PENALES_SERIE2" to emptyList<Int>(),  // ← Limpiar historial
+                "PENALES_TURNO" to equipoQueInicia,    // ← Resetear turno
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            result.onSuccess {
+                Log.d(TAG, "✅ Nueva tanda iniciada (tanda #${tandaActual + 1})")
+
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay()
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "❌ Error iniciando nueva tanda: ${error.message}")
+            }
+        }
+    }
+
+
 }

@@ -84,16 +84,22 @@ fun TiempoRealScreen(
                         Tab(
                             selected = selectedTab == 1,
                             onClick = { selectedTab = 1 },
-                            text = { Text("ℹ️ Info") }
+                            text = { Text("🎯 Penales") }  // ← NUEVO
                         )
+
                         Tab(
                             selected = selectedTab == 2,
                             onClick = { selectedTab = 2 },
-                            text = { Text("🎵 Audio") }
+                            text = { Text("ℹ️ Info") }
                         )
                         Tab(
                             selected = selectedTab == 3,
                             onClick = { selectedTab = 3 },
+                            text = { Text("🎵 Audio") }
+                        )
+                        Tab(
+                            selected = selectedTab == 4,
+                            onClick = { selectedTab = 4 },
                             text = { Text("📢 Pub") }
                         )
                     }
@@ -128,16 +134,51 @@ fun TiempoRealScreen(
                             onRestarEsquina2 = viewModel::restarEsquinaEquipo2,
                             modifier = Modifier.fillMaxSize()
                         )
-                        1 -> InformacionTab(
+                        1 -> PenalesTab(
+                            partido = partido,
+
+                            // Estado de penales
+                            penalesActivos = state.penalesActivos,
+                            equipoQueInicia = state.equipoQueInicia,
+                            equipoEnTurno = state.equipoEnTurno,
+                            tandaActual = state.tandaActual,
+                            historiaPenales1 = state.historiaPenales1,
+                            historiaPenales2 = state.historiaPenales2,
+
+                            // Callbacks de activación/desactivación
+                            onActivarPenales = viewModel::activarPenales,  // ← Recibe equipoInicia: Int
+                            onDesactivarPenales = viewModel::desactivarPenales,
+
+                            // Callbacks de configuración
+                            onCambiarEquipoInicia = viewModel::cambiarEquipoInicia,
+                            onCambiarTurno = viewModel::cambiarTurno,
+
+                            // Callbacks de registro de tiros
+                            onAnotarGol = viewModel::anotarGolPenal,
+                            onAnotarFallo = viewModel::anotarFalloPenal,
+
+                            // Callbacks de corrección manual
+                            onAgregarPenalEquipo1 = viewModel::agregarPenalManualEquipo1,
+                            onRestarPenalEquipo1 = viewModel::restarPenalManualEquipo1,
+                            onAgregarPenalEquipo2 = viewModel::agregarPenalManualEquipo2,
+                            onRestarPenalEquipo2 = viewModel::restarPenalManualEquipo2,
+
+                            // Callback de nueva tanda
+                            onNuevaTanda = viewModel::nuevaTandaPenales,
+
+                            modifier = Modifier.fillMaxSize()
+                        )
+
+                        2 -> InformacionTab(
                             partido = partido,
                             modoTransmision = state.modoTransmision,
                             onToggleTransmision = viewModel::toggleModoTransmision,
                             modifier = Modifier.fillMaxSize()
                         )
-                        2 -> BotoneraTab(
+                        3 -> BotoneraTab(
                             modifier = Modifier.fillMaxSize()
                         )
-                        3 -> PublicidadTab(
+                        4 -> PublicidadTab(
                             modifier = Modifier.fillMaxSize()
                         )
                     }

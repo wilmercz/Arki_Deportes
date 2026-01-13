@@ -189,18 +189,91 @@ data class Partido(
     // ═══════════════════════════════════════════════════════════════════════
     // PENALES (FUTURO)
     // ═══════════════════════════════════════════════════════════════════════
+    /**
+     * Indica si el modo penales está ACTIVO
+     * ✅ Crítico: El overlay web lee este campo para cambiar de panel
+     * true = Mostrar panel de penales
+     * false = Mostrar marcador normal
+     *
+     * Firebase: MARCADOR_PENALES
+     */
+    val MARCADOR_PENALES: Boolean = false,
 
     /**
-     * Penales equipo 1 (si aplica)
-     * VB.NET: Public Property Penales1() As Integer = 0
+     * Contador de penales convertidos (equipo 1)
+     * Solo se incrementa con GOLES, no con fallos
+     * NO se resetea en nueva tanda (muerte súbita)
+     *
+     * Firebase: Penales1
      */
-    val Penales1: Int = 0,
+    val PENALES1: Int = 0,
 
     /**
-     * Penales equipo 2 (si aplica)
-     * VB.NET: Public Property Penales2() As Integer = 0
+     * Contador de penales convertidos (equipo 2)
+     * Solo se incrementa con GOLES, no con fallos
+     * NO se resetea en nueva tanda (muerte súbita)
+     *
+     * Firebase: Penales2
      */
-    val Penales2: Int = 0,
+    val PENALES2: Int = 0,
+
+    /**
+     * ¿Qué equipo INICIÓ la tanda de penales?
+     * 1 = Equipo 1 inicia
+     * 2 = Equipo 2 inicia
+     *
+     * ✅ Permanente: No cambia durante la tanda
+     * ✅ Se usa para resetear turno en nueva tanda
+     * ✅ Permite reconstruir estado si app se cierra
+     *
+     * Firebase: PENALES_INICIA
+     */
+    val PENALES_INICIA: Int = 1,
+
+    /**
+     * ¿Qué equipo cobra AHORA? (turno actual)
+     * 1 = Turno del equipo 1
+     * 2 = Turno del equipo 2
+     *
+     * ✅ Variable: Alterna automáticamente después de cada tiro
+     * ✅ Puede corregirse manualmente si el operador se equivoca
+     *
+     * Firebase: PENALES_TURNO
+     */
+    val PENALES_TURNO: Int = 1,
+
+    /**
+     * Número de tanda actual
+     * 1 = Primera tanda (5 tiros cada uno)
+     * 2, 3, 4... = Muerte súbita
+     *
+     * ✅ Se incrementa cada vez que hay empate y se inicia nueva tanda
+     *
+     * Firebase: PENALES_TANDA
+     */
+    val PENALES_TANDA: Int = 1,
+
+    /**
+     * Historial de tiros del equipo 1 (TANDA ACTUAL)
+     * Lista de enteros: 1=gol, 0=fallo
+     *
+     * ✅ Más eficiente que String ("GOL"/"FALLO")
+     * ✅ Sin problemas de mayúsculas/minúsculas
+     * ✅ Se resetea en nueva tanda (muerte súbita)
+     *
+     * Ejemplo: [1, 0, 1, 1, 0] = GOL, FALLO, GOL, GOL, FALLO
+     *
+     * Firebase: PENALES_SERIE1
+     */
+    val PENALES_SERIE1: List<Int> = emptyList(),
+
+    /**
+     * Historial de tiros del equipo 2 (TANDA ACTUAL)
+     * Lista de enteros: 1=gol, 0=fallo
+     *
+     * Firebase: PENALES_SERIE2
+     */
+    val PENALES_SERIE2: List<Int> = emptyList(),
 
     // ═══════════════════════════════════════════════════════════════════════
     // ETAPA DEL CAMPEONATO
@@ -479,6 +552,29 @@ data class Partido(
     fun getEsquinas2Int(): Int = ESQUINAS2
 
     /**
+     * Valida que los campos de penales sean consistentes
+     */
+    fun validarPenales(): Boolean {
+        // PENALES_INICIA y PENALES_TURNO deben ser 1 o 2
+        if (PENALES_INICIA !in 1..2 || PENALES_TURNO !in 1..2) return false
+
+        // PENALES_TANDA debe ser >= 1
+        if (PENALES_TANDA < 1) return false
+
+        // Las series solo pueden contener 0 o 1
+        if (PENALES_SERIE1.any { it !in 0..1 }) return false
+        if (PENALES_SERIE2.any { it !in 0..1 }) return false
+
+        return true
+    }
+
+    /**
+     * Cuenta goles en la serie actual
+     */
+    fun contarGolesSerieEquipo1(): Int = PENALES_SERIE1.count { it == 1 }
+    fun contarGolesSerieEquipo2(): Int = PENALES_SERIE2.count { it == 1 }
+
+    /**
      * Convierte el Partido a Map para guardarlo en Firebase
      */
     fun toMap(): Map<String, Any?> {
@@ -507,8 +603,14 @@ data class Partido(
             "TAMARILLAS2" to TAMARILLAS2, // ← Ahora Int directo
             "TROJAS1" to TROJAS1,         // ← Ahora Int directo
             "TROJAS2" to TROJAS2,         // ← Ahora Int directo
-            "Penales1" to Penales1,
-            "Penales2" to Penales2,
+            "MARCADOR_PENALES" to MARCADOR_PENALES,
+            "PENALES1" to PENALES1,
+            "PENALES2" to PENALES2,
+            "PENALES_INICIA" to PENALES_INICIA,
+            "PENALES_TURNO" to PENALES_TURNO,
+            "PENALES_TANDA" to PENALES_TANDA,
+            "PENALES_SERIE1" to PENALES_SERIE1,
+            "PENALES_SERIE2" to PENALES_SERIE2,
             "Etapa" to ETAPA,
             "ESTADIO" to ESTADIO,
             "LUGAR" to LUGAR,

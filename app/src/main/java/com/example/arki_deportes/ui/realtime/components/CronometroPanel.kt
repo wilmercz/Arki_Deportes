@@ -69,7 +69,7 @@ fun CronometroPanel(
 
             Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 when (selectedTab) {
-                    0 -> TabCronometro(tiempoActual, numeroTiempo)
+                    0 -> TabCronometro(tiempoActual, numeroTiempo, partido.TRANSMISION)
                     1 -> TabControles(numeroTiempo, onIniciar, onDetener, onReiniciar)
                     2 -> TabAjustes(onAjustar)
                 }
@@ -82,7 +82,12 @@ fun CronometroPanel(
 // TAB 1: VISUALIZACIÓN DEL CRONÓMETRO
 // ═══════════════════════════════════════════════════════════════════════════
 @Composable
-private fun TabCronometro(tiempoActual: String, numeroTiempo: String) {
+private fun TabCronometro(
+    tiempoActual: String,
+    numeroTiempo: String,
+    modoTransmision: Boolean
+) {
+
     // ✅ Determinar si está corriendo
     val estaCorriendo = numeroTiempo == "1T" || numeroTiempo == "3T"
 
@@ -119,35 +124,58 @@ private fun TabCronometro(tiempoActual: String, numeroTiempo: String) {
         // ESTADO DEL PARTIDO - MINIMALISTA (NO PARECE BOTÓN)
         // ═══════════════════════════════════════════════════════════
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Solo texto simple con icono
-            Text(
-                text = when (numeroTiempo) {
-                    "0T" -> "⏸️"
-                    "1T" -> "▶️"
-                    "2T" -> "☕"
-                    "3T" -> "▶️"
-                    "4T" -> "✅"
-                    else -> "•"
-                },
-                fontSize = 12.sp
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = when (numeroTiempo) {
-                    "0T" -> "No iniciado"
-                    "1T" -> "Primer Tiempo"
-                    "2T" -> "Descanso"
-                    "3T" -> "Segundo Tiempo"
-                    "4T" -> "Finalizado"
-                    else -> numeroTiempo
-                },
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Normal // ← Menos peso = menos parecido a botón
-            )
+
+            // ⬅️ ESTADO DEL TIEMPO
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = when (numeroTiempo) {
+                        "0T" -> "⏸️"
+                        "1T" -> "▶️"
+                        "2T" -> "☕"
+                        "3T" -> "▶️"
+                        "4T" -> "✅"
+                        else -> "•"
+                    },
+                    fontSize = 12.sp
+                )
+
+                Spacer(Modifier.width(6.dp))
+
+                Text(
+                    text = when (numeroTiempo) {
+                        "0T" -> "No iniciado"
+                        "1T" -> "Primer Tiempo"
+                        "2T" -> "Descanso"
+                        "3T" -> "Segundo Tiempo"
+                        "4T" -> "Finalizado"
+                        else -> numeroTiempo
+                    },
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+
+            // ➡️ ESTADO OVERLAY WEB (VISUAL)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (modoTransmision) "🌐 CameraFi Overlay ON" else "🚫 CameraFi Overlay OFF",
+                    fontSize = 10.sp,
+                    color = if (modoTransmision)
+                        Color(0xFF2E7D32) // verde oscuro
+                    else
+                        Color(0xFFB71C1C), // rojo oscuro
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }

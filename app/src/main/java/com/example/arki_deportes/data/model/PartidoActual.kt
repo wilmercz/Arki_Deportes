@@ -157,6 +157,95 @@ data class PartidoActual(
      */
     val ESCUDO2_URL: String = "",
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎯 PENALES (NUEVOS CAMPOS V2.0)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * ✅ CRÍTICO: Indica si el modo penales está ACTIVO
+     * El overlay web lee este campo para cambiar de panel
+     * true = Mostrar panel de penales
+     * false = Mostrar marcador normal
+     *
+     * Firebase: MARCADOR_PENALES
+     */
+    val MARCADOR_PENALES: Boolean = false,
+
+    /**
+     * Contador de penales convertidos (equipo 1)
+     * Solo se incrementa con GOLES, no con fallos
+     * NO se resetea en nueva tanda (muerte súbita)
+     *
+     * Firebase: Penales1
+     */
+    val PENALES1: Int = 0,
+
+    /**
+     * Contador de penales convertidos (equipo 2)
+     * Solo se incrementa con GOLES, no con fallos
+     * NO se resetea en nueva tanda (muerte súbita)
+     *
+     * Firebase: Penales2
+     */
+    val PENALES2: Int = 0,
+
+    /**
+     * ¿Qué equipo INICIÓ la tanda de penales?
+     * 1 = Equipo 1 inicia
+     * 2 = Equipo 2 inicia
+     *
+     * ✅ Permanente: No cambia durante la tanda
+     * ✅ Se usa para resetear turno en nueva tanda
+     *
+     * Firebase: PENALES_INICIA
+     */
+    val PENALES_INICIA: Int = 1,
+
+    /**
+     * ¿Qué equipo cobra AHORA? (turno actual)
+     * 1 = Turno del equipo 1
+     * 2 = Turno del equipo 2
+     *
+     * ✅ Variable: Alterna automáticamente después de cada tiro
+     * ✅ Puede corregirse manualmente si el operador se equivoca
+     *
+     * Firebase: PENALES_TURNO
+     */
+    val PENALES_TURNO: Int = 1,
+
+    /**
+     * Número de tanda actual
+     * 1 = Primera tanda (5 tiros cada uno)
+     * 2, 3, 4... = Muerte súbita
+     *
+     * ✅ Se incrementa cada vez que hay empate y se inicia nueva tanda
+     *
+     * Firebase: PENALES_TANDA
+     */
+    val PENALES_TANDA: Int = 1,
+
+    /**
+     * Historial de tiros del equipo 1 (TANDA ACTUAL)
+     * Lista de enteros: 1=gol, 0=fallo
+     *
+     * ✅ Más eficiente que String ("GOL"/"FALLO")
+     * ✅ Sin problemas de mayúsculas/minúsculas
+     * ✅ Se resetea en nueva tanda (muerte súbita)
+     *
+     * Ejemplo: [1, 0, 1, 1, 0] = GOL, FALLO, GOL, GOL, FALLO
+     *
+     * Firebase: PENALES_SERIE1
+     */
+    val PENALES_SERIE1: List<Int> = emptyList(),
+
+    /**
+     * Historial de tiros del equipo 2 (TANDA ACTUAL)
+     * Lista de enteros: 1=gol, 0=fallo
+     *
+     * Firebase: PENALES_SERIE2
+     */
+    val PENALES_SERIE2: List<Int> = emptyList(),
+
     /**
      * Timestamp de la última actualización (en milisegundos)
      * Generado por VB.NET cada vez que actualiza los datos
@@ -211,6 +300,22 @@ data class PartidoActual(
     fun getMarcador(): String {
         return "$GOLES1 - $GOLES2"
     }
+
+    /**
+     * Obtiene el marcador de penales formateado
+     * Ejemplo: "4 - 3"
+     */
+    fun getMarcadorPenales(): String {
+        return "$PENALES1 - $PENALES2"
+    }
+
+    /**
+     * Verifica si el modo penales está activo
+     */
+    fun estanEnPenales(): Boolean {
+        return MARCADOR_PENALES
+    }
+
 
     /** Obtiene la etiqueta del marcador según el deporte. */
     fun getMarcadorLabel(): String = sportType().scoreboardLabel
@@ -401,5 +506,55 @@ data class PartidoActual(
          * Útil cuando no hay partido en vivo
          */
         fun empty() = PartidoActual()
+
+        /**
+         * Crea un PartidoActual desde un Partido completo
+         * Útil para sincronizar desde PARTIDOS hacia PARTIDOACTUAL
+         */
+        fun fromPartido(partido: Partido): PartidoActual {
+            return PartidoActual(
+                // Datos básicos
+                EQUIPO1 = partido.EQUIPO1,
+                EQUIPO2 = partido.EQUIPO2,
+
+                // Marcador normal
+                GOLES1 = partido.GOLES1,
+                GOLES2 = partido.GOLES2,
+
+                // Tiempo (usar TIEMPOJUEGO del partido)
+                TIEMPO_TRANSCURRIDO = partido.TIEMPOJUEGO,
+
+                // Estado
+                ESTADO = when (partido.getNumeroDeTiempoEfectivo()) {
+                    "0T" -> "NoIniciado"
+                    "1T", "3T" -> "EnJuego"
+                    "2T" -> "Pausado"
+                    "4T" -> "Finalizado"
+                    else -> "NoIniciado"
+                },
+
+                // Tarjetas
+                TARJETAS_AMARILLAS1 = partido.TAMARILLAS1,
+                TARJETAS_AMARILLAS2 = partido.TAMARILLAS2,
+                TARJETAS_ROJAS1 = partido.TROJAS1,
+                TARJETAS_ROJAS2 = partido.TROJAS2,
+
+                // Penales (✅ NUEVOS CAMPOS)
+                MARCADOR_PENALES = partido.MARCADOR_PENALES,
+                PENALES1 = partido.PENALES1,
+                PENALES2 = partido.PENALES2,
+                PENALES_INICIA = partido.PENALES_INICIA,
+                PENALES_TURNO = partido.PENALES_TURNO,
+                PENALES_TANDA = partido.PENALES_TANDA,
+                PENALES_SERIE1 = partido.PENALES_SERIE1,
+                PENALES_SERIE2 = partido.PENALES_SERIE2,
+
+                // Timestamp
+                ULTIMA_ACTUALIZACION = System.currentTimeMillis(),
+
+                // Deporte
+                DEPORTE = SportType.FUTBOL.id
+            )
+        }
     }
 }
