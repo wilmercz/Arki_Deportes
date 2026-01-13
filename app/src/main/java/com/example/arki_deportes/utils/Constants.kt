@@ -69,7 +69,7 @@ object Constants {
     // ═══════════════════════════════════════════════════════════════════════
 
     /** Nombre de la aplicación */
-    const val APP_NOMBRE = "FUTBOLWC Manager"
+    const val APP_NOMBRE = "ARKI DEPORTES"
 
     /** Versión de la aplicación */
     const val APP_VERSION = "1.0.0"

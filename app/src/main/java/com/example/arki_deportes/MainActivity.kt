@@ -2,6 +2,9 @@
 
 package com.example.arki_deportes
 
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -99,6 +102,7 @@ import androidx.compose.ui.platform.LocalFocusManager  // ← NUEVO
 import androidx.compose.material.icons.filled.KeyboardHide  // ← NUEVO
 
 import com.example.arki_deportes.utils.SportType
+import androidx.compose.runtime.saveable.rememberSaveable
 
 // ────────────────────────────────────────────────────────────────────────────
 // Accompanist (SwipeRefresh)
@@ -202,7 +206,7 @@ class MainActivity : ComponentActivity() {
 
                 val handleLogout = {
 
-                    borrarPasswordLocal()
+                    borrarCredencialesLocal()
                     configManager.cerrarSesion()
                 }
 
@@ -546,15 +550,26 @@ class MainActivity : ComponentActivity() {
      * @param passwordIngresado Contraseña ingresada por el usuario
      * @param onResult Callback con resultado (true = correcta, false = incorrecta)
      */
-    private fun validarPassword(passwordIngresado: String, onResult: (Boolean) -> Unit) {
+    /**
+     * Valida una contraseña contra Firebase
+     *
+     * @param usuarioIngresado Usuario ingresado por el usuario (para memorizarlo si todo está OK)
+     * @param passwordIngresado Contraseña ingresada por el usuario
+     * @param onResult Callback con resultado (true = correcta, false = incorrecta)
+     */
+    private fun validarPassword(
+        usuarioIngresado: String,
+        passwordIngresado: String,
+        onResult: (Boolean) -> Unit
+    ) {
         leerPasswordFirebase { passwordFirebase ->
             if (passwordFirebase != null) {
                 val esCorrecta = passwordIngresado == passwordFirebase
 
                 if (esCorrecta) {
                     Log.d(TAG, "✅ Contraseña correcta")
-                    // Memorizar la contraseña correcta
-                    guardarPasswordLocal(passwordIngresado)
+                    // ✅ Memorizar usuario + password
+                    guardarCredencialesLocal(usuarioIngresado, passwordIngresado)
                 } else {
                     Log.d(TAG, "❌ Contraseña incorrecta")
                 }
@@ -567,35 +582,109 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     /**
-     * Guarda la contraseña en SharedPreferences (memorización local)
-     *
-     * @param password Contraseña a guardar
+     * Guarda usuario y contraseña en SharedPreferences (memorización local)
+     * ✅ MEJORADO: Con logs detallados para rastrear el guardado
      */
-    private fun guardarPasswordLocal(password: String) {
+    private fun guardarCredencialesLocal(usuario: String, password: String) {
+        Log.d(TAG, "╔═══════════════════════════════════════════════════════════╗")
+        Log.d(TAG, "💾 GUARDANDO CREDENCIALES LOCALES")
+        Log.d(TAG, "   Usuario a guardar: '${usuario.trim()}'")
+        Log.d(TAG, "   Password length: ${password.length}")
+        Log.d(TAG, "   SharedPrefs name: ${Constants.SHARED_PREFS_NAME}")
+
         val prefs = getSharedPreferences(Constants.SHARED_PREFS_NAME, MODE_PRIVATE)
-        prefs.edit().putString("password_memorizado", password).apply()
-        Log.d(TAG, "💾 Contraseña memorizada localmente")
+        val editor = prefs.edit()
+        editor.putString("usuario_memorizado", usuario.trim())
+        editor.putString("password_memorizado", password)
+        val success = editor.commit() // ✅ Usar commit() en lugar de apply() para esperar confirmación
+
+        if (success) {
+            Log.d(TAG, "✅ Credenciales GUARDADAS exitosamente con commit()")
+
+            // Verificar inmediatamente que se guardaron
+            val usuarioVerificado = prefs.getString("usuario_memorizado", null)
+            val passwordVerificado = prefs.getString("password_memorizado", null)
+
+            Log.d(TAG, "🔍 Verificación inmediata después de guardar:")
+            Log.d(TAG, "   Usuario leído: '$usuarioVerificado'")
+            Log.d(TAG, "   Password existe: ${passwordVerificado != null}")
+            Log.d(TAG, "   Password length: ${passwordVerificado?.length ?: 0}")
+            Log.d(TAG, "   Match usuario: ${usuarioVerificado == usuario.trim()}")
+            Log.d(TAG, "   Match password: ${passwordVerificado == password}")
+        } else {
+            Log.e(TAG, "❌ ERROR: commit() retornó false al guardar credenciales")
+        }
+        Log.d(TAG, "╚═══════════════════════════════════════════════════════════╝")
     }
+
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ PASO 2: Reemplazar obtenerUsuarioLocal (línea ~602)                    │
+// └─────────────────────────────────────────────────────────────────────────┘
+
+    /**
+     * Obtiene el usuario memorizado localmente
+     * ✅ MEJORADO: Con logs detallados para rastrear la lectura
+     */
+    private fun obtenerUsuarioLocal(): String? {
+        val prefs = getSharedPreferences(Constants.SHARED_PREFS_NAME, MODE_PRIVATE)
+        val usuario = prefs.getString("usuario_memorizado", null)
+
+        Log.d(TAG, "📖 LEYENDO usuario local:")
+        Log.d(TAG, "   SharedPrefs: ${Constants.SHARED_PREFS_NAME}")
+        Log.d(TAG, "   Usuario leído: '${usuario ?: "(null)"}'")
+        Log.d(TAG, "   Es blank: ${usuario.isNullOrBlank()}")
+
+        return usuario
+    }
+
 
     /**
      * Obtiene la contraseña memorizada localmente
-     *
-     * @return Contraseña guardada o null si no existe
+     * ✅ MEJORADO: Con logs detallados para rastrear la lectura
      */
     private fun obtenerPasswordLocal(): String? {
         val prefs = getSharedPreferences(Constants.SHARED_PREFS_NAME, MODE_PRIVATE)
-        return prefs.getString("password_memorizado", null)
+        val password = prefs.getString("password_memorizado", null)
+
+        Log.d(TAG, "📖 LEYENDO password local:")
+        Log.d(TAG, "   SharedPrefs: ${Constants.SHARED_PREFS_NAME}")
+        Log.d(TAG, "   Password existe: ${password != null}")
+        Log.d(TAG, "   Password length: ${password?.length ?: 0}")
+        Log.d(TAG, "   Es blank: ${password.isNullOrBlank()}")
+
+        return password
     }
 
     /**
-     * Borra la contraseña memorizada (al cerrar sesión o cambiar de contraseña)
+     * Borra usuario y contraseña memorizados (logout)
+     * ✅ MEJORADO: Con logs detallados
      */
-    private fun borrarPasswordLocal() {
+    private fun borrarCredencialesLocal() {
+        Log.d(TAG, "🗑️ BORRANDO CREDENCIALES LOCALES")
+
         val prefs = getSharedPreferences(Constants.SHARED_PREFS_NAME, MODE_PRIVATE)
-        prefs.edit().remove("password_memorizado").apply()
-        Log.d(TAG, "🗑️ Contraseña local borrada")
+        val editor = prefs.edit()
+        editor.remove("usuario_memorizado")
+        editor.remove("password_memorizado")
+        val success = editor.commit()
+
+        if (success) {
+            Log.d(TAG, "✅ Credenciales borradas exitosamente")
+
+            // Verificar que realmente se borraron
+            val usuarioVerificado = prefs.getString("usuario_memorizado", null)
+            val passwordVerificado = prefs.getString("password_memorizado", null)
+
+            Log.d(TAG, "🔍 Verificación después de borrar:")
+            Log.d(TAG, "   Usuario: ${if (usuarioVerificado == null) "NULL ✅" else "EXISTE ❌"}")
+            Log.d(TAG, "   Password: ${if (passwordVerificado == null) "NULL ✅" else "EXISTE ❌"}")
+        } else {
+            Log.e(TAG, "❌ ERROR al borrar credenciales")
+        }
     }
+
 
     // ═══════════════════════════════════════════════════════════════════════
     // UI COMPOSABLE - PANTALLA DE INICIO
@@ -609,6 +698,7 @@ class MainActivity : ComponentActivity() {
     fun PantallaInicio(navigator: AppNavigator) {
         var estadoApp by remember { mutableStateOf(EstadoApp.CARGANDO) }
         var autenticacionCompleta by remember { mutableStateOf(false) }
+
 
         // Esperar a que la autenticación anónima complete
         LaunchedEffect(Unit) {
@@ -638,26 +728,26 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(autenticacionCompleta) {
             if (!autenticacionCompleta) return@LaunchedEffect
 
-            Log.d(TAG, "🔍 Autenticación completa, verificando contraseña local...")
+            Log.d(TAG, "🔍 Autenticación completa, verificando credenciales locales...")
 
-            val passwordLocal = obtenerPasswordLocal()
+            val usuarioLocal = obtenerUsuarioLocal().orEmpty()
+            val passwordLocal = obtenerPasswordLocal().orEmpty()
 
-            if (passwordLocal != null) {
-                Log.d(TAG, "🔑 Hay contraseña memorizada, validando...")
+            if (passwordLocal.isNotBlank()) {
+                Log.d(TAG, "🔑 Hay password memorizado, validando contra Firebase...")
 
-                // Validar contra Firebase
-                validarPassword(passwordLocal) { esValida ->
+                validarPassword(usuarioLocal, passwordLocal) { esValida ->
                     if (esValida) {
-                        Log.d(TAG, "✅ Contraseña memorizada válida, acceso directo")
-                        estadoApp = EstadoApp.AUTENTICADO
+                        Log.d(TAG, "✅ Password memorizado válido -> mostrar login precargado")
+                        estadoApp = EstadoApp.REQUIERE_LOGIN   // modo: el usuario solo hace clic en Acceder
                     } else {
-                        Log.d(TAG, "❌ Contraseña memorizada no válida (cambió en Firebase)")
-                        borrarPasswordLocal()
+                        Log.d(TAG, "❌ Password memorizado no válido (cambió en Firebase)")
+                        borrarCredencialesLocal()
                         estadoApp = EstadoApp.REQUIERE_LOGIN
                     }
                 }
             } else {
-                Log.d(TAG, "🔐 No hay contraseña memorizada, mostrar login")
+                Log.d(TAG, "🔐 No hay password memorizado, mostrar login")
                 estadoApp = EstadoApp.REQUIERE_LOGIN
             }
         }
@@ -691,23 +781,12 @@ class MainActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Placeholder del logo
-                Card(
-                    modifier = Modifier.size(120.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "⚽",
-                            fontSize = 64.sp
-                        )
-                    }
-                }
+                Image(
+                    painter = painterResource(R.drawable.logowilmer),
+                    contentDescription = "Logo Wilmer",
+                    modifier = Modifier.size(140.dp)
+                )
+
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -779,16 +858,46 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     /**
      * Pantalla de login con contraseña
+     * ✅ MEJORADO: Inicialización directa de credenciales con logs
      */
     @Composable
     fun PantallaLogin(navigator: AppNavigator) {
-        var usuario by remember { mutableStateOf("") }
-        var password by remember { mutableStateOf("") }
+        Log.d(TAG, "═══════════════════════════════════════════════════════════")
+        Log.d(TAG, "🔐 COMPONIENDO PantallaLogin")
+        Log.d(TAG, "═══════════════════════════════════════════════════════════")
+
         var passwordVisible by remember { mutableStateOf(false) }
         var mensajeError by remember { mutableStateOf("") }
         var cargando by remember { mutableStateOf(false) }
+
+        // ✅ SOLUCIÓN: Inicializar DIRECTAMENTE con los valores guardados
+        // En lugar de usar LaunchedEffect que se ejecuta DESPUÉS
+        val usuarioInicial = remember {
+            val usr = obtenerUsuarioLocal().orEmpty()
+            Log.d(TAG, "📝 Valor INICIAL usuario: '$usr'")
+            usr
+        }
+
+        val passwordInicial = remember {
+            val pwd = obtenerPasswordLocal().orEmpty()
+            Log.d(TAG, "📝 Valor INICIAL password: ${if (pwd.isNotEmpty()) "Cargado (${pwd.length} chars)" else "Vacío"}")
+            pwd
+        }
+
+        var usuario by rememberSaveable { mutableStateOf(usuarioInicial) }
+        var password by rememberSaveable { mutableStateOf(passwordInicial) }
+
+        // ✅ Log cuando cambian los valores
+        LaunchedEffect(usuario) {
+            Log.d(TAG, "👤 Campo usuario cambió a: '$usuario'")
+        }
+
+        LaunchedEffect(password) {
+            Log.d(TAG, "🔑 Campo password cambió (length: ${password.length})")
+        }
 
         // ✅ FocusManager para ocultar teclado
         val focusManager = LocalFocusManager.current
@@ -804,29 +913,20 @@ class MainActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 // LOGO
-                // ═══════════════════════════════════════════════════════
-                Card(
-                    modifier = Modifier.size(120.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "⚽", fontSize = 64.sp)
-                    }
-                }
+                // ═══════════════════════════════════════════════════════════
+                Image(
+                    painter = painterResource(id = R.drawable.logowilmer),
+                    contentDescription = "Logo Wilmer",
+                    modifier = Modifier.size(140.dp)
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 // TÍTULO
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 Text(
                     text = Constants.APP_NOMBRE,
                     fontSize = 22.sp,
@@ -836,20 +936,28 @@ class MainActivity : ComponentActivity() {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // ✅ Mensaje dinámico si ya hay credenciales
                 Text(
-                    text = "Ingresa tus credenciales",
+                    text = if (usuarioInicial.isNotBlank())
+                        "Bienvenido de nuevo, $usuarioInicial"
+                    else
+                        "Ingresa tus credenciales",
                     fontSize = 14.sp,
-                    color = Color.Gray,
+                    color = if (usuarioInicial.isNotBlank())
+                        MaterialTheme.colorScheme.primary
+                    else
+                        Color.Gray,
                     textAlign = TextAlign.Center
                 )
 
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 // ✅ BOTÓN OCULTAR TECLADO
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedButton(
                     onClick = {
+                        Log.d(TAG, "⌨️ Ocultando teclado")
                         focusManager.clearFocus()
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -865,12 +973,13 @@ class MainActivity : ComponentActivity() {
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 // CAMPO USUARIO
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 OutlinedTextField(
                     value = usuario,
                     onValueChange = {
+                        Log.d(TAG, "👤 Usuario cambió de '$usuario' a '$it'")
                         usuario = it
                         mensajeError = ""
                     },
@@ -891,12 +1000,13 @@ class MainActivity : ComponentActivity() {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 // CAMPO CONTRASEÑA
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 OutlinedTextField(
                     value = password,
                     onValueChange = {
+                        Log.d(TAG, "🔑 Password cambió (new length: ${it.length})")
                         password = it
                         mensajeError = ""
                     },
@@ -912,11 +1022,8 @@ class MainActivity : ComponentActivity() {
                     ),
                     keyboardActions = KeyboardActions(
                         onDone = {
+                            Log.d(TAG, "⌨️ Usuario presionó Done en password")
                             focusManager.clearFocus()
-                            // Trigger login si los campos están completos
-                            if (usuario.isNotBlank() && password.isNotBlank()) {
-                                // El login se ejecutará desde el botón
-                            }
                         }
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -928,7 +1035,10 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        IconButton(onClick = {
+                            passwordVisible = !passwordVisible
+                            Log.d(TAG, "👁️ Password visible: $passwordVisible")
+                        }) {
                             Icon(
                                 imageVector = if (passwordVisible)
                                     Icons.Default.Visibility
@@ -943,9 +1053,9 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 // MENSAJE DE ERROR
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 if (mensajeError.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -958,22 +1068,30 @@ class MainActivity : ComponentActivity() {
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 // BOTÓN LOGIN
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 Button(
                     onClick = {
+                        Log.d(TAG, "╔═══════════════════════════════════════════════════════════╗")
+                        Log.d(TAG, "🔐 BOTÓN LOGIN PRESIONADO")
+                        Log.d(TAG, "   Usuario ingresado: '$usuario'")
+                        Log.d(TAG, "   Password length: ${password.length}")
+                        Log.d(TAG, "╚═══════════════════════════════════════════════════════════╝")
+
                         // Ocultar teclado primero
                         focusManager.clearFocus()
 
                         // Validaciones
                         if (usuario.isBlank()) {
                             mensajeError = "Ingresa tu usuario"
+                            Log.w(TAG, "⚠️ Usuario vacío")
                             return@Button
                         }
 
                         if (password.isBlank()) {
                             mensajeError = "Ingresa tu contraseña"
+                            Log.w(TAG, "⚠️ Password vacío")
                             return@Button
                         }
 
@@ -988,13 +1106,13 @@ class MainActivity : ComponentActivity() {
                         cargando = true
                         mensajeError = ""
 
-                        Log.d(TAG, "╔═══════════════════════════════════════╗")
+                        Log.d(TAG, "╔═══════════════════════════════════════════════════════════╗")
                         Log.d(TAG, "🔐 INICIANDO LOGIN")
                         Log.d(TAG, "   Usuario ingresado: '$usuario'")
                         Log.d(TAG, "   Password length: ${password.length}")
                         Log.d(TAG, "   Firebase Auth UID: ${firebaseUser.uid}")
                         Log.d(TAG, "   Ruta Firebase: /AppConfig/Usuarios/$usuario")
-                        Log.d(TAG, "╚═══════════════════════════════════════╝")
+                        Log.d(TAG, "╚═══════════════════════════════════════════════════════════╝")
 
                         // ✅ AUTENTICACIÓN
                         authManager.login(usuario, password) { resultado ->
@@ -1003,6 +1121,12 @@ class MainActivity : ComponentActivity() {
                             when (resultado) {
                                 is ResultadoAutenticacion.Exito -> {
                                     val user = resultado.usuario
+
+                                    guardarCredencialesLocal(usuario, password)  // ← ESTO FALTA
+                                    Log.d(TAG, "✅ LOGIN EXITOSO")
+                                    Log.d(TAG, "   Usuario: ${user.usuario}")
+                                    Log.d(TAG, "   Nombre: ${user.nombre}")
+                                    Log.d(TAG, "   Rol: ${user.rol}")
 
                                     // ✅ 1. Establecer usuario en contexto
                                     UsuarioContext.setUsuario(user)
@@ -1017,19 +1141,23 @@ class MainActivity : ComponentActivity() {
                                         Log.d(TAG, "🎯 Asignado: campeonato=$campeonatoId partido=$partidoId")
                                         cargarPartidoYNavegar(campeonatoId, partidoId, navigator)
                                     } else {
+                                        Log.d(TAG, "🏠 Navegando a Home")
                                         navigator.navigateToHybridHome(clearBackStack = true)
                                     }
                                 }
 
                                 is ResultadoAutenticacion.CredencialesInvalidas -> {
+                                    Log.w(TAG, "❌ Credenciales inválidas")
                                     mensajeError = "Usuario o contraseña incorrectos"
                                 }
 
                                 is ResultadoAutenticacion.UsuarioNoAutorizado -> {
+                                    Log.w(TAG, "❌ Usuario no autorizado")
                                     mensajeError = "Usuario no autorizado. Contacte al administrador."
                                 }
 
                                 is ResultadoAutenticacion.Error -> {
+                                    Log.e(TAG, "❌ Error en login: ${resultado.mensaje}")
                                     mensajeError = resultado.mensaje
                                 }
                             }
@@ -1052,9 +1180,9 @@ class MainActivity : ComponentActivity() {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 // TEXTO DE AYUDA
-                // ═══════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════
                 Text(
                     text = "💡 Solicita tus credenciales al administrador",
                     fontSize = 12.sp,
@@ -1064,6 +1192,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 
 
     /**

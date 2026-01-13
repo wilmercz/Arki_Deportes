@@ -16,6 +16,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import com.google.firebase.database.ServerValue
 
 /**
  * Repositorio centralizado para operaciones CRUD sobre catálogos en Firebase.
@@ -359,22 +360,43 @@ class FirebaseCatalogRepository(
      * @return Result con éxito o error
      */
     suspend fun sincronizarPartidoActual(partido: Partido): Result<Unit> = try {
-        val reference = database.reference.child("PARTIDOACTUAL")
+        val reference = database.reference
+            .child(rootNode)
+            .child("PARTIDOACTUAL")
 
         val data = mapOf(
+            // Equipos / marcador
             "EQUIPO1" to partido.EQUIPO1,
             "EQUIPO2" to partido.EQUIPO2,
-            "Goles1" to partido.GOLES1,
-            "Goles2" to partido.GOLES2,
+            "GOLES1" to partido.GOLES1,
+            "GOLES2" to partido.GOLES2,
+            "ESQUINAS1" to partido.ESQUINAS1,
+            "ESQUINAS2" to partido.ESQUINAS2,
+
+            // Disciplina
+            "TARJETAS_AMARILLAS1" to partido.TAMARILLAS1,
+            "TARJETAS_AMARILLAS2" to partido.TAMARILLAS2,
+            "TARJETAS_ROJAS1" to partido.TROJAS1,
+            "TARJETAS_ROJAS2" to partido.TROJAS2,
+
+            // Cronómetro (la web calcula el transcurrido)
+            "FECHA_PLAY" to partido.FECHA_PLAY,
+            "HORA_PLAY" to partido.HORA_PLAY,
+            "CRONOMETRANDO" to partido.estaEnCurso(),
+
+            // Estado / tiempos
             "NumeroDeTiempo" to partido.NumeroDeTiempo,
-            "TIEMPOJUEGO" to partido.TIEMPOJUEGO,
-            "Amarillas1" to partido.TAMARILLAS1,
-            "Amarillas2" to partido.TAMARILLAS2,
-            "Rojas1" to partido.TROJAS1,
-            "Rojas2" to partido.TROJAS2,
-            "Esquinas1" to partido.ESQUINAS1,
-            "Esquinas2" to partido.ESQUINAS2,
-            "FECHA" to partido.FECHA
+            "TIEMPOSJUGADOS" to partido.TIEMPOSJUGADOS,
+            "ESTADO" to partido.ESTADO,
+
+            // Opcionales (los que pediste)
+            "ESCUDO1_URL" to partido.BANDERAEQUIPO1,
+            "ESCUDO2_URL" to partido.BANDERAEQUIPO2,
+            "ETAPA" to partido.ETAPA,
+            "GRUPONOMBRE" to partido.GRUPONOMBRE,
+
+            // Debug
+            "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP
         )
 
         reference.setValue(data).await()
