@@ -401,13 +401,23 @@ class TiempoRealViewModel(
             val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
 
             result.onSuccess {
+                Log.d(TAG, "╔═══════════════════════════════════════════════════════")
                 Log.d(TAG, "✅ Partido iniciado exitosamente")
+                Log.d(TAG, "╚═══════════════════════════════════════════════════════")
+
+                Log.d(TAG, "📍 Llamando actualizarPanelOverlay...")
+                actualizarPanelOverlay("marcador")
 
                 if (_uiState.value.modoTransmision) {
+                    Log.d(TAG, "📡 Sincronizando con overlay...")
                     sincronizarConOverlay()
                 }
             }.onFailure { error ->
-                Log.e(TAG, "❌ Error al iniciar partido: ${error.message}")
+                Log.e(TAG, "╔═══════════════════════════════════════════════════════")
+                Log.e(TAG, "❌ ERROR AL INICIAR PARTIDO")
+                Log.e(TAG, "   Mensaje: ${error.message}")
+                Log.e(TAG, "   Stack trace: ${error.stackTraceToString()}")
+                Log.e(TAG, "╚═══════════════════════════════════════════════════════")
                 _uiState.update { it.copy(error = error.message) }
             }
 
@@ -1380,9 +1390,8 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             try {
                 val reference = com.google.firebase.database.FirebaseDatabase.getInstance().reference
-                    .child("ARKI_DEPORTES")  // rootNode
                     .child("CONFIGURACION_OVERLAYWEB")
-                    .child("__PANEL_ACTIVO__")
+                    .child("PANEL_ACTIVO")  // ✅ CORRECTO: sin guiones bajos
 
                 reference.setValue(panel).await()
                 Log.d(TAG, "✅ Panel overlay actualizado a: $panel")
