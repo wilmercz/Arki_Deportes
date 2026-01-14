@@ -2,6 +2,7 @@
 
 package com.example.arki_deportes.ui.realtime
 
+import kotlinx.coroutines.tasks.await
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -1042,6 +1043,9 @@ class TiempoRealViewModel(
             result.onSuccess {
                 Log.d(TAG, "✅ Modo penales activado correctamente")
 
+                // ✅ NUEVO: Actualizar panel del overlay
+                actualizarPanelOverlay("penales")  // ← AGREGAR ESTA LÍNEA
+
                 // Sincronizar con overlay si está activo
                 if (_uiState.value.modoTransmision) {
                     sincronizarConOverlay()
@@ -1082,6 +1086,9 @@ class TiempoRealViewModel(
 
             result.onSuccess {
                 Log.d(TAG, "✅ Modo penales desactivado correctamente")
+
+                // ✅ NUEVO: Actualizar panel del overlay
+                actualizarPanelOverlay("marcador")  // ← AGREGAR ESTA LÍNEA
 
                 // Sincronizar con overlay si está activo
                 if (_uiState.value.modoTransmision) {
@@ -1362,5 +1369,144 @@ class TiempoRealViewModel(
         }
     }
 
+
+    /**
+     * Actualiza el campo __PANEL_ACTIVO__ en /CONFIGURACION_OVERLAYWEB
+     * Este campo indica al overlay web qué panel debe mostrar
+     *
+     * @param panel "marcador" para mostrar el marcador normal, "penales" para modo penales
+     */
+    private fun actualizarPanelOverlay(panel: String) {
+        viewModelScope.launch {
+            try {
+                val reference = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                    .child("ARKI_DEPORTES")  // rootNode
+                    .child("CONFIGURACION_OVERLAYWEB")
+                    .child("__PANEL_ACTIVO__")
+
+                reference.setValue(panel).await()
+                Log.d(TAG, "✅ Panel overlay actualizado a: $panel")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error actualizando panel overlay: ${e.message}")
+            }
+        }
+    }
+
+
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ FUNCIÓN 2: Finalizar y resetear penales                                 │
+// │ Insertar después de la función nuevaTandaPenales()                      │
+// └─────────────────────────────────────────────────────────────────────────┘
+
+    /**
+     * Finaliza y resetea completamente la tanda de penales
+     *
+     * ✅ RESETEA TODO:
+     * - Contadores de goles (PENALES1, PENALES2) → 0
+     * - Configuración (PENALES_INICIA, PENALES_TANDA, PENALES_TURNO) → valores por defecto
+     * - Historial (PENALES_SERIE1, PENALES_SERIE2) → listas vacías
+     * - Desactiva el modo penales (MARCADOR_PENALES) → false
+     * - Actualiza el panel del overlay → "marcador"
+     *
+     * ⚠️ Esta acción es IRREVERSIBLE y requiere confirmación del usuario
+     */
+    fun finalizarYResetearPenales() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(actualizandoFirebase = true) }
+
+            Log.d(TAG, "╔══════════════════════════════════════════════════════╗")
+            Log.d(TAG, "🔄 FINALIZANDO Y RESETEANDO TANDA DE PENALES")
+            Log.d(TAG, "   Se resetearán todos los contadores y configuración")
+            Log.d(TAG, "╚══════════════════════════════════════════════════════╝")
+
+            val updates = mapOf(
+                // ✅ Resetear contadores de goles
+                "PENALES1" to 0,
+                "PENALES2" to 0,
+
+                // ✅ Resetear configuración
+                "PENALES_INICIA" to 1,
+                "PENALES_TANDA" to 1,
+                "PENALES_TURNO" to 1,
+
+                // ✅ Limpiar historial
+                "PENALES_SERIE1" to emptyList<Int>(),
+                "PENALES_SERIE2" to emptyList<Int>(),
+
+                // ✅ Desactivar modo penales
+                "MARCADOR_PENALES" to false,
+
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+            val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            result.onSuccess {
+                Log.d(TAG, "✅ Tanda de penales finalizada y reseteada correctamente")
+
+                // Actualizar configuración del overlay
+                actualizarPanelOverlay("marcador")
+
+                // ✅ NUEVO: Actualizar PARTIDOACTUAL directamente
+                actualizarPartidoActualPenales(
+                    penales1 = 0,
+                    penales2 = 0,
+                    penalesInicia = 1,
+                    penalesTanda = 1,
+                    penalesTurno = 1,
+                    serie1 = emptyList(),
+                    serie2 = emptyList(),
+                    marcadorPenales = false
+                )
+
+                // Sincronizar con overlay si está activo
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay()
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "❌ Error finalizando penales: ${error.message}")
+                _uiState.update { it.copy(error = error.message) }
+            }
+
+            _uiState.update { it.copy(actualizandoFirebase = false) }
+        }
+    }
+
+
+    private fun actualizarPartidoActualPenales(
+        penales1: Int,
+        penales2: Int,
+        penalesInicia: Int,
+        penalesTanda: Int,
+        penalesTurno: Int,
+        serie1: List<Int>,
+        serie2: List<Int>,
+        marcadorPenales: Boolean
+    ) {
+        viewModelScope.launch {
+            try {
+                val reference = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                    .child("ARKI_DEPORTES")
+                    .child("PARTIDOACTUAL")
+
+                val updates = mapOf(
+                    "PENALES1" to penales1,
+                    "PENALES2" to penales2,
+                    "PENALES_INICIA" to penalesInicia,
+                    "PENALES_TANDA" to penalesTanda,
+                    "PENALES_TURNO" to penalesTurno,
+                    "PENALES_SERIE1" to serie1,
+                    "PENALES_SERIE2" to serie2,
+                    "MARCADOR_PENALES" to marcadorPenales,
+                    "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+                )
+
+                reference.updateChildren(updates).await()
+                Log.d(TAG, "✅ PARTIDOACTUAL actualizado directamente")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error actualizando PARTIDOACTUAL: ${e.message}")
+            }
+        }
+    }
 
 }

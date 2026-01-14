@@ -22,7 +22,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.arki_deportes.data.model.Partido
-
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedButton
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * PENALES TAB - CONTROL DE TANDA DE PENALES (VERSIÓN MEJORADA V2.0)
@@ -61,6 +65,7 @@ fun PenalesTab(
     onAgregarPenalEquipo2: () -> Unit,
     onRestarPenalEquipo2: () -> Unit,
     onNuevaTanda: () -> Unit,
+    onFinalizarPenales: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // ═══════════════════════════════════════════════════════════════════════
@@ -69,6 +74,7 @@ fun PenalesTab(
     var mostrarDialogActivar by remember { mutableStateOf(false) }
     var mostrarDialogDesactivar by remember { mutableStateOf(false) }
     var mostrarDialogNuevaTanda by remember { mutableStateOf(false) }
+    var mostrarDialogFinalizarPenales by remember { mutableStateOf(false) }  // ← NUEVO
     var equipoSeleccionadoParaIniciar by remember { mutableStateOf(equipoQueInicia.coerceIn(1, 2)) }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -283,6 +289,183 @@ fun PenalesTab(
             }
         )
     }
+
+
+    // Dialog: Finalizar y resetear penales
+    if (mostrarDialogFinalizarPenales) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogFinalizarPenales = false },
+            title = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        "Finalizar Tanda de Penales",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        "¿Estás seguro que deseas FINALIZAR la tanda de penales?",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    Divider()
+
+                    Text(
+                        "Esta acción hará lo siguiente:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("• ", fontWeight = FontWeight.Bold)
+                            Text("Resetea los goles (PENALES1 y PENALES2 a 0)")
+                        }
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("• ", fontWeight = FontWeight.Bold)
+                            Text("Resetea la configuración de la tanda")
+                        }
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("• ", fontWeight = FontWeight.Bold)
+                            Text("Limpia el historial de tiros")
+                        }
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("• ", fontWeight = FontWeight.Bold)
+                            Text("Desactiva el modo penales")
+                        }
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("• ", fontWeight = FontWeight.Bold)
+                            Text("El overlay volverá a mostrar el marcador normal")
+                        }
+                    }
+
+                    Divider()
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                "Esta acción es IRREVERSIBLE",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onFinalizarPenales()
+                        mostrarDialogFinalizarPenales = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RestartAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("SÍ, FINALIZAR Y RESETEAR")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { mostrarDialogFinalizarPenales = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // BOTÓN: FINALIZAR Y RESETEAR PENALES
+    // ═══════════════════════════════════════════════════════════════
+    if (penalesActivos) {
+        Divider()
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "🔄 Finalizar Tanda de Penales",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+
+                Text(
+                    text = "Resetea completamente los contadores, configuración e historial de penales.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+
+                Button(
+                    onClick = { mostrarDialogFinalizarPenales = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RestartAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("FINALIZAR Y RESETEAR TODO")
+                }
+            }
+        }
+    }
+
 
     // ═══════════════════════════════════════════════════════════════════════
     // UI PRINCIPAL

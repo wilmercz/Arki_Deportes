@@ -165,7 +165,7 @@ fun TiempoRealScreen(
 
                             // Callback de nueva tanda
                             onNuevaTanda = viewModel::nuevaTandaPenales,
-
+                            onFinalizarPenales = viewModel::finalizarYResetearPenales,
                             modifier = Modifier.fillMaxSize()
                         )
 
