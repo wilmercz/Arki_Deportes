@@ -167,3 +167,53 @@ data class Permisos(
         fun empty() = Permisos()
     }
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ROLES DE USUARIO
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+object RolUsuario {
+    /**
+     * Administrador: Acceso completo al sistema
+     * - Puede crear, editar y eliminar usuarios
+     * - Puede acceder a todos los campeonatos y partidos
+     * - Puede generar reportes
+     */
+    const val ADMINISTRADOR = "ADMINISTRADOR"
+
+    /**
+     * Operador: Acceso de lectura/escritura
+     * - Puede crear, editar y eliminar campeonatos, equipos, partidos
+     * - Puede acceder al tiempo real
+     * - Puede tener restricciones de campeonato/partido
+     */
+    const val OPERADOR = "OPERADOR"
+
+    /**
+     * Visualizador: Solo lectura
+     * - Solo puede ver información
+     * - Puede acceder al tiempo real
+     * - Puede tener restricciones de campeonato/partido
+     */
+    const val VISUALIZADOR = "VISUALIZADOR"
+
+    /**
+     * Obtiene todos los roles disponibles
+     */
+    fun getTodosLosRoles(): List<String> {
+        return listOf(ADMINISTRADOR, OPERADOR, VISUALIZADOR)
+    }
+
+    /**
+     * Obtiene la descripción de un rol
+     */
+    fun getDescripcion(rol: String): String {
+        return when (rol) {
+            ADMINISTRADOR -> "Acceso completo al sistema"
+            OPERADOR -> "Puede crear y editar contenido"
+            VISUALIZADOR -> "Solo puede ver información"
+            else -> "Rol desconocido"
+        }
+    }
+}

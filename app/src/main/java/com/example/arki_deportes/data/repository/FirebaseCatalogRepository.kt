@@ -50,13 +50,22 @@ class FirebaseCatalogRepository(
     // ─────────────────────────────────────────────────────────────────────────────
 
     fun observeCampeonatos(): Flow<List<Campeonato>> = callbackFlow {
-        val reference = campeonatosReference()
+        val reference = rootReference
+            .child("DatosFutbol")
+            .child("Campeonatos")
+
+
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val campeonatos = snapshot.children.mapNotNull { child ->
                     child.getValue(Campeonato::class.java)
                 }
                 trySend(campeonatos.sortedBy { it.CAMPEONATO })
+
+                Log.d(
+                    "CampeonatosDrawer",
+                    "children=${snapshot.childrenCount}"
+                )
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -65,6 +74,7 @@ class FirebaseCatalogRepository(
         }
         reference.addValueEventListener(listener)
         awaitClose { reference.removeEventListener(listener) }
+
     }
 
     fun observeGrupos(campeonatoCodigo: String? = null): Flow<List<Grupo>> = callbackFlow {
@@ -126,6 +136,25 @@ class FirebaseCatalogRepository(
     suspend fun getCampeonato(codigo: String): Campeonato? {
         val snapshot = campeonatosReference().child(codigo).get().await()
         return snapshot.getValue(Campeonato::class.java)
+    }
+
+    suspend fun getAllCampeonatos(): List<Campeonato> {
+        val snapshot = rootReference.get().await()
+        return snapshot.children.mapNotNull { campeonatoNode ->
+            val codigo = campeonatoNode.key ?: return@mapNotNull null
+            try {
+                Campeonato(
+                    CODIGO = codigo,
+                    CAMPEONATO = campeonatoNode.child("CAMPEONATO").getValue(String::class.java) ?: "",
+                    ANIO = campeonatoNode.child("ANIO").getValue(Int::class.java) ?: 0,
+                    DEPORTE = campeonatoNode.child("DEPORTE").getValue(String::class.java) ?: "Futbol",
+                    PROVINCIA = campeonatoNode.child("PROVINCIA").getValue(String::class.java) ?: "",
+                    ORIGEN = campeonatoNode.child("ORIGEN").getValue(String::class.java) ?: "MOBILE"
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 
     suspend fun getGrupo(codigoGrupo: String): Grupo? {

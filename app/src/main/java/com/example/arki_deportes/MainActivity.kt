@@ -4,7 +4,7 @@ package com.example.arki_deportes
 
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
-
+import com.example.arki_deportes.data.model.Partido
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -118,6 +118,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
+
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+// Imports para listas de catálogos
+import com.example.arki_deportes.ui.campeonatos.CampeonatoListRoute
+//import com.example.arki_deportes.ui.grupos.GrupoListRoute
+import com.example.arki_deportes.ui.equipos.EquipoListRoute
+import com.example.arki_deportes.ui.partidos.PartidoListRoute
+import com.example.arki_deportes.ui.grupos.GrupoListRoute
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -210,6 +222,13 @@ class MainActivity : ComponentActivity() {
                     configManager.cerrarSesion()
                 }
 
+                val catalogRepo = remember(database, configManager) {
+                    FirebaseCatalogRepository(
+                        database = database,
+                        rootNode = configManager.obtenerNodoRaiz()
+                    )
+                }
+
                 ModalNavigationDrawer(
                     drawerState = drawerState,
                     gesturesEnabled = drawerEnabled,
@@ -219,7 +238,8 @@ class MainActivity : ComponentActivity() {
                                 navigator = navigator,
                                 onCloseDrawer = closeDrawer,
                                 currentRoute = currentRoute,
-                                onLogout = handleLogout
+                                onLogout = handleLogout,
+                                catalogRepository = catalogRepo
                             )
                         }
                     }
@@ -246,6 +266,21 @@ class MainActivity : ComponentActivity() {
                                 openDrawer = openDrawer,
                                 onLogout = handleLogout
                             )
+                        },
+                        // ═══════════════════════════════════════════════════════════════
+                        // RUTAS DE LISTAS
+                        // ═══════════════════════════════════════════════════════════════
+                        campeonatoListRoute = { navigatorParam: AppNavigator ->
+                            PantallaCampeonatoList(navigatorParam, openDrawer = openDrawer)
+                        },
+                        grupoListRoute = { navigatorParam: AppNavigator ->
+                            PantallaGrupoList(navigatorParam, openDrawer = openDrawer)
+                        },
+                        equipoListRoute = { navigatorParam: AppNavigator ->
+                            PantallaEquipoList(navigatorParam, openDrawer = openDrawer)
+                        },
+                        partidoListRoute = { navigatorParam: AppNavigator ->
+                            PantallaPartidoList(navigatorParam, openDrawer = openDrawer)
                         },
                         campeonatoFormRoute = { navigatorParam, codigo -> PantallaCampeonatoForm(navigatorParam, codigo) },
                         grupoFormRoute = { navigatorParam, codigo -> PantallaGrupoForm(navigatorParam, codigo) },
@@ -311,6 +346,74 @@ class MainActivity : ComponentActivity() {
                 }
             },
             onOpenDrawer = openDrawer
+        )
+    }
+
+    @Composable
+    fun PantallaCampeonatoList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        CampeonatoListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer,
+            onCreateCampeonato = {
+                navigator.navigateToCampeonatoForm(null)
+            },
+            onEditCampeonato = { codigo ->
+                navigator.navigateToCampeonatoForm(codigo)
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaGrupoList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        GrupoListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer
+            // ✅ Solo estos dos parámetros
+            // No necesita onCreateGrupo ni onEditGrupo
+        )
+    }
+
+    @Composable
+    fun PantallaEquipoList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        EquipoListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer,
+            onCreateEquipo = {
+                navigator.navigateToEquipoForm(null)
+            },
+            onEditEquipo = { codigo ->
+                navigator.navigateToEquipoForm(codigo)
+            }
+        )
+    }
+
+    @Composable
+    fun PantallaPartidoList(navigator: AppNavigator, openDrawer: () -> Unit) {
+        PartidoListRoute(
+            onNavigateBack = {
+                if (!navigator.navigateBack()) {
+                    navigator.navigateToHybridHome()
+                }
+            },
+            onOpenDrawer = openDrawer,
+            onCreatePartido = {
+                navigator.navigateToPartidoForm(null)
+            },
+            onEditPartido = { codigo ->
+                navigator.navigateToPartidoForm(codigo)
+            }
         )
     }
 
@@ -733,23 +836,17 @@ class MainActivity : ComponentActivity() {
             val usuarioLocal = obtenerUsuarioLocal().orEmpty()
             val passwordLocal = obtenerPasswordLocal().orEmpty()
 
-            if (passwordLocal.isNotBlank()) {
-                Log.d(TAG, "🔑 Hay password memorizado, validando contra Firebase...")
-
-                validarPassword(usuarioLocal, passwordLocal) { esValida ->
-                    if (esValida) {
-                        Log.d(TAG, "✅ Password memorizado válido -> mostrar login precargado")
-                        estadoApp = EstadoApp.REQUIERE_LOGIN   // modo: el usuario solo hace clic en Acceder
-                    } else {
-                        Log.d(TAG, "❌ Password memorizado no válido (cambió en Firebase)")
-                        borrarCredencialesLocal()
-                        estadoApp = EstadoApp.REQUIERE_LOGIN
-                    }
-                }
+            if (usuarioLocal.isNotBlank() && passwordLocal.isNotBlank()) {
+                Log.d(TAG, "🔑 Credenciales encontradas localmente")
+                Log.d(TAG, "   Usuario: $usuarioLocal")
+                Log.d(TAG, "   Password: ${passwordLocal.length} caracteres")
+                Log.d(TAG, "📋 Mostrando login con campos precargados")
+                estadoApp = EstadoApp.REQUIERE_LOGIN
             } else {
-                Log.d(TAG, "🔐 No hay password memorizado, mostrar login")
+                Log.d(TAG, "🔐 No hay credenciales guardadas, mostrar login vacío")
                 estadoApp = EstadoApp.REQUIERE_LOGIN
             }
+
         }
 
         LaunchedEffect(estadoApp) {
@@ -815,9 +912,6 @@ class MainActivity : ComponentActivity() {
     }
 
 
-    /**
-     * Carga el partido asignado y navega según el estado
-     */
     private fun cargarPartidoYNavegar(
         campeonatoId: String,
         partidoId: String,
@@ -827,36 +921,201 @@ class MainActivity : ComponentActivity() {
             try {
                 val repository = FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
 
-                // ✅ obtener partido con campeonatoId
+                // ✅ 1. Obtener el partido
                 val partido = repository.getPartido(campeonatoId, partidoId)
 
                 if (partido != null) {
-                    PartidoContext.setPartidoActivo(partido)
+                    // ✅ 2. Verificar caducidad del partido
+                    val haCaducado = verificarCaducidadPartido(partido)
 
-                    // ✅ cargar campeonato por el mismo campeonatoId
-                    val campeonato = repository.getCampeonato(campeonatoId)
-                    if (campeonato != null) {
-                        CampeonatoContext.seleccionarCampeonato(campeonato)
+                    if (haCaducado) {
+                        Log.w(TAG, "⚠️ Partido CADUCADO: ${partido.CODIGOPARTIDO}")
+                        Log.w(TAG, "   Fecha del partido: ${partido.FECHA_PARTIDO}")
+                        Log.w(TAG, "   Eliminando asignación del usuario...")
 
-                        val deporte = SportType.fromId(campeonato.DEPORTE)
-                        DeporteContext.seleccionarDeporte(deporte)
+                        // ✅ 3. Eliminar partido asignado del usuario en Firebase
+                        eliminarPartidoAsignado()
+
+                        // ✅ 4. Navegar a lista de partidos (HybridHome)
+                        Log.d(TAG, "🏠 Navegando a Home (partido caducado)")
+                        navigator.navigateToHybridHome(clearBackStack = true)
+                    } else {
+                        // ✅ Partido válido - flujo normal
+                        Log.d(TAG, "✅ Partido VIGENTE: ${partido.CODIGOPARTIDO}")
+
+                        PartidoContext.setPartidoActivo(partido)
+
+                        // Cargar campeonato
+                        val campeonato = repository.getCampeonato(campeonatoId)
+                        if (campeonato != null) {
+                            CampeonatoContext.seleccionarCampeonato(campeonato)
+                            val deporte = SportType.fromId(campeonato.DEPORTE)
+                            DeporteContext.seleccionarDeporte(deporte)
+                        }
+
+                        // Navegar a tiempo real
+                        Log.d(TAG, "🎯 Navegando a TiempoReal")
+                        navigator.navigateToTiempoReal(
+                            campeonatoId = campeonatoId,
+                            partidoId = partidoId,
+                            clearBackStack = true
+                        )
                     }
-
-                    // ✅ navegar con ambos IDs
-                    navigator.navigateToTiempoReal(
-                        campeonatoId = campeonatoId,
-                        partidoId = partidoId,
-                        clearBackStack = true
-                    )
                 } else {
+                    // Partido no encontrado
+                    Log.w(TAG, "⚠️ Partido NO ENCONTRADO: $partidoId")
                     navigator.navigateToHybridHome(clearBackStack = true)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error al cargar partido: ${e.message}")
+                Log.e(TAG, "❌ Error al cargar partido: ${e.message}", e)
                 navigator.navigateToHybridHome(clearBackStack = true)
             }
         }
     }
+
+    /**
+     * Verifica si un partido ha caducado
+     * Un partido caduca si su fecha + 1 día es menor a la fecha actual
+     *
+     * @param partido El partido a verificar
+     * @return true si ha caducado, false si aún está vigente
+     */
+    private fun verificarCaducidadPartido(partido: Partido): Boolean {
+        try {
+            // ✅ Parsear fecha del partido (formato esperado: "yyyy-MM-dd" o "dd/MM/yyyy")
+            val fechaPartido = parsearFechaPartido(partido.FECHA_PARTIDO)
+
+            if (fechaPartido == null) {
+                Log.w(TAG, "⚠️ No se pudo parsear la fecha del partido: ${partido.FECHA_PARTIDO}")
+                return false // Si no se puede parsear, asumimos que no ha caducado
+            }
+
+            // ✅ Calcular fecha de caducidad (fecha del partido + 1 día)
+            val fechaCaducidad = fechaPartido.plusDays(1)
+
+            // ✅ Obtener fecha actual
+            val fechaActual = LocalDate.now()
+
+            // ✅ Comparar: si la fecha actual es mayor a la fecha de caducidad, ha caducado
+            val caducado = fechaActual.isAfter(fechaCaducidad)
+
+            Log.d(TAG, "📅 Verificación de caducidad:")
+            Log.d(TAG, "   Fecha del partido: $fechaPartido")
+            Log.d(TAG, "   Fecha de caducidad: $fechaCaducidad")
+            Log.d(TAG, "   Fecha actual: $fechaActual")
+            Log.d(TAG, "   ¿Ha caducado?: $caducado")
+
+            return caducado
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al verificar caducidad: ${e.message}", e)
+            return false // En caso de error, asumimos que no ha caducado
+        }
+    }
+
+    /**
+     * Parsea la fecha del partido desde diferentes formatos posibles
+     *
+     * Formatos soportados:
+     * - "yyyy-MM-dd" (ejemplo: "2025-01-10")
+     * - "dd/MM/yyyy" (ejemplo: "10/01/2025")
+     * - "yyyy/MM/dd" (ejemplo: "2025/01/10")
+     *
+     * @param fechaStr La fecha en formato string
+     * @return LocalDate o null si no se pudo parsear
+     */
+    private fun parsearFechaPartido(fechaStr: String): LocalDate? {
+        if (fechaStr.isBlank()) return null
+
+        val formatos = listOf(
+            // Formatos ISO y estándar
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+
+            // Formatos con barras (/) - CON ceros
+            DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+            DateTimeFormatter.ofPattern("yyyy/MM/dd"),
+
+            // Formatos con barras (/) - SIN ceros (FLEXIBLES)
+            DateTimeFormatter.ofPattern("d/M/yyyy"),    // 12/1/2026
+            DateTimeFormatter.ofPattern("M/d/yyyy"),    // 1/12/2026 (USA)
+
+            // Formatos con guiones (-) - CON ceros
+            DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+
+            // Formatos con guiones (-) - SIN ceros (FLEXIBLES)
+            DateTimeFormatter.ofPattern("d-M-yyyy")     // 12-1-2026
+        )
+
+        for (formato in formatos) {
+            try {
+                val fecha = LocalDate.parse(fechaStr.trim(), formato)
+                Log.d(TAG, "✅ Fecha parseada exitosamente: $fechaStr → $fecha")
+                return fecha
+            } catch (e: DateTimeParseException) {
+                // Intentar con el siguiente formato
+            }
+        }
+
+        // Si ningún formato funcionó
+        Log.w(TAG, "❌ No se pudo parsear la fecha con ningún formato: '$fechaStr'")
+        return null
+    }
+
+
+    /**
+     * Elimina el partido asignado del usuario actual en Firebase
+     * Actualiza la ruta: /AppConfig/Usuarios/{usuario}/permisos
+     * Elimina los campos: codigoCampeonato y codigoPartido
+     */
+    private fun eliminarPartidoAsignado() {
+        try {
+            val usuario = UsuarioContext.getUsuario()
+            if (usuario == null) {
+                Log.w(TAG, "⚠️ No hay usuario en contexto para eliminar partido asignado")
+                return
+            }
+
+            val nombreUsuario = usuario.usuario
+            if (nombreUsuario.isBlank()) {
+                Log.w(TAG, "⚠️ Nombre de usuario vacío")
+                return
+            }
+
+            // ✅ Ruta en Firebase: /AppConfig/Usuarios/{nombreUsuario}/permisos
+            val nodoRaiz = configManager.obtenerNodoRaiz()
+            val rutaPermisos = database.reference
+                .child(nodoRaiz)
+                .child("AppConfig")
+                .child("Usuarios")
+                .child(nombreUsuario)
+                .child("permisos")
+
+            // ✅ Crear map con los valores a actualizar (null = eliminar)
+            val actualizaciones = mapOf(
+                "codigoCampeonato" to null,
+                "codigoPartido" to null
+            )
+
+            // ✅ Actualizar Firebase
+            rutaPermisos.updateChildren(actualizaciones)
+                .addOnSuccessListener {
+                    Log.d(TAG, "✅ Partido asignado eliminado correctamente de Firebase")
+                    Log.d(TAG, "   Usuario: $nombreUsuario")
+
+                    // ✅ Actualizar contexto local
+                    UsuarioContext.limpiarPartidoAsignado()
+                }
+                .addOnFailureListener { error ->
+                    Log.e(TAG, "❌ Error al eliminar partido asignado de Firebase: ${error.message}", error)
+                }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al eliminar partido asignado: ${e.message}", e)
+        }
+    }
+
+
 
 
     /**

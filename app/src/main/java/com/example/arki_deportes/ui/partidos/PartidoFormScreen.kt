@@ -61,11 +61,9 @@ fun PartidoFormScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    /* DESACTIVADO TEMPORALMENTE
     LaunchedEffect(codigoPartido) {
         viewModel.loadPartido(codigoPartido)
     }
-    */
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -81,9 +79,6 @@ fun PartidoFormScreen(
         }
     }
 
-
-    /* 'DESACTIVADO TEMPORALMENTE SOLO PARA COMPILAR LA APP
-    //ESTO DEBE MEJORAR YA QUE EL MODELO DE DATOS PARTIDO SE AMPLIO PARA SE COMPATIBLE CON VBNET
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -199,6 +194,7 @@ fun PartidoFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            /* DESACTIVADO TEMPORALMENTE
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = uiState.formData.goles1,
@@ -215,6 +211,8 @@ fun PartidoFormScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+
+             */
 
             EtapaDropdown(
                 etapa = uiState.formData.etapa,
@@ -240,6 +238,8 @@ fun PartidoFormScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                /*DESACTIVADO TEMPORALMENTE
+
                 Button(
                     onClick = viewModel::savePartido,
                     enabled = !uiState.isSaving,
@@ -249,6 +249,10 @@ fun PartidoFormScreen(
                     Spacer(modifier = Modifier.size(8.dp))
                     Text(if (uiState.isSaving) "Guardando..." else "Guardar")
                 }
+
+
+                 */
+
 
                 if (uiState.isEditMode) {
                     OutlinedButton(
@@ -273,8 +277,6 @@ fun PartidoFormScreen(
             }
         }
     }
-
-     */
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

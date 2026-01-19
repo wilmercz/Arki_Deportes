@@ -54,6 +54,7 @@ class GrupoFormViewModel(
         observeCampeonatos()
     }
 
+    /*DESACTIVADO TEMPORALMENTE
     fun loadGrupo(codigoGrupo: String?) {
         if (codigoGrupo.isNullOrBlank()) {
             _uiState.update { GrupoFormUiState(campeonatos = it.campeonatos) }
@@ -64,7 +65,13 @@ class GrupoFormViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             try {
-                val grupo = repository.getGrupo(codigoGrupo)
+                val campeonatoCodigo =
+                    _uiState.value.formData.codigoCampeonato.ifBlank {
+                        com.example.arki_deportes.data.context.CampeonatoContext
+                            .campeonatoActivo.value?.CODIGO.orEmpty()
+                    }
+
+                val grupo = repository.getGrupo(campeonatoCodigo, codigoGrupo)
                 if (grupo != null) {
                     originalGrupo = grupo
                     _uiState.update {
@@ -99,7 +106,7 @@ class GrupoFormViewModel(
             }
         }
     }
-
+*/
     private fun observeCampeonatos() {
         observeCampeonatosJob?.cancel()
         observeCampeonatosJob = viewModelScope.launch {

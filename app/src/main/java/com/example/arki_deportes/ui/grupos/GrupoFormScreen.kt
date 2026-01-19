@@ -57,9 +57,11 @@ fun GrupoFormScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    /*DESACTIVADO TEMPORALMENTE
     LaunchedEffect(codigoGrupo) {
         viewModel.loadGrupo(codigoGrupo)
     }
+*/
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {

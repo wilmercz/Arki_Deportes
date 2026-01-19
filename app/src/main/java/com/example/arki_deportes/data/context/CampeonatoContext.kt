@@ -3,6 +3,10 @@
 package com.example.arki_deportes.data.context
 
 import com.example.arki_deportes.data.model.Campeonato
+import android.content.SharedPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -16,6 +20,23 @@ import com.example.arki_deportes.data.model.Campeonato
  * @version 1.0.0
  */
 object CampeonatoContext {
+
+    private const val PREFS_NAME = "campeonato_prefs"
+    private const val KEY_CAMPEONATO_CODIGO = "campeonato_codigo"
+    private const val KEY_CAMPEONATO_NOMBRE = "campeonato_nombre"
+    private const val KEY_CAMPEONATO_ANIO = "campeonato_anio"
+
+    private var prefs: SharedPreferences? = null
+
+    private val _campeonatoActivo = MutableStateFlow<Campeonato?>(null)
+
+    /**
+     * Flow del campeonato actualmente seleccionado.
+     * null = "Ver Todos" (sin filtro)
+     */
+    val campeonatoActivo: StateFlow<Campeonato?> = _campeonatoActivo.asStateFlow()
+
+
     /**
      * Campeonato actualmente seleccionado
      */

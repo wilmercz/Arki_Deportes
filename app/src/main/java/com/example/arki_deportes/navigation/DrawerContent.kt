@@ -14,6 +14,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.arki_deportes.ui.components.CampeonatoSelector
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+
+import com.example.arki_deportes.data.context.UsuarioContext
+import com.example.arki_deportes.data.context.PartidoContext
+import com.example.arki_deportes.data.context.CampeonatoContext
+import com.example.arki_deportes.data.context.DeporteContext
+
+import com.example.arki_deportes.utils.SportType
+import com.example.arki_deportes.data.model.Partido
+
 
 private fun String?.matchesRoute(route: String): Boolean {
     return this == route || this?.startsWith("$route/") == true
@@ -29,17 +48,43 @@ fun DrawerContent(
     navigator: AppNavigator,
     onCloseDrawer: () -> Unit,
     currentRoute: String? = null,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    catalogRepository: FirebaseCatalogRepository
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+    val drawerVM: DrawerViewModel = viewModel(
+        factory = DrawerViewModelFactory(catalogRepository)
+    )
+    val campeonatos by drawerVM.campeonatos.collectAsState()
+
+    val scope = rememberCoroutineScope()
+
+
+    ModalDrawerSheet(
+        drawerContainerColor = MaterialTheme.colorScheme.surface,
+        drawerTonalElevation = 0.dp
     ) {
         // Header del Drawer
         DrawerHeader()
 
         Divider()
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SELECTOR DE CAMPEONATO - ¡NUEVO!
+        // ═══════════════════════════════════════════════════════════════════
+        if (campeonatos.isNotEmpty()) {
+            CampeonatoSelector(
+                campeonatos = campeonatos,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        } else {
+            Text(
+                text = "Cargando campeonatos...",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
 
         // Menú principal
         DrawerMenuItem(
@@ -57,20 +102,64 @@ fun DrawerContent(
             label = "Tiempo Real",
             isSelected = currentRoute.matchesRoute(AppDestinations.REAL_TIME),
             onClick = {
-                navigator.navigateToRealTime()
+                // Cierra el drawer de una para que se sienta rápido
                 onCloseDrawer()
+
+                scope.launch {
+                    val user = UsuarioContext.getUsuario()
+
+                    val partidoId = user?.permisos?.codigoPartido
+                    val campeonatoId = user?.permisos?.codigoCampeonato
+
+                    // Si no hay asignación → Home (lista/selección de partidos)
+                    if (campeonatoId.isNullOrBlank() || campeonatoId == "NINGUNO" ||
+                        partidoId.isNullOrBlank() || partidoId == "NINGUNO"
+                    ) {
+                        navigator.navigateToHybridHome()
+                        return@launch
+                    }
+
+                    try {
+                        // 1) Obtener partido
+                        val partido = catalogRepository.getPartido(campeonatoId, partidoId)
+                        if (partido == null) {
+                            navigator.navigateToHybridHome()
+                            return@launch
+                        }
+
+                        // 2) Verificar caducidad (misma regla del MainActivity)
+                        val haCaducado = verificarCaducidadPartido(partido)
+                        if (haCaducado) {
+                            // Opcional: aquí podrías también limpiar el contexto local
+                            UsuarioContext.limpiarPartidoAsignado()
+                            navigator.navigateToHybridHome()
+                            return@launch
+                        }
+
+                        // 3) Partido vigente → set contextos como en MainActivity
+                        PartidoContext.setPartidoActivo(partido)
+
+                        val campeonato = catalogRepository.getCampeonato(campeonatoId)
+                        if (campeonato != null) {
+                            CampeonatoContext.seleccionarCampeonato(campeonato)
+                            val deporte = SportType.fromId(campeonato.DEPORTE)
+                            DeporteContext.seleccionarDeporte(deporte)
+                        }
+
+                        // 4) Navegar a Tiempo Real con los ids asignados
+                        navigator.navigateToTiempoReal(
+                            campeonatoId = campeonatoId,
+                            partidoId = partidoId,
+                            clearBackStack = false
+                        )
+                    } catch (e: Exception) {
+                        navigator.navigateToHybridHome()
+                    }
+                }
             }
         )
 
-        DrawerMenuItem(
-            icon = Icons.Default.Category,
-            label = "Catálogos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.CATALOGS),
-            onClick = {
-                navigator.navigateToCatalogs()
-                onCloseDrawer()
-            }
-        )
+
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -85,9 +174,10 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.EmojiEvents,
             label = "Campeonatos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.CAMPEONATO_FORM),
+            isSelected = currentRoute.matchesRoute(AppDestinations.CAMPEONATO_LIST) ||
+                    currentRoute.matchesRoute(AppDestinations.CAMPEONATO_FORM),
             onClick = {
-                navigator.navigateToCampeonatoForm()
+                navigator.navigateToCampeonatoList()
                 onCloseDrawer()
             }
         )
@@ -177,6 +267,35 @@ fun DrawerContent(
             }
         )
     }
+}
+
+
+private fun verificarCaducidadPartido(partido: Partido): Boolean {
+    val fechaPartido = parsearFechaPartido(partido.FECHA_PARTIDO) ?: return false
+    val fechaCaducidad = fechaPartido.plusDays(1)
+    val fechaActual = LocalDate.now()
+    return fechaActual.isAfter(fechaCaducidad)
+}
+
+private fun parsearFechaPartido(fechaStr: String): LocalDate? {
+    if (fechaStr.isBlank()) return null
+
+    val formatos = listOf(
+        DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+        DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+        DateTimeFormatter.ofPattern("yyyy/MM/dd"),
+        DateTimeFormatter.ofPattern("d/M/yyyy"),
+        DateTimeFormatter.ofPattern("M/d/yyyy"),
+        DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+        DateTimeFormatter.ofPattern("d-M-yyyy")
+    )
+
+    for (f in formatos) {
+        try {
+            return LocalDate.parse(fechaStr.trim(), f)
+        } catch (_: DateTimeParseException) {}
+    }
+    return null
 }
 
 /**

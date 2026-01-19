@@ -14,6 +14,11 @@ object AppDestinations {
     const val REAL_TIME: String = "real_time"
     const val CATALOGS: String = "catalogs"
 
+    const val CAMPEONATO_LIST: String = "campeonato_list"
+    const val GRUPO_LIST: String = "grupo_list"
+    const val EQUIPO_LIST: String = "equipo_list"
+    const val PARTIDO_LIST: String = "partido_list"
+
     // Formularios CRUD
     const val CAMPEONATO_FORM: String = "campeonato_form"
     const val GRUPO_FORM: String = "grupo_form"
@@ -32,7 +37,10 @@ object AppDestinations {
     val mainDestinations: List<String> = listOf(
         HYBRID_HOME,
         REAL_TIME,
-        CATALOGS,
+        CAMPEONATO_LIST,
+        EQUIPO_LIST,
+        PARTIDO_LIST,
+        GRUPO_LIST,
         MENCIONES,
         EQUIPO_PRODUCCION,
         SETTINGS

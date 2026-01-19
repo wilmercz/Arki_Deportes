@@ -27,7 +27,6 @@ data class CampeonatoFormData(
     val fechaInicio: String = "",
     val fechaFin: String = "",
     val provincia: String = "",
-    val anio: String = "",
     val hashtags: String = ""
 )
 
@@ -75,7 +74,6 @@ class CampeonatoFormViewModel(
                                 fechaInicio = campeonato.FECHAINICIO,
                                 fechaFin = campeonato.FECHAFINAL,
                                 provincia = campeonato.PROVINCIA,
-                                anio = if (campeonato.ANIO == 0) "" else campeonato.ANIO.toString(),
                                 hashtags = campeonato.HASTAGEXTRAS
                             ),
                             isEditMode = true,
@@ -109,8 +107,6 @@ class CampeonatoFormViewModel(
 
     fun onProvinciaChange(value: String) = updateForm { copy(provincia = value) }
 
-    fun onAnioChange(value: String) = updateForm { copy(anio = value.filter { it.isDigit() }) }
-
     fun onHashtagsChange(value: String) = updateForm { copy(hashtags = value) }
 
     private fun updateForm(transform: CampeonatoFormData.() -> CampeonatoFormData) {
@@ -137,7 +133,7 @@ class CampeonatoFormViewModel(
 
         val form = currentState.formData
         val timestamp = System.currentTimeMillis()
-        val anio = form.anio.toIntOrNull() ?: deriveYear(form.fechaInicio)
+        val anio = deriveYear(form.fechaInicio)
         val codigo = if (form.codigo.isNotBlank()) {
             form.codigo
         } else {

@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.utils.Constants
 import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Add
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,9 +58,11 @@ fun EquipoFormScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    /*DESACTIVADO TEMPORALMENTE
     LaunchedEffect(codigoEquipo) {
         viewModel.loadEquipo(codigoEquipo)
     }
+*/
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -106,6 +109,32 @@ fun EquipoFormScreen(
                 showError = uiState.showValidationErrors && uiState.formData.codigoCampeonato.isBlank()
             )
 
+/*DESACTIVADO TEMPORALMENTE
+            // Botón para crear equipos por provincia (solo si hay campeonato seleccionado)
+            if (uiState.formData.codigoCampeonato.isNotBlank()) {
+                OutlinedButton(
+                    onClick = viewModel::crearEquiposPorProvincia,
+                    enabled = !uiState.isCreatingMassive && !uiState.isSaving,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (uiState.isCreatingMassive) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Creando ${uiState.massiveCreationProgress}/${uiState.massiveCreationTotal}...")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Crear equipos por provincia")
+                    }
+                }
+            }
+*/
             OutlinedTextField(
                 value = uiState.formData.nombreCorto,
                 onValueChange = viewModel::onNombreCortoChange,

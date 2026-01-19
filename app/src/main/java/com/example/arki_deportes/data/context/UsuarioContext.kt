@@ -89,4 +89,22 @@ object UsuarioContext {
     fun getRol(): String {
         return usuarioActual?.rol ?: ""
     }
+
+    /**
+     * Limpia el partido asignado del usuario actual en el contexto local
+     */
+    fun limpiarPartidoAsignado() {
+        usuarioActual?.let { usuario ->
+            val permisosActualizados = usuario.permisos.copy(
+                codigoCampeonato = null,
+                codigoPartido = null
+            )
+            usuarioActual = usuario.copy(permisos = permisosActualizados)
+
+            android.util.Log.d("UsuarioContext", "✅ Partido asignado limpiado del contexto local")
+        }
+    }
+
+
 }
+

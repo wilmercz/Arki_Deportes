@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault())
 
@@ -40,7 +41,10 @@ data class EquipoFormUiState(
     val isDeleting: Boolean = false,
     val showValidationErrors: Boolean = false,
     val message: FormMessage? = null,
-    val shouldClose: Boolean = false
+    val shouldClose: Boolean = false,
+    val isCreatingMassive: Boolean = false,
+    val massiveCreationProgress: Int = 0,
+    val massiveCreationTotal: Int = 0
 )
 
 class EquipoFormViewModel(
@@ -57,6 +61,8 @@ class EquipoFormViewModel(
         observeCampeonatos()
     }
 
+
+/*
     fun loadEquipo(codigoEquipo: String?) {
         if (codigoEquipo.isNullOrBlank()) {
             _uiState.update { EquipoFormUiState(campeonatos = it.campeonatos) }
@@ -67,7 +73,13 @@ class EquipoFormViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             try {
-                val equipo = repository.getEquipo(codigoEquipo)
+                val campeonatoCodigo =
+                    _uiState.value.formData.codigoCampeonato.ifBlank {
+                        com.example.arki_deportes.data.context.CampeonatoContext
+                            .campeonatoActivo.value?.CODIGO.orEmpty()
+                    }
+
+                val equipo = repository.getEquipo(campeonatoCodigo, codigoEquipo)
                 if (equipo != null) {
                     originalEquipo = equipo
                     _uiState.update {
@@ -104,7 +116,7 @@ class EquipoFormViewModel(
             }
         }
     }
-
+*/
     private fun observeCampeonatos() {
         observeCampeonatosJob?.cancel()
         observeCampeonatosJob = viewModelScope.launch {
@@ -248,4 +260,6 @@ class EquipoFormViewModel(
     }
 
     private fun currentDate(): String = LocalDate.now().format(DATE_FORMATTER)
+
+
 }
