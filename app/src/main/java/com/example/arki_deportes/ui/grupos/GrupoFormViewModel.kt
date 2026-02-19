@@ -54,10 +54,9 @@ class GrupoFormViewModel(
         observeCampeonatos()
     }
 
-    /*DESACTIVADO TEMPORALMENTE
-    fun loadGrupo(codigoGrupo: String?) {
+    fun loadGrupo(campeonatoId: String, codigoGrupo: String?) {
         if (codigoGrupo.isNullOrBlank()) {
-            _uiState.update { GrupoFormUiState(campeonatos = it.campeonatos) }
+            _uiState.update { it.copy(isEditMode = false, formData = GrupoFormData(codigoCampeonato = campeonatoId)) }
             originalGrupo = null
             return
         }
@@ -65,13 +64,7 @@ class GrupoFormViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             try {
-                val campeonatoCodigo =
-                    _uiState.value.formData.codigoCampeonato.ifBlank {
-                        com.example.arki_deportes.data.context.CampeonatoContext
-                            .campeonatoActivo.value?.CODIGO.orEmpty()
-                    }
-
-                val grupo = repository.getGrupo(campeonatoCodigo, codigoGrupo)
+                val grupo = repository.getGrupo(campeonatoId, codigoGrupo)
                 if (grupo != null) {
                     originalGrupo = grupo
                     _uiState.update {
@@ -90,23 +83,18 @@ class GrupoFormViewModel(
                     }
                 } else {
                     _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            message = FormMessage("No se encontró el grupo solicitado", isError = true)
-                        )
+                        it.copy(isLoading = false, message = FormMessage("No se encontró el grupo solicitado", isError = true))
                     }
                 }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        message = FormMessage(e.message ?: Constants.Mensajes.ERROR_DESCONOCIDO, isError = true)
-                    )
+                    it.copy(isLoading = false, message = FormMessage(e.message ?: Constants.Mensajes.ERROR_DESCONOCIDO, isError = true))
                 }
             }
         }
     }
-*/
+
+
     private fun observeCampeonatos() {
         observeCampeonatosJob?.cancel()
         observeCampeonatosJob = viewModelScope.launch {
@@ -212,13 +200,14 @@ class GrupoFormViewModel(
     }
 
     fun deleteGrupo() {
-        val codigo = _uiState.value.formData.codigoGrupo
-        if (codigo.isBlank() || _uiState.value.isDeleting) return
+        val form = _uiState.value.formData
+        if (form.codigoGrupo.isBlank() || form.codigoCampeonato.isBlank() || _uiState.value.isDeleting) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isDeleting = true) }
             try {
-                repository.deleteGrupo(codigo)
+                // CORRECCIÓN: Ahora pasamos ambos IDs
+                repository.deleteGrupo(form.codigoCampeonato, form.codigoGrupo)
                 _uiState.update {
                     it.copy(
                         isDeleting = false,
