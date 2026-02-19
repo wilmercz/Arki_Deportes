@@ -99,7 +99,7 @@ object Constants {
     /** Nombre de las colecciones en Firebase */
     object FirebaseCollections {
         const val ACCESO = "Acceso"
-        const val CAMPEONATOS = "CAMPEONATOS"
+        const val CAMPEONATOS = "Campeonatos"
         const val GRUPOS = "GRUPOS"
         const val EQUIPOS = "EQUIPOS"
         const val PARTIDOS = "PARTIDOS"

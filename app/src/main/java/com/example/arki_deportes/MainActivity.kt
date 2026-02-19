@@ -465,6 +465,9 @@ class MainActivity : ComponentActivity() {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToCatalogs()
                 }
+            },
+            onNavigateToSeries = { id ->
+                navigator.navigateTo("serie_list/$id") // Ahora lo llevamos a la LISTA primero
             }
         )
     }

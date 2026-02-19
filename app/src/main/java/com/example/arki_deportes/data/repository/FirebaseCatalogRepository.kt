@@ -5,6 +5,7 @@ import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.model.Grupo
 import com.example.arki_deportes.data.model.Partido
+import com.example.arki_deportes.data.model.Serie
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -17,6 +18,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.database.ServerValue
+import java.text.Normalizer
+import java.util.Locale
 
 /**
  * Repositorio centralizado para operaciones CRUD sobre catálogos en Firebase.
@@ -33,8 +36,8 @@ class FirebaseCatalogRepository(
     private val rootReference: DatabaseReference
         get() = database.reference.child(rootNode)
 
-    private fun campeonatosReference(): DatabaseReference =
-        rootReference.child(Constants.FirebaseCollections.CAMPEONATOS)
+    internal fun campeonatosReference(): DatabaseReference =
+        rootReference.child("DatosFutbol").child(Constants.FirebaseCollections.CAMPEONATOS)
 
     private fun gruposReference(): DatabaseReference =
         rootReference.child(Constants.FirebaseCollections.GRUPOS)
@@ -77,24 +80,35 @@ class FirebaseCatalogRepository(
 
     }
 
-    fun observeGrupos(campeonatoCodigo: String? = null): Flow<List<Grupo>> = callbackFlow {
-        val reference = gruposReference()
+    fun observeSeries(campeonatoId: String): Flow<List<Serie>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("Series")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val grupos = snapshot.children.mapNotNull { child ->
-                    child.getValue(Grupo::class.java)
-                }.filter { grupo ->
-                    campeonatoCodigo.isNullOrBlank() || grupo.CODIGOCAMPEONATO == campeonatoCodigo
-                }
-                trySend(grupos.sortedBy { it.GRUPO })
+                val series = snapshot.children.mapNotNull { it.getValue(Serie::class.java) }
+                trySend(series)
             }
-
             override fun onCancelled(error: DatabaseError) {
                 close(error.toException())
             }
         }
-        reference.addValueEventListener(listener)
-        awaitClose { reference.removeEventListener(listener) }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+
+    fun observeGrupos(campeonatoId: String): Flow<List<Grupo>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("Grupos")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val grupos = snapshot.children.mapNotNull { it.getValue(Grupo::class.java) }
+                trySend(grupos.sortedBy { it.GRUPO })
+            }
+            override fun onCancelled(error: DatabaseError) {
+                close(error.toException())
+            }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
     }
 
     fun observeEquipos(
@@ -138,6 +152,11 @@ class FirebaseCatalogRepository(
         return snapshot.getValue(Campeonato::class.java)
     }
 
+    suspend fun getSerie(campeonatoId: String, serieId: String): Serie? {
+        val snapshot = campeonatosReference().child(campeonatoId).child("Series").child(serieId).get().await()
+        return snapshot.getValue(Serie::class.java)
+    }
+
     suspend fun getAllCampeonatos(): List<Campeonato> {
         val snapshot = rootReference.get().await()
         return snapshot.children.mapNotNull { campeonatoNode ->
@@ -157,8 +176,8 @@ class FirebaseCatalogRepository(
         }
     }
 
-    suspend fun getGrupo(codigoGrupo: String): Grupo? {
-        val snapshot = gruposReference().child(codigoGrupo).get().await()
+    suspend fun getGrupo(campeonatoId: String, grupoId: String): Grupo? {
+        val snapshot = campeonatosReference().child(campeonatoId).child("Grupos").child(grupoId).get().await()
         return snapshot.getValue(Grupo::class.java)
     }
 
@@ -263,8 +282,88 @@ class FirebaseCatalogRepository(
             .await()
     }
 
+
+    suspend fun saveEstadiosYLugares(
+        campeonatoCodigo: String,
+        estadiosString: String,
+        lugaresString: String
+    ) {
+        val campRef = campeonatosReference().child(campeonatoCodigo)
+
+        // Guardar Estadios
+        if (estadiosString.isNotBlank()) {
+            val listaEstadios = estadiosString.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            listaEstadios.forEach { nombre ->
+                val codigo = generarCodigoUnico(nombre)
+                val data = mapOf("CODIGOCAMPEONATO" to campeonatoCodigo, "CODIGOESTADIO" to codigo, "ESTADIO" to nombre)
+                campRef.child("Estadios").child(codigo).setValue(data).await()
+            }
+        }
+
+        // Guardar Lugares
+        if (lugaresString.isNotBlank()) {
+            val listaLugares = lugaresString.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            listaLugares.forEach { nombre ->
+                val codigo = generarCodigoUnico(nombre)
+                val data = mapOf("CODIGOCAMPEONATO" to campeonatoCodigo, "CODIGOLUGAR" to codigo, "LUGAR" to nombre)
+                campRef.child("Lugares").child(codigo).setValue(data).await()
+            }
+        }
+    }
+
+
+    /**
+     * Guarda una Serie y crea automáticamente sus Grupos hijos.
+     * Replicando la lógica de BtnAgregarSerie_Click de VB.NET
+     */
+    suspend fun saveSerieConGrupos(
+        serie: Serie,
+        gruposNombresRaw: String
+    ) {
+        val campRef = campeonatosReference().child(serie.CODIGOCAMPEONATO)
+
+        // 1. Guardar la Serie
+        campRef.child("Series").child(serie.CODIGOSERIE).setValue(serie.toMap()).await()
+
+        // 2. Procesar y guardar Grupos
+        if (gruposNombresRaw.isNotBlank()) {
+            val nombres = gruposNombresRaw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+            nombres.forEach { nombreGrupo ->
+                val codigoGrupo = generarCodigoUnico("${serie.CODIGOSERIE}_GRUPO_$nombreGrupo")
+
+                val nuevoGrupo = Grupo(
+                    CODIGOCAMPEONATO = serie.CODIGOCAMPEONATO,
+                    CODIGOSERIE = serie.CODIGOSERIE,
+                    CODIGOGRUPO = codigoGrupo,
+                    GRUPO = nombreGrupo.uppercase(),
+                    NOMBRESERIE = serie.NOMBRESERIE,
+                    ANIO = serie.ANIO,
+                    FECHAALTA = serie.FECHAALTA,
+                    ORIGEN = "MOBILE",
+                    DESCRIPCION = "Grupo $nombreGrupo - ${serie.NOMBRESERIE}"
+                )
+
+                // Guardar el grupo en el nodo de Grupos del campeonato (mismo nivel que Series)
+                campRef.child("Grupos").child(codigoGrupo).setValue(nuevoGrupo.toMap()).await()
+            }
+        }
+    }
+
+
+    private fun generarCodigoUnico(input: String): String {
+        val normalized = Normalizer.normalize(input, Normalizer.Form.NFD)
+        return Regex("""\p{InCombiningDiacriticalMarks}+""").replace(normalized, "")
+            .uppercase(Locale.getDefault())
+            .replace(Regex("[^A-Z0-9]"), "_")
+            .replace(Regex("_{2,}"), "_")
+            .trim('_')
+    }
+
+    
     suspend fun saveGrupo(grupo: Grupo) {
-        gruposReference().child(grupo.CODIGOGRUPO)
+        campeonatosReference().child(grupo.CODIGOCAMPEONATO).child("Grupos")
+            .child(grupo.CODIGOGRUPO)
             .setValue(grupo.toMap())
             .await()
     }
@@ -273,6 +372,10 @@ class FirebaseCatalogRepository(
         equiposReference().child(equipo.CODIGOEQUIPO)
             .setValue(equipo.toMap())
             .await()
+    }
+
+    suspend fun updateEquipoFields(codigoEquipo: String, updates: Map<String, Any?>) {
+        equiposReference().child(codigoEquipo).updateChildren(updates).await()
     }
 
     suspend fun savePartido(partido: Partido) {
@@ -289,8 +392,12 @@ class FirebaseCatalogRepository(
         campeonatosReference().child(codigo).removeValue().await()
     }
 
-    suspend fun deleteGrupo(codigoGrupo: String) {
-        gruposReference().child(codigoGrupo).removeValue().await()
+    suspend fun deleteSerie(campeonatoId: String, serieId: String) {
+        campeonatosReference().child(campeonatoId).child("Series").child(serieId).removeValue().await()
+    }
+
+    suspend fun deleteGrupo(campeonatoId: String, codigoGrupo: String) {
+        campeonatosReference().child(campeonatoId).child("Grupos").child(codigoGrupo).removeValue().await()
     }
 
     suspend fun deleteEquipo(codigoEquipo: String) {

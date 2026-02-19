@@ -109,6 +109,11 @@ private fun CatalogsScreenContent(modifier: Modifier = Modifier) {
     var partidoDuracion by rememberSaveable { mutableStateOf("") }
     var partidoSportId by rememberSaveable { mutableStateOf(SportType.FUTBOL.id) }
 
+    // Estados para Estadios y Lugares
+    var campeonatoEstadios by rememberSaveable { mutableStateOf("") }
+    var campeonatoLugares by rememberSaveable { mutableStateOf("") }
+
+
     LazyColumn(
         modifier = modifier
             .padding(horizontal = 16.dp, vertical = 24.dp),
@@ -120,6 +125,10 @@ private fun CatalogsScreenContent(modifier: Modifier = Modifier) {
                 onNombreChange = { campeonatoNombre = it },
                 provincia = campeonatoProvincia,
                 onProvinciaChange = { campeonatoProvincia = it },
+                estadios = campeonatoEstadios,
+                onEstadiosChange = { campeonatoEstadios = it },
+                lugares = campeonatoLugares,
+                onLugaresChange = { campeonatoLugares = it },
                 selectedSport = SportType.fromId(campeonatoSportId),
                 onSportSelected = { campeonatoSportId = it.id }
             )
@@ -151,6 +160,10 @@ private fun CampeonatoForm(
     onNombreChange: (String) -> Unit,
     provincia: String,
     onProvinciaChange: (String) -> Unit,
+    estadios: String,
+    onEstadiosChange: (String) -> Unit,
+    lugares: String,
+    onLugaresChange: (String) -> Unit,
     selectedSport: SportType,
     onSportSelected: (SportType) -> Unit,
     modifier: Modifier = Modifier
@@ -167,6 +180,9 @@ private fun CampeonatoForm(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
+           //ESTA PANTALLA NO SE UTILIZA
+            /*
             Text(
                 text = "Nuevo campeonato",
                 style = MaterialTheme.typography.titleMedium,
@@ -200,6 +216,24 @@ private fun CampeonatoForm(
                 singleLine = true
             )
 
+            OutlinedTextField(
+                value = estadios,
+                onValueChange = onEstadiosChange,
+                label = { Text("Estadios") },
+                placeholder = { Text("Estadio 1, Estadio 2...") },
+                supportingText = { Text("Separados por comas") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = lugares,
+                onValueChange = onLugaresChange,
+                label = { Text("Lugares") },
+                placeholder = { Text("Lugar 1, Lugar 2...") },
+                supportingText = { Text("Separados por comas") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Button(
                 onClick = {},
                 modifier = Modifier.fillMaxWidth(),
@@ -207,6 +241,7 @@ private fun CampeonatoForm(
             ) {
                 Text("Guardar campeonato")
             }
+            */
         }
     }
 }

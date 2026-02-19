@@ -7,12 +7,12 @@ package com.example.arki_deportes.utils
 enum class SportType(
     val id: String,
     val displayName: String,
-    val teamScoreLabel: String,
-    val scoreboardLabel: String,
-    val scheduleDurationLabel: String,
-    val liveTimeLabel: String,
-    val durationUnitSuffix: String,
-    val showDisciplinaryStats: Boolean
+    val teamScoreLabel: String = "",
+    val scoreboardLabel: String = "",
+    val scheduleDurationLabel: String = "",
+    val liveTimeLabel: String = "",
+    val durationUnitSuffix: String = "",
+    val showDisciplinaryStats: Boolean = false
 ) {
     FUTBOL(
         id = "FUTBOL",
@@ -33,6 +33,22 @@ enum class SportType(
         liveTimeLabel = "Cuarto en juego",
         durationUnitSuffix = "cuartos",
         showDisciplinaryStats = false
+    ),
+    AUTOMOVILISMO(
+        id = "AUTOMOVILISMO",
+        displayName = "Automovilismo"
+    ),
+    MOTOCICLISMO(
+        id = "MOTOCICLISMO",
+        displayName = "Motociclismo"
+    ),
+    CICLISMO(
+        id = "CICLISMO",
+        displayName = "Ciclismo"
+    ),
+    VOLLEY(
+        id = "VOLLEY",
+        displayName = "Volley"
     );
 
     companion object {

@@ -7,61 +7,26 @@ import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.navArgument // ✅ correcto
+import androidx.navigation.navArgument
+import com.example.arki_deportes.ui.series.SerieFormScreen
+import com.example.arki_deportes.ui.series.SerieListScreen
 
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * APP NAVIGATOR - INTERFAZ DE NAVEGACIÓN COMPLETA
  * ═══════════════════════════════════════════════════════════════════════════
- *
- * Interfaz que proporciona métodos de navegación para toda la aplicación.
- * Abstrae la navegación del NavController para facilitar su uso en ViewModels
- * y Composables.
  */
-
-
 interface AppNavigator {
-    /**
-     * Navega a una ruta específica con opciones personalizadas
-     */
     fun navigateTo(route: String, builder: NavOptionsBuilder.() -> Unit = {})
-
-    /**
-     * Navega hacia atrás en la pila de navegación
-     * @return true si se pudo navegar hacia atrás, false si no
-     */
     fun navigateBack(): Boolean
 
-    // ═══════════════════════════════════════════════════════════════════════
     // PANTALLAS PRINCIPALES
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Navega a la pantalla de login
-     * @param clearBackStack Si es true, limpia toda la pila de navegación
-     */
     fun navigateToLogin(clearBackStack: Boolean = false)
-
-    /**
-     * Navega a la pantalla principal (Home híbrida)
-     * @param clearBackStack Si es true, limpia toda la pila de navegación
-     */
     fun navigateToHybridHome(clearBackStack: Boolean = false)
-
-    /**
-     * Navega a la pantalla de tiempo real
-     */
     fun navigateToRealTime()
-
-    // ✅ AGREGAR ESTA FUNCIÓN:
     fun navigateToTiempoReal(campeonatoId: String, partidoId: String, clearBackStack: Boolean = false)
-
-    /**
-     * Navega a la pantalla de catálogos
-     */
     fun navigateToCatalogs()
-
 
     // Listas de catálogos
     fun navigateToCampeonatoList()
@@ -69,51 +34,19 @@ interface AppNavigator {
     fun navigateToEquipoList()
     fun navigateToPartidoList()
 
-    // ═══════════════════════════════════════════════════════════════════════
     // FORMULARIOS CRUD
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Navega al formulario de campeonatos
-     * @param codigoCampeonato Código del campeonato a editar, o null para crear nuevo
-     */
     fun navigateToCampeonatoForm(codigoCampeonato: String? = null)
-
-    /**
-     * Navega al formulario de grupos
-     * @param codigoGrupo Código del grupo a editar, o null para crear nuevo
-     */
     fun navigateToGrupoForm(codigoGrupo: String? = null)
-
-    /**
-     * Navega al formulario de equipos
-     * @param codigoEquipo Código del equipo a editar, o null para crear nuevo
-     */
     fun navigateToEquipoForm(codigoEquipo: String? = null)
-
-    /**
-     * Navega al formulario de partidos
-     * @param codigoPartido Código del partido a editar, o null para crear nuevo
-     */
     fun navigateToPartidoForm(codigoPartido: String? = null)
 
-    // ═══════════════════════════════════════════════════════════════════════
+    // SERIES
+    fun navigateToSerieList(campeonatoId: String)
+    fun navigateToSerieForm(campeonatoId: String, serieId: String? = null)
+
     // OTRAS PANTALLAS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Navega a la pantalla de menciones
-     */
     fun navigateToMenciones()
-
-    /**
-     * Navega a la pantalla de equipo de producción
-     */
     fun navigateToEquipoProduccion()
-
-    /**
-     * Navega a la pantalla de ajustes/configuración
-     */
     fun navigateToSettings()
 }
 
@@ -136,9 +69,7 @@ private class DefaultAppNavigator(
         navController.navigate(AppDestinations.LOGIN) {
             launchSingleTop = true
             if (clearBackStack) {
-                popUpTo(navController.graph.startDestinationId) {
-                    inclusive = true
-                }
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
             }
         }
     }
@@ -147,20 +78,15 @@ private class DefaultAppNavigator(
         navController.navigate(AppDestinations.HYBRID_HOME) {
             launchSingleTop = true
             if (clearBackStack) {
-                popUpTo(navController.graph.startDestinationId) {
-                    inclusive = true
-                }
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
             }
         }
     }
 
     override fun navigateToRealTime() {
-        navController.navigate(AppDestinations.REAL_TIME) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.REAL_TIME) { launchSingleTop = true }
     }
 
-    // ✅ AGREGAR ESTA FUNCIÓN CON override:
     override fun navigateToTiempoReal(campeonatoId: String, partidoId: String, clearBackStack: Boolean) {
         val route = "tiempo_real/$campeonatoId/$partidoId"
         navController.navigate(route) {
@@ -172,117 +98,72 @@ private class DefaultAppNavigator(
     }
 
     override fun navigateToCatalogs() {
-        navController.navigate(AppDestinations.CATALOGS) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.CATALOGS) { launchSingleTop = true }
     }
 
-    // Implementación de navegación a listas
     override fun navigateToCampeonatoList() {
-        navController.navigate(AppDestinations.CAMPEONATO_LIST) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.CAMPEONATO_LIST) { launchSingleTop = true }
     }
 
     override fun navigateToGrupoList() {
-        navController.navigate(AppDestinations.GRUPO_LIST) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.GRUPO_LIST) { launchSingleTop = true }
     }
 
     override fun navigateToEquipoList() {
-        navController.navigate(AppDestinations.EQUIPO_LIST) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.EQUIPO_LIST) { launchSingleTop = true }
     }
 
     override fun navigateToPartidoList() {
-        navController.navigate(AppDestinations.PARTIDO_LIST) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.PARTIDO_LIST) { launchSingleTop = true }
     }
 
     override fun navigateToCampeonatoForm(codigoCampeonato: String?) {
-        val route = if (codigoCampeonato != null) {
-            "${AppDestinations.CAMPEONATO_FORM}/$codigoCampeonato"
-        } else {
-            AppDestinations.CAMPEONATO_FORM
-        }
-        navController.navigate(route) {
-            launchSingleTop = true
-        }
+        val route = if (codigoCampeonato != null) "${AppDestinations.CAMPEONATO_FORM}/$codigoCampeonato" else AppDestinations.CAMPEONATO_FORM
+        navController.navigate(route) { launchSingleTop = true }
     }
 
     override fun navigateToGrupoForm(codigoGrupo: String?) {
-        val route = if (codigoGrupo != null) {
-            "${AppDestinations.GRUPO_FORM}/$codigoGrupo"
-        } else {
-            AppDestinations.GRUPO_FORM
-        }
-        navController.navigate(route) {
-            launchSingleTop = true
-        }
+        val route = if (codigoGrupo != null) "${AppDestinations.GRUPO_FORM}/$codigoGrupo" else AppDestinations.GRUPO_FORM
+        navController.navigate(route) { launchSingleTop = true }
     }
 
     override fun navigateToEquipoForm(codigoEquipo: String?) {
-        val route = if (codigoEquipo != null) {
-            "${AppDestinations.EQUIPO_FORM}/$codigoEquipo"
-        } else {
-            AppDestinations.EQUIPO_FORM
-        }
-        navController.navigate(route) {
-            launchSingleTop = true
-        }
+        val route = if (codigoEquipo != null) "${AppDestinations.EQUIPO_FORM}/$codigoEquipo" else AppDestinations.EQUIPO_FORM
+        navController.navigate(route) { launchSingleTop = true }
     }
 
     override fun navigateToPartidoForm(codigoPartido: String?) {
-        val route = if (codigoPartido != null) {
-            "${AppDestinations.PARTIDO_FORM}/$codigoPartido"
-        } else {
-            AppDestinations.PARTIDO_FORM
-        }
-        navController.navigate(route) {
-            launchSingleTop = true
-        }
+        val route = if (codigoPartido != null) "${AppDestinations.PARTIDO_FORM}/$codigoPartido" else AppDestinations.PARTIDO_FORM
+        navController.navigate(route) { launchSingleTop = true }
+    }
+
+    override fun navigateToSerieList(campeonatoId: String) {
+        navController.navigate("serie_list/$campeonatoId") { launchSingleTop = true }
+    }
+
+    override fun navigateToSerieForm(campeonatoId: String, serieId: String?) {
+        val route = if (serieId != null) "serie_form/$campeonatoId/$serieId" else "serie_form/$campeonatoId"
+        navController.navigate(route) { launchSingleTop = true }
     }
 
     override fun navigateToMenciones() {
-        navController.navigate(AppDestinations.MENCIONES) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.MENCIONES) { launchSingleTop = true }
     }
 
     override fun navigateToEquipoProduccion() {
-        navController.navigate(AppDestinations.EQUIPO_PRODUCCION) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.EQUIPO_PRODUCCION) { launchSingleTop = true }
     }
 
     override fun navigateToSettings() {
-        navController.navigate(AppDestinations.SETTINGS) {
-            launchSingleTop = true
-        }
+        navController.navigate(AppDestinations.SETTINGS) { launchSingleTop = true }
     }
-
-
 }
 
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * COMPOSABLE PARA CREAR Y RECORDAR EL NAVIGATOR
- * ═══════════════════════════════════════════════════════════════════════════
- */
 @Composable
 fun rememberAppNavigator(navController: NavHostController): AppNavigator {
     return remember(navController) { DefaultAppNavigator(navController) }
 }
 
-
-
-/**
- * Grafo de navegación principal de la app.
- * Recibe lambdas para renderizar cada ruta con acceso al AppNavigator.
- */
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
@@ -303,24 +184,13 @@ fun AppNavGraph(
     equipoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     partidoFormRoute: @Composable (AppNavigator, String?) -> Unit
 ) {
-
     NavHost(
         navController = navController,
         startDestination = AppDestinations.START
     ) {
         composable(AppDestinations.LOGIN) { loginRoute(navigator) }
         composable(AppDestinations.HYBRID_HOME) { hybridHomeRoute(navigator) }
-        composable(AppDestinations.REAL_TIME) { realTimeRoute(navigator, "", "") }
-        //composable(AppDestinations.CATALOGS) { catalogsRoute(navigator) }
-        composable(AppDestinations.MENCIONES) { mencionesRoute(navigator) }
-        composable(AppDestinations.EQUIPO_PRODUCCION) { equipoProduccionRoute(navigator) }
-        composable(AppDestinations.SETTINGS) { settingsRoute(navigator) }
-        composable(AppDestinations.CAMPEONATO_LIST) { campeonatoListRoute(navigator) }
-        composable(AppDestinations.GRUPO_LIST) { grupoListRoute(navigator) }
-        composable(AppDestinations.EQUIPO_LIST) { equipoListRoute(navigator) }
-        composable(AppDestinations.PARTIDO_LIST) { partidoListRoute(navigator) }
-
-        // ✅ AGREGAR ESTA RUTA:
+        
         composable(
             route = "tiempo_real/{campeonatoId}/{partidoId}",
             arguments = listOf(
@@ -337,46 +207,84 @@ fun AppNavGraph(
         composable(AppDestinations.MENCIONES) { mencionesRoute(navigator) }
         composable(AppDestinations.EQUIPO_PRODUCCION) { equipoProduccionRoute(navigator) }
         composable(AppDestinations.SETTINGS) { settingsRoute(navigator) }
+        composable(AppDestinations.CAMPEONATO_LIST) { campeonatoListRoute(navigator) }
+        composable(AppDestinations.GRUPO_LIST) { grupoListRoute(navigator) }
+        composable(AppDestinations.EQUIPO_LIST) { equipoListRoute(navigator) }
+        composable(AppDestinations.PARTIDO_LIST) { partidoListRoute(navigator) }
+
         composable(AppDestinations.CAMPEONATO_FORM) { campeonatoFormRoute(navigator, null) }
         composable(
             route = "${AppDestinations.CAMPEONATO_FORM}/{codigoCampeonato}",
-            arguments = listOf(navArgument("codigoCampeonato") {
-                type = NavType.StringType
-                nullable = true
-            })
+            arguments = listOf(navArgument("codigoCampeonato") { type = NavType.StringType; nullable = true })
         ) { backStackEntry ->
             val codigo = backStackEntry.arguments?.getString("codigoCampeonato")
             campeonatoFormRoute(navigator, codigo)
         }
+
+        // RUTAS DE SERIES
+        composable(
+            route = "serie_list/{campeonatoId}",
+            arguments = listOf(navArgument("campeonatoId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val campeonatoId = backStackEntry.arguments?.getString("campeonatoId") ?: ""
+            SerieListScreen(
+                campeonatoId = campeonatoId,
+                onAddSerie = { navigator.navigateToSerieForm(campeonatoId) },
+                onEditSerie = { serieId -> navigator.navigateToSerieForm(campeonatoId, serieId) },
+                onBack = { navigator.navigateBack() }
+            )
+        }
+
+        composable(
+            route = "serie_form/{campeonatoId}",
+            arguments = listOf(navArgument("campeonatoId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val campeonatoId = backStackEntry.arguments?.getString("campeonatoId") ?: ""
+            SerieFormScreen(
+                campeonatoId = campeonatoId,
+                onBack = { navigator.navigateBack() }
+            )
+        }
+
+        composable(
+            route = "serie_form/{campeonatoId}/{serieId}",
+            arguments = listOf(
+                navArgument("campeonatoId") { type = NavType.StringType },
+                navArgument("serieId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val campeonatoId = backStackEntry.arguments?.getString("campeonatoId") ?: ""
+            val serieId = backStackEntry.arguments?.getString("serieId") ?: ""
+            SerieFormScreen(
+                campeonatoId = campeonatoId,
+                serieId = serieId,
+                onBack = { navigator.navigateBack() }
+            )
+        }
+
+        // GRUPOS, EQUIPOS, PARTIDOS...
         composable(AppDestinations.GRUPO_FORM) { grupoFormRoute(navigator, null) }
         composable(
             route = "${AppDestinations.GRUPO_FORM}/{codigoGrupo}",
-            arguments = listOf(navArgument("codigoGrupo") {
-                type = NavType.StringType
-                nullable = true
-            })
+            arguments = listOf(navArgument("codigoGrupo") { type = NavType.StringType; nullable = true })
         ) { backStackEntry ->
             val codigo = backStackEntry.arguments?.getString("codigoGrupo")
             grupoFormRoute(navigator, codigo)
         }
+
         composable(AppDestinations.EQUIPO_FORM) { equipoFormRoute(navigator, null) }
         composable(
             route = "${AppDestinations.EQUIPO_FORM}/{codigoEquipo}",
-            arguments = listOf(navArgument("codigoEquipo") {
-                type = NavType.StringType
-                nullable = true
-            })
+            arguments = listOf(navArgument("codigoEquipo") { type = NavType.StringType; nullable = true })
         ) { backStackEntry ->
             val codigo = backStackEntry.arguments?.getString("codigoEquipo")
             equipoFormRoute(navigator, codigo)
         }
+
         composable(AppDestinations.PARTIDO_FORM) { partidoFormRoute(navigator, null) }
         composable(
             route = "${AppDestinations.PARTIDO_FORM}/{codigoPartido}",
-            arguments = listOf(navArgument("codigoPartido") {
-                type = NavType.StringType
-                nullable = true
-            })
+            arguments = listOf(navArgument("codigoPartido") { type = NavType.StringType; nullable = true })
         ) { backStackEntry ->
             val codigo = backStackEntry.arguments?.getString("codigoPartido")
             partidoFormRoute(navigator, codigo)

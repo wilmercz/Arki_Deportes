@@ -6,6 +6,7 @@ import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import com.example.arki_deportes.ui.common.FormMessage
 import com.example.arki_deportes.utils.Constants
+import com.example.arki_deportes.utils.SportType
 import com.example.arki_deportes.utils.Validations
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -14,6 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.text.Normalizer
+
 
 private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault())
 
@@ -27,7 +31,16 @@ data class CampeonatoFormData(
     val fechaInicio: String = "",
     val fechaFin: String = "",
     val provincia: String = "",
-    val hashtags: String = ""
+    val hashtags: String = "",
+    val deporte: String = SportType.FUTBOL.id,
+    val alias: String = "",
+    val tiempoJuego: String = "45",
+    val duracion: String = "0",
+    val mangas: String = "0",
+    val vueltas: String = "0",
+    val circuito: String = "",
+    val lugar: String = "",
+    val estadios: String = "" 
 )
 
 data class CampeonatoFormUiState(
@@ -74,7 +87,16 @@ class CampeonatoFormViewModel(
                                 fechaInicio = campeonato.FECHAINICIO,
                                 fechaFin = campeonato.FECHAFINAL,
                                 provincia = campeonato.PROVINCIA,
-                                hashtags = campeonato.HASTAGEXTRAS
+                                hashtags = campeonato.HASTAGEXTRAS,
+                                deporte = campeonato.DEPORTE,
+                                alias = campeonato.ALIAS,
+                                tiempoJuego = campeonato.getTiempoJuegoStr(),
+                                duracion = campeonato.getDuracionStr(),
+                                mangas = campeonato.getMangasStr(),
+                                vueltas = campeonato.getVueltasStr(),
+                                circuito = campeonato.CIRCUITO,
+                                lugar = campeonato.LUGAR,
+                                estadios = campeonato.CIRCUITO
                             ),
                             isEditMode = true,
                             isLoading = false
@@ -100,14 +122,19 @@ class CampeonatoFormViewModel(
     }
 
     fun onNombreChange(value: String) = updateForm { copy(nombre = value) }
-
     fun onFechaInicioChange(value: String) = updateForm { copy(fechaInicio = value) }
-
     fun onFechaFinChange(value: String) = updateForm { copy(fechaFin = value) }
-
     fun onProvinciaChange(value: String) = updateForm { copy(provincia = value) }
-
     fun onHashtagsChange(value: String) = updateForm { copy(hashtags = value) }
+    fun onDeporteChange(value: String) = updateForm { copy(deporte = value) }
+    fun onAliasChange(value: String) = updateForm { copy(alias = value) }
+    fun onTiempoJuegoChange(value: String) = updateForm { copy(tiempoJuego = value) }
+    fun onDuracionChange(value: String) = updateForm { copy(duracion = value) }
+    fun onMangasChange(value: String) = updateForm { copy(mangas = value) }
+    fun onVueltasChange(value: String) = updateForm { copy(vueltas = value) }
+    fun onCircuitoChange(value: String) = updateForm { copy(circuito = value) }
+    fun onLugarChange(value: String) = updateForm { copy(lugar = value) }
+    fun onEstadiosChange(value: String) = updateForm { copy(estadios = value) }
 
     private fun updateForm(transform: CampeonatoFormData.() -> CampeonatoFormData) {
         _uiState.update {
@@ -140,6 +167,8 @@ class CampeonatoFormViewModel(
             generateCodigo(form.nombre, anio, timestamp)
         }
 
+        val finalCircuito = if (isDeporteMotor(form.deporte)) form.circuito else form.estadios
+
         val campeonato = Campeonato(
             CODIGO = codigo,
             CAMPEONATO = form.nombre,
@@ -151,7 +180,15 @@ class CampeonatoFormViewModel(
             HASTAGEXTRAS = form.hashtags,
             TIMESTAMP_CREACION = originalCampeonato?.TIMESTAMP_CREACION ?: timestamp,
             TIMESTAMP_MODIFICACION = timestamp,
-            ORIGEN = Constants.ORIGEN_MOBILE
+            ORIGEN = Constants.ORIGEN_MOBILE,
+            DEPORTE = form.deporte,
+            ALIAS = form.alias,
+            TIEMPOJUEGO = if (form.tiempoJuego.isBlank()) "45" else form.tiempoJuego,
+            DURACION = form.duracion,
+            MANGAS = form.mangas,
+            VUELTAS = form.vueltas,
+            CIRCUITO = finalCircuito,
+            LUGAR = form.lugar
         )
 
         val validationError = Validations.validarCampeonato(campeonato)
@@ -179,6 +216,13 @@ class CampeonatoFormViewModel(
                         message = FormMessage(Constants.Mensajes.EXITO_GUARDAR)
                     )
                 }
+
+                repository.saveEstadiosYLugares(
+                    campeonatoCodigo = campeonato.CODIGO,
+                    estadiosString = form.estadios,
+                    lugaresString = form.lugar
+                )
+
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -188,6 +232,13 @@ class CampeonatoFormViewModel(
                 }
             }
         }
+
+    }
+
+
+
+    private fun isDeporteMotor(deporte: String): Boolean {
+        return deporte in listOf(SportType.AUTOMOVILISMO.id, SportType.MOTOCICLISMO.id, SportType.CICLISMO.id)
     }
 
     fun deleteCampeonato() {

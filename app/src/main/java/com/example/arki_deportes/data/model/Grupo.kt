@@ -56,6 +56,7 @@ data class Grupo(
      */
     val PROVINCIA: String = "",
 
+    val FECHAALTA: String = "",
     /**
      * Año del grupo
      * Ejemplo: 2025

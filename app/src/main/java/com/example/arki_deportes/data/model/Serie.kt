@@ -15,9 +15,10 @@ data class Serie(
     val ANIO: Int = 0,
     val TIMESTAMP_CREACION: Long = 0,
     val TIMESTAMP_MODIFICACION: Long = 0,
-    val ORIGEN: String = "MOBILE"
+    val ORIGEN: String = "MOBILE",
+    val GRUPOS: String = "" // String con nombres de grupos separados por comas
 ) {
-    fun toMap(): HashMap<String, Any> {
+    fun toMap(): HashMap<String, Any?> {
         return hashMapOf(
             "CODIGOSERIE" to CODIGOSERIE,
             "CODIGOCAMPEONATO" to CODIGOCAMPEONATO,
@@ -30,7 +31,8 @@ data class Serie(
             "ANIO" to ANIO,
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
             "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
-            "ORIGEN" to ORIGEN
+            "ORIGEN" to ORIGEN,
+            "GRUPOS" to GRUPOS
         )
     }
 

@@ -18,12 +18,14 @@ object AppDestinations {
     const val GRUPO_LIST: String = "grupo_list"
     const val EQUIPO_LIST: String = "equipo_list"
     const val PARTIDO_LIST: String = "partido_list"
+    const val SERIE_LIST: String = "serie_list"
 
     // Formularios CRUD
     const val CAMPEONATO_FORM: String = "campeonato_form"
     const val GRUPO_FORM: String = "grupo_form"
     const val EQUIPO_FORM: String = "equipo_form"
     const val PARTIDO_FORM: String = "partido_form"
+    const val SERIE_FORM: String = "serie_form"
 
     // Otras pantallas
     const val MENCIONES: String = "menciones"
@@ -38,6 +40,7 @@ object AppDestinations {
         HYBRID_HOME,
         REAL_TIME,
         CAMPEONATO_LIST,
+        SERIE_LIST,
         EQUIPO_LIST,
         PARTIDO_LIST,
         GRUPO_LIST,
@@ -77,5 +80,11 @@ object AppDestinations {
         } else {
             PARTIDO_FORM
         }
+    }
+
+    fun serieListRoute(campeonatoId: String): String = "$SERIE_LIST/$campeonatoId"
+    
+    fun serieFormRoute(campeonatoId: String, serieId: String? = null): String {
+        return if (serieId != null) "$SERIE_FORM/$campeonatoId/$serieId" else "$SERIE_FORM/$campeonatoId"
     }
 }
