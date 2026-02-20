@@ -7,6 +7,7 @@ import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import com.example.arki_deportes.ui.common.FormMessage
 import com.example.arki_deportes.utils.Constants
+import com.example.arki_deportes.utils.EcuadorProvincias
 import com.example.arki_deportes.utils.Validations
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -17,7 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 
 private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault())
 
@@ -42,9 +42,8 @@ data class EquipoFormUiState(
     val showValidationErrors: Boolean = false,
     val message: FormMessage? = null,
     val shouldClose: Boolean = false,
-    val isCreatingMassive: Boolean = false,
-    val massiveCreationProgress: Int = 0,
-    val massiveCreationTotal: Int = 0
+    val isImporting: Boolean = false,
+    val showImportConfirmation: Boolean = false
 )
 
 class EquipoFormViewModel(
@@ -61,62 +60,56 @@ class EquipoFormViewModel(
         observeCampeonatos()
     }
 
-
-/*
-    fun loadEquipo(codigoEquipo: String?) {
-        if (codigoEquipo.isNullOrBlank()) {
-            _uiState.update { EquipoFormUiState(campeonatos = it.campeonatos) }
+    /**
+     * Carga los datos de un equipo existente para edición
+     */
+    fun loadEquipo(campeonatoId: String?, codigoEquipo: String?) {
+        if (campeonatoId.isNullOrBlank() || codigoEquipo.isNullOrBlank()) {
+            _uiState.update { it.copy(isEditMode = false, formData = EquipoFormData(codigoCampeonato = campeonatoId ?: "")) }
             originalEquipo = null
             return
         }
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, message = null) }
-            try {
-                val campeonatoCodigo =
-                    _uiState.value.formData.codigoCampeonato.ifBlank {
-                        com.example.arki_deportes.data.context.CampeonatoContext
-                            .campeonatoActivo.value?.CODIGO.orEmpty()
-                    }
+        // ✅ Usamos variables locales no nulas para asegurar que el compilador reconozca los tipos
+        val safeCampId: String = campeonatoId
+        val safeEquiId: String = codigoEquipo
 
-                val equipo = repository.getEquipo(campeonatoCodigo, codigoEquipo)
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                // Forzamos el tipo Equipo? para evitar que se infiera como Any
+                val equipo: Equipo? = repository.getEquipo(safeCampId, safeEquiId)
                 if (equipo != null) {
                     originalEquipo = equipo
                     _uiState.update {
                         it.copy(
+                            isEditMode = true,
                             formData = EquipoFormData(
                                 codigoCampeonato = equipo.CODIGOCAMPEONATO,
                                 codigoEquipo = equipo.CODIGOEQUIPO,
                                 nombreCorto = equipo.EQUIPO,
-                                nombreCompleto = equipo.EQUIPO_NOMBRECOMPLETO,
+                                nombreCompleto = equipo.NOMBRECOMPLETO,
                                 provincia = equipo.PROVINCIA,
-                                fechaAlta = equipo.FECHAALTA.ifBlank { currentDate() },
+                                fechaAlta = equipo.FECHAALTA,
                                 escudoLocal = equipo.ESCUDOLOCAL,
                                 escudoLink = equipo.ESCUDOLINK
                             ),
-                            isEditMode = true,
                             isLoading = false
                         )
                     }
                 } else {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            message = FormMessage("No se encontró el equipo solicitado", isError = true)
-                        )
+                    _uiState.update { 
+                        it.copy(isLoading = false, message = FormMessage("No se encontró el equipo", isError = true)) 
                     }
                 }
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        message = FormMessage(e.message ?: Constants.Mensajes.ERROR_DESCONOCIDO, isError = true)
-                    )
+                _uiState.update { 
+                    it.copy(isLoading = false, message = FormMessage(e.message ?: "Error al cargar equipo", isError = true)) 
                 }
             }
         }
     }
-*/
+
     private fun observeCampeonatos() {
         observeCampeonatosJob?.cancel()
         observeCampeonatosJob = viewModelScope.launch {
@@ -137,15 +130,10 @@ class EquipoFormViewModel(
     }
 
     fun onNombreCortoChange(value: String) = updateForm { copy(nombreCorto = value) }
-
     fun onNombreCompletoChange(value: String) = updateForm { copy(nombreCompleto = value) }
-
     fun onProvinciaChange(value: String) = updateForm { copy(provincia = value) }
-
     fun onEscudoLocalChange(value: String) = updateForm { copy(escudoLocal = value) }
-
     fun onEscudoLinkChange(value: String) = updateForm { copy(escudoLink = value) }
-
     fun onFechaAltaChange(value: String) = updateForm { copy(fechaAlta = value) }
 
     private fun updateForm(transform: EquipoFormData.() -> EquipoFormData) {
@@ -166,6 +154,64 @@ class EquipoFormViewModel(
         _uiState.update { it.copy(shouldClose = false) }
     }
 
+    fun showImportConfirmation() {
+        if (_uiState.value.formData.codigoCampeonato.isBlank()) {
+            _uiState.update { it.copy(message = FormMessage("Seleccione un campeonato primero", isError = true)) }
+            return
+        }
+        _uiState.update { it.copy(showImportConfirmation = true) }
+    }
+
+    fun hideImportConfirmation() {
+        _uiState.update { it.copy(showImportConfirmation = false) }
+    }
+
+    fun importarProvincias() {
+        val campeonatoId = _uiState.value.formData.codigoCampeonato
+        if (campeonatoId.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isImporting = true, showImportConfirmation = false) }
+            try {
+                val fechaHoy = currentDate()
+                val timestamp = System.currentTimeMillis()
+                
+                val nuevosEquipos = EcuadorProvincias.LISTA.map { prov ->
+                    val codEquipo = "PROV_${prov.nombre.replace(" ", "_")}_$timestamp"
+                    Equipo(
+                        CODIGOEQUIPO = codEquipo,
+                        EQUIPO = EcuadorProvincias.generarNombreCorto(prov.nombre),
+                        PROVINCIA = prov.nombre,
+                        FECHAALTA = fechaHoy,
+                        CODIGOCAMPEONATO = campeonatoId,
+                        EQUIPO_NOMBRECOMPLETO = prov.nombre,
+                        NOMBRECOMPLETO = prov.nombre,
+                        ORIGEN = Constants.ORIGEN_MOBILE,
+                        TIMESTAMP_CREACION = timestamp,
+                        TIMESTAMP_MODIFICACION = timestamp
+                    )
+                }
+
+                repository.saveEquiposMasivo(campeonatoId, nuevosEquipos)
+                
+                _uiState.update { 
+                    it.copy(
+                        isImporting = false, 
+                        shouldClose = true,
+                        message = FormMessage("Se han importado ${nuevosEquipos.size} provincias correctamente")
+                    ) 
+                }
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(
+                        isImporting = false, 
+                        message = FormMessage("Error al importar: ${e.message}", isError = true)
+                    ) 
+                }
+            }
+        }
+    }
+
     fun saveEquipo() {
         val form = _uiState.value.formData
         val timestamp = System.currentTimeMillis()
@@ -184,6 +230,7 @@ class EquipoFormViewModel(
             ESCUDOLINK = form.escudoLink,
             CODIGOCAMPEONATO = form.codigoCampeonato,
             EQUIPO_NOMBRECOMPLETO = form.nombreCompleto.ifBlank { form.nombreCorto },
+            NOMBRECOMPLETO = form.nombreCompleto.ifBlank { form.nombreCorto },
             TIMESTAMP_CREACION = originalEquipo?.TIMESTAMP_CREACION ?: timestamp,
             TIMESTAMP_MODIFICACION = timestamp,
             ORIGEN = Constants.ORIGEN_MOBILE
@@ -226,12 +273,13 @@ class EquipoFormViewModel(
 
     fun deleteEquipo() {
         val codigo = _uiState.value.formData.codigoEquipo
-        if (codigo.isBlank() || _uiState.value.isDeleting) return
+        val campeonatoId = _uiState.value.formData.codigoCampeonato
+        if (codigo.isBlank() || campeonatoId.isBlank() || _uiState.value.isDeleting) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isDeleting = true) }
             try {
-                repository.deleteEquipo(codigo)
+                repository.deleteEquipo(campeonatoId, codigo)
                 _uiState.update {
                     it.copy(
                         isDeleting = false,
@@ -260,6 +308,4 @@ class EquipoFormViewModel(
     }
 
     private fun currentDate(): String = LocalDate.now().format(DATE_FORMATTER)
-
-
 }

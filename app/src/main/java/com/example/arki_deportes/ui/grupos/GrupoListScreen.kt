@@ -1,57 +1,15 @@
 package com.example.arki_deportes.ui.grupos
 
 import android.util.Log
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -60,19 +18,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.model.Grupo
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
-import androidx.compose.material3.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.unit.dp
+import com.example.arki_deportes.data.model.Serie
 import com.example.arki_deportes.data.model.placeLabel
 import com.example.arki_deportes.data.model.placeEmoji
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * GRUPO LIST SCREEN - EQUIPOS POR GRUPO CON AGREGAR/ELIMINAR
+ * GRUPO LIST SCREEN - GESTIÓN DE EQUIPOS POR GRUPO (CORREGIDA)
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -89,6 +43,7 @@ fun GrupoListRoute(
         uiState = uiState,
         onRefresh = { viewModel.refresh() },
         onSearchQueryChange = viewModel::onSearchQueryChange,
+        onSerieSeleccionada = viewModel::onSerieSeleccionada,
         onGrupoSeleccionado = viewModel::onGrupoSeleccionado,
         onShowAddDialog = viewModel::showAddEquipoDialog,
         onHideAddDialog = viewModel::hideAddEquipoDialog,
@@ -109,6 +64,7 @@ fun GrupoListScreen(
     uiState: GrupoListUiState,
     onRefresh: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
+    onSerieSeleccionada: (Serie) -> Unit,
     onGrupoSeleccionado: (String) -> Unit,
     onShowAddDialog: () -> Unit,
     onHideAddDialog: () -> Unit,
@@ -122,57 +78,37 @@ fun GrupoListScreen(
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = uiState.isRefreshing)
+    
+    // ✅ Corregido el error de isRefreshing
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = uiState.isLoading)
 
-    // Mostrar mensajes
     LaunchedEffect(uiState.errorMessage, uiState.successMessage) {
-        uiState.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            onClearMessages()
-        }
-        uiState.successMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            onClearMessages()
-        }
+        uiState.errorMessage?.let { snackbarHostState.showSnackbar(it); onClearMessages() }
+        uiState.successMessage?.let { snackbarHostState.showSnackbar(it); onClearMessages() }
     }
 
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(text = "Equipos por Grupo") },
-                navigationIcon = {
-                    when {
-                        onOpenDrawer != null -> {
-                            IconButton(onClick = onOpenDrawer) {
-                                Icon(
-                                    imageVector = Icons.Filled.Menu,
-                                    contentDescription = "Abrir menú"
-                                )
-                            }
-                        }
-                        onNavigateBack != null -> {
-                            IconButton(onClick = onNavigateBack) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Regresar"
-                                )
-                            }
-                        }
+                title = { 
+                    Column {
+                        Text(text = "Asignación de Grupos")
+                        Text(text = uiState.campeonatoNombre, style = MaterialTheme.typography.labelSmall)
                     }
                 },
-                scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+                navigationIcon = {
+                    if (onOpenDrawer != null) {
+                        IconButton(onClick = onOpenDrawer) { Icon(Icons.Filled.Menu, "Menú") }
+                    } else if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás") }
+                    }
+                }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onShowAddDialog,
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Agregar equipo al grupo"
-                )
+            FloatingActionButton(onClick = onShowAddDialog) {
+                Icon(Icons.Default.Add, "Asignar Equipo")
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -180,58 +116,50 @@ fun GrupoListScreen(
         SwipeRefresh(
             state = swipeRefreshState,
             onRefresh = onRefresh,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+            modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // Selector de Grupo
+            Column(modifier = Modifier.fillMaxSize()) {
+                SerieSelector(
+                    serieSeleccionada = uiState.serieSeleccionada,
+                    seriesDisponibles = uiState.seriesDisponibles,
+                    onSerieSeleccionada = onSerieSeleccionada,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+
                 GrupoSelector(
                     grupoSeleccionado = uiState.grupoSeleccionado,
                     gruposDisponibles = uiState.gruposDisponibles,
                     onGrupoSeleccionado = onGrupoSeleccionado,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 )
 
-                // Barra de búsqueda
-                SearchBar(
-                    searchQuery = uiState.searchQuery,
-                    onSearchQueryChange = onSearchQueryChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    placeholder = { Text("Buscar en el grupo...") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    singleLine = true
                 )
 
-                when {
-                    uiState.isLoading -> {
-                        LoadingState()
-                    }
-                    uiState.grupos.isEmpty() -> {
-                        EmptyGruposState(grupo = uiState.grupoSeleccionado)
-                    }
-                    else -> {
-                        val filteredGrupos = getFilteredGrupos()
-
-                        if (filteredGrupos.isEmpty()) {
-                            EmptySearchState()
-                        } else {
-                            GruposList(
-                                grupos = filteredGrupos,
-                                grupoSeleccionado = uiState.grupoSeleccionado,
-                                onDeleteEquipo = onDeleteEquipoFromGrupo
-                            )
-                        }
+                if (uiState.isLoading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                } else {
+                    val filtered = getFilteredGrupos()
+                    if (filtered.isEmpty()) {
+                        EmptyState(uiState.grupoSeleccionado)
+                    } else {
+                        GruposList(
+                            grupos = filtered,
+                            grupoSeleccionado = uiState.grupoSeleccionado,
+                            onDeleteEquipo = onDeleteEquipoFromGrupo
+                        )
                     }
                 }
             }
         }
     }
 
-    // Diálogo para agregar equipo
     if (uiState.showAddDialog) {
         AddEquipoDialog(
             equiposDisponibles = getEquiposNoEnGrupo(),
@@ -241,91 +169,6 @@ fun GrupoListScreen(
             onConfirm = onAddEquipoToGrupo
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun GrupoSelector(
-    grupoSeleccionado: String,
-    gruposDisponibles: List<String>,
-    onGrupoSeleccionado: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            TextField(
-                value = "Grupo $grupoSeleccionado",
-                onValueChange = {},
-                readOnly = true,
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Groups,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                },
-                colors = ExposedDropdownMenuDefaults.textFieldColors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                ),
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth()
-            )
-
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                gruposDisponibles.forEach { grupo ->
-                    DropdownMenuItem(
-                        text = { Text("Grupo $grupo") },
-                        onClick = {
-                            onGrupoSeleccionado(grupo)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SearchBar(
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = searchQuery,
-        onValueChange = onSearchQueryChange,
-        modifier = modifier,
-        placeholder = { Text("Buscar equipo...") },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null
-            )
-        },
-        singleLine = true
-    )
 }
 
 @Composable
@@ -342,16 +185,18 @@ private fun GruposList(
     ) {
         item {
             Text(
-                text = "GRUPO $grupoSeleccionado",
-                style = MaterialTheme.typography.titleMedium,
+                text = "EQUIPOS ASIGNADOS - GRUPO $grupoSeleccionado",
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
         }
 
-        items(grupos) { grupo ->
+        // ✅ Usamos itemsIndexed para obtener el contador automático
+        itemsIndexed(grupos) { index, grupo ->
             GrupoCard(
+                numeroItem = index + 1, // Pasamos el contador (índice + 1)
                 grupo = grupo,
                 onDelete = { onDeleteEquipo(grupo) }
             )
@@ -361,6 +206,7 @@ private fun GruposList(
 
 @Composable
 private fun GrupoCard(
+    numeroItem: Int, // ✅ Nuevo parámetro para el contador
     grupo: Grupo,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -368,275 +214,164 @@ private fun GrupoCard(
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    val nombreEquipo = grupo.getNombreEquipo()
-    val codigoEquipo = grupo.getCodigoEquipo()
+    val nombreEquipo = grupo.obtenerNombreEquipo()
+    val codigoEquipo = grupo.obtenerCodigoEquipo()
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Número de posición
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .padding(end = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            // ✅ Ahora muestra el número de item (1, 2, 3...) en lugar de grupo.POSICION
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = grupo.POSICION.toString(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    text = "#",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = numeroItem.toString(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-            // Información del equipo
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = nombreEquipo,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Bold
                 )
-
-                // 🥇 CHIP de posición (solo si POSICION > 0)
-                val label = grupo.placeLabel()
-                val emoji = grupo.placeEmoji()
-                if (grupo.POSICION > 0 && label != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    AssistChip(
-                        onClick = { /* opcional: abrir editor de posición */ },
-                        label = { Text(text = (emoji?.let { "$it " } ?: "") + label) }
-                        // Si prefieres un ícono Material en vez de emoji:
-                        // leadingIcon = { Icon(Icons.Default.EmojiEvents, contentDescription = null) }
-                    )
-                }
-
-                if (codigoEquipo.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                
+                if (codigoEquipo.isNotBlank() && codigoEquipo != "0") {
                     Text(
-                        text = "Código: $codigoEquipo",
+                        text = "ID: $codigoEquipo",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            // Menú de opciones
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Opciones"
-                    )
-                }
 
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Eliminar del grupo") },
-                        onClick = {
-                            showMenu = false
-                            showDeleteDialog = true
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    )
-                }
+            IconButton(onClick = { showMenu = true }) {
+                Icon(Icons.Default.MoreVert, null)
+            }
+
+            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text("Quitar del grupo") },
+                    onClick = { showMenu = false; showDeleteDialog = true },
+                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                )
             }
         }
     }
 
-    // Diálogo de confirmación de eliminación
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Eliminar del grupo") },
-            text = {
-                Text("¿Estás seguro de que deseas eliminar \"$nombreEquipo\" del grupo ${grupo.GRUPO}?")
-            },
+            title = { Text("Quitar equipo") },
+            text = { Text("¿Deseas quitar a $nombreEquipo del grupo?") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        onDelete()
-                    }
-                ) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = { showDeleteDialog = false; onDelete() }) {
+                    Text("Quitar", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancelar")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
             }
         )
     }
 }
 
 @Composable
-private fun AddEquipoDialog(
-    equiposDisponibles: List<Equipo>,
-    grupoSeleccionado: String,
-    isLoading: Boolean,
-    onDismiss: () -> Unit,
-    onConfirm: (Equipo) -> Unit
-) {
-    var selectedEquipo by remember { mutableStateOf<Equipo?>(null) }
+private fun EmptyState(letra: String) {
+    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.Groups, null, Modifier.size(64.dp), MaterialTheme.colorScheme.outline)
+            Spacer(Modifier.height(16.dp))
+            Text("Grupo $letra vacío", style = MaterialTheme.typography.titleMedium)
+            Text("Usa el botón + para empezar", textAlign = TextAlign.Center)
+        }
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SerieSelector(serieSeleccionada: Serie?, seriesDisponibles: List<Serie>, onSerieSeleccionada: (Serie) -> Unit, modifier: Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(modifier = modifier) {
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+            TextField(
+                value = serieSeleccionada?.NOMBRESERIE ?: "Seleccione Serie",
+                onValueChange = {}, readOnly = true, label = { Text("Serie") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                seriesDisponibles.forEach { serie ->
+                    DropdownMenuItem(text = { Text(serie.NOMBRESERIE) }, onClick = { onSerieSeleccionada(serie); expanded = false })
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GrupoSelector(grupoSeleccionado: String, gruposDisponibles: List<String>, onGrupoSeleccionado: (String) -> Unit, modifier: Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(modifier = modifier) {
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+            TextField(
+                value = "Grupo $grupoSeleccionado",
+                onValueChange = {}, readOnly = true, label = { Text("Letra de Grupo") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                gruposDisponibles.forEach { letra ->
+                    DropdownMenuItem(text = { Text("Grupo $letra") }, onClick = { onGrupoSeleccionado(letra); expanded = false })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddEquipoDialog(equiposDisponibles: List<Equipo>, grupoSeleccionado: String, isLoading: Boolean, onDismiss: () -> Unit, onConfirm: (Equipo) -> Unit) {
+    var selectedEquipo by remember { mutableStateOf<Equipo?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Agregar equipo al Grupo $grupoSeleccionado") },
+        title = { Text("Asignar a Grupo $grupoSeleccionado") },
         text = {
             Column {
                 if (equiposDisponibles.isEmpty()) {
-                    Text(
-                        "No hay equipos disponibles para agregar.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text("No hay equipos disponibles para asignar.")
                 } else {
-                    Text(
-                        "Selecciona un equipo:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                         items(equiposDisponibles) { equipo ->
                             Card(
                                 onClick = { selectedEquipo = equipo },
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (selectedEquipo == equipo) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surface
-                                    }
-                                )
+                                colors = CardDefaults.cardColors(containerColor = if (selectedEquipo == equipo) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                             ) {
-                                Text(
-                                    text = equipo.EQUIPO,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp)
-                                )
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(text = equipo.getNombreDisplay(), fontWeight = FontWeight.Bold)
+                                    Text(text = equipo.PROVINCIA, style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
                     }
                 }
-
-                if (isLoading) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                }
+                if (isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    selectedEquipo?.let { onConfirm(it) }
-                },
-                enabled = selectedEquipo != null && !isLoading
-            ) {
-                Text("Agregar")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isLoading
-            ) {
-                Text("Cancelar")
-            }
-        }
+        confirmButton = { Button(onClick = { selectedEquipo?.let { onConfirm(it) } }, enabled = selectedEquipo != null && !isLoading) { Text("Añadir") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
-}
-
-@Composable
-private fun LoadingState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun EmptyGruposState(grupo: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            imageVector = Icons.Default.Groups,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "No hay equipos en el Grupo $grupo",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Presiona el botón + para agregar equipos",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
-private fun EmptySearchState() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "No se encontraron equipos",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Intenta con otros términos de búsqueda",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
 }

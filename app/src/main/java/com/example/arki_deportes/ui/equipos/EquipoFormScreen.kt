@@ -45,6 +45,8 @@ import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.utils.Constants
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Divider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,11 +60,12 @@ fun EquipoFormScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    /*DESACTIVADO TEMPORALMENTE
+
     LaunchedEffect(codigoEquipo) {
-        viewModel.loadEquipo(codigoEquipo)
+        // Obtenemos el campeonato activo del contexto o del estado
+        val campId = viewModel.uiState.value.formData.codigoCampeonato
+        viewModel.loadEquipo(campId, codigoEquipo)
     }
-*/
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -227,6 +230,42 @@ fun EquipoFormScreen(
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(32.dp))
                 }
+            }
+
+            if (!uiState.isEditMode && uiState.formData.codigoCampeonato.isNotBlank()) {Spacer(modifier = Modifier.size(8.dp))
+                Divider()
+                Spacer(modifier = Modifier.size(8.dp))
+
+                OutlinedButton(
+                    onClick = viewModel::showImportConfirmation,
+                    enabled = !uiState.isImporting,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (uiState.isImporting) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Importando...")
+                    } else {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Importar 24 Provincias como Equipos")
+                    }
+                }
+            }
+
+            // Diálogo de confirmación
+            if (uiState.showImportConfirmation) {
+                AlertDialog(
+                    onDismissRequest = viewModel::hideImportConfirmation,
+                    title = { Text("¿Importar Provincias?") },
+                    text = { Text("Se agregarán las 24 provincias del Ecuador como equipos para este campeonato. ¿Deseas continuar?") },
+                    confirmButton = {
+                        TextButton(onClick = viewModel::importarProvincias) { Text("Confirmar") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::hideImportConfirmation) { Text("Cancelar") }
+                    }
+                )
             }
         }
     }

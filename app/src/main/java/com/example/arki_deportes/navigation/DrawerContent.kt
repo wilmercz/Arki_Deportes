@@ -23,6 +23,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
 import com.example.arki_deportes.data.context.UsuarioContext
@@ -32,7 +33,8 @@ import com.example.arki_deportes.data.context.DeporteContext
 
 import com.example.arki_deportes.utils.SportType
 import com.example.arki_deportes.data.model.Partido
-
+// Al principio del archivo DrawerContent.kt, añade esta importación si no está:
+import android.widget.Toast
 
 private fun String?.matchesRoute(route: String): Boolean {
     return this == route || this?.startsWith("$route/") == true
@@ -58,6 +60,9 @@ fun DrawerContent(
 
     val scope = rememberCoroutineScope()
 
+    val campeonatoActivo by CampeonatoContext.campeonatoActivo.collectAsState()
+
+    val context = LocalContext.current
 
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -74,7 +79,11 @@ fun DrawerContent(
         if (campeonatos.isNotEmpty()) {
             CampeonatoSelector(
                 campeonatos = campeonatos,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 8.dp),
+                onCampeonatoSeleccionado = { camp ->
+                    // Esto asegura que el contexto se actualice al hacer click
+                    CampeonatoContext.seleccionarCampeonato(camp)
+                }
             )
         } else {
             Text(
@@ -182,12 +191,49 @@ fun DrawerContent(
             }
         )
 
+        // ✅ NUEVO: Item de Series
+        DrawerMenuItem(
+            icon = Icons.Default.Layers,
+            label = "Series",
+            isSelected = currentRoute.matchesRoute("serie_list") ||
+                    currentRoute.matchesRoute("serie_form"),
+            onClick = {
+                val codigoId = campeonatoActivo?.CODIGO
+
+                if (!codigoId.isNullOrBlank()) {
+                    // Si hay un campeonato seleccionado, vamos a su lista de series
+                    navigator.navigateToSerieList(codigoId)
+                } else {
+
+                    // ✅ AVISO AL USUARIO
+                    android.widget.Toast.makeText(
+                        context,
+                        "Por favor, seleccione un campeonato primero",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+
+                    // Si no hay seleccionado, mostramos la lista de campeonatos para que elija uno
+                    navigator.navigateToCampeonatoList()
+                }
+                onCloseDrawer()
+            }
+        )
+
         DrawerMenuItem(
             icon = Icons.Default.Group,
             label = "Grupos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_FORM),
+            isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_LIST),
             onClick = {
-                navigator.navigateToGrupoForm()
+                val campeonatoId = campeonatoActivo?.CODIGO
+
+                if (campeonatoId.isNullOrBlank()) {
+                    Toast.makeText(context, "Por favor, seleccione un campeonato primero", Toast.LENGTH_SHORT).show()
+                    navigator.navigateToCampeonatoList()
+                } else {
+                    // ✅ MEJORA: Lo mandamos a Series para que elija cuál gestionar
+                    Toast.makeText(context, "Seleccione una serie para gestionar sus grupos", Toast.LENGTH_SHORT).show()
+                    navigator.navigateToSerieList(campeonatoId)
+                }
                 onCloseDrawer()
             }
         )
@@ -195,9 +241,10 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.Shield,
             label = "Equipos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_FORM),
+            isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_LIST) || 
+                    currentRoute.matchesRoute(AppDestinations.EQUIPO_FORM),
             onClick = {
-                navigator.navigateToEquipoForm()
+                navigator.navigateToEquipoList()
                 onCloseDrawer()
             }
         )
@@ -205,9 +252,10 @@ fun DrawerContent(
         DrawerMenuItem(
             icon = Icons.Default.SportsScore,
             label = "Partidos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_FORM),
+            isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_LIST) ||
+                    currentRoute.matchesRoute(AppDestinations.PARTIDO_FORM),
             onClick = {
-                navigator.navigateToPartidoForm()
+                navigator.navigateToPartidoList()
                 onCloseDrawer()
             }
         )

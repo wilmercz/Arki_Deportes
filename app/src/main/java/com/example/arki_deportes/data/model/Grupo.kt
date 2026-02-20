@@ -42,7 +42,7 @@ data class Grupo(
      * Formato: GRUPO_LETRA_TIMESTAMP
      * Ejemplo: "GRUPO_A_1705334400000"
      */
-    val CODIGOGRUPO: String = "",
+    val CODIGOGRUPO: Any? = "",
 
     /**
      * Nombre del grupo (en mayúsculas)
@@ -54,7 +54,7 @@ data class Grupo(
      * Provincia donde se juega el grupo (en mayúsculas)
      * Ejemplo: "PASTAZA", "SUCUMBIOS"
      */
-    val PROVINCIA: String = "",
+    val PROVINCIA: Any? = "",
 
     val FECHAALTA: String = "",
     /**
@@ -67,7 +67,7 @@ data class Grupo(
      * Código de la provincia (código INEC u otro sistema)
      * Ejemplo: "16" para Pastaza
      */
-    val CODIGOPROVINCIA: String = "",
+    val CODIGOPROVINCIA: Any? = "",
     /**
      * Nombre del equipo (opcional)
      * Si está vacío, se usa PROVINCIA
@@ -78,7 +78,7 @@ data class Grupo(
      * Código del equipo (opcional)
      * Si está vacío, se usa CODIGOPROVINCIA
      */
-    val CODIGOEQUIPO: String = "",
+    val CODIGOEQUIPO: Any? = "",
     /**
      * Timestamp de creación del registro (en milisegundos)
      * Generado automáticamente por Firebase ServerValue.TIMESTAMP
@@ -121,19 +121,21 @@ data class Grupo(
      * Obtiene el nombre del equipo considerando la lógica de campos
      * @return NOMBREEQUIPO si existe, sino PROVINCIA
      */
-    fun getNombreEquipo(): String {
+
+    fun obtenerNombreEquipo(): String {
         return if (NOMBREEQUIPO.isNotBlank()) {
             NOMBREEQUIPO
         } else {
-            PROVINCIA
+            PROVINCIA?.toString() ?: "" // 👈 Convertimos a String de forma segura
         }
     }
 
-    fun getCodigoEquipo(): String {
-        return if (CODIGOEQUIPO.isNotBlank()) {
-            CODIGOEQUIPO
+    fun obtenerCodigoEquipo(): String {
+        val codEquipo = CODIGOEQUIPO?.toString() ?: ""
+        return if (codEquipo.isNotBlank()) {
+            codEquipo
         } else {
-            CODIGOPROVINCIA
+            CODIGOPROVINCIA?.toString() ?: "" // 👈 Convertimos a String de forma segura
         }
     }
 
@@ -143,12 +145,12 @@ data class Grupo(
      *
      * @return HashMap con los datos del grupo
      */
-    fun toMap(): HashMap<String, Any> {
+    fun toMap(): Map<String, Any?> {
         return hashMapOf(
             "CODIGOCAMPEONATO" to CODIGOCAMPEONATO,
             "CODIGOGRUPO" to CODIGOGRUPO,
             "GRUPO" to GRUPO.uppercase(),
-            "PROVINCIA" to PROVINCIA.uppercase(),
+            "PROVINCIA" to PROVINCIA,
             "ANIO" to ANIO,
             "CODIGOPROVINCIA" to CODIGOPROVINCIA,
             "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
@@ -179,7 +181,7 @@ data class Grupo(
      * @return String con el nombre formateado
      */
     fun getNombreFormateado(): String {
-        return "$GRUPO - $PROVINCIA"
+        return "$GRUPO - ${PROVINCIA?.toString() ?: ""}"
     }
 
     /**

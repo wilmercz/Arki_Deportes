@@ -231,6 +231,12 @@ fun AppNavGraph(
                 campeonatoId = campeonatoId,
                 onAddSerie = { navigator.navigateToSerieForm(campeonatoId) },
                 onEditSerie = { serieId -> navigator.navigateToSerieForm(campeonatoId, serieId) },
+                onManageGroups = { serieId ->
+                    // Navegamos a la lista de grupos. 
+                    // El ViewModel de grupos ya está suscrito al CampeonatoContext, 
+                    // por lo que cargará los grupos de este campeonato.
+                    navigator.navigateToGrupoList()
+                },
                 onBack = { navigator.navigateBack() }
             )
         }

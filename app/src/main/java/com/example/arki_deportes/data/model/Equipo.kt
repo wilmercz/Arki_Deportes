@@ -85,14 +85,16 @@ data class Equipo(
     /**
      * Timestamp de creación del registro (en milisegundos)
      * Generado automáticamente por Firebase ServerValue.TIMESTAMP
+     * Se usa Any? para soportar tanto Long (Firebase) como String (VB.NET legacy)
      */
-    val TIMESTAMP_CREACION: Long = 0,
+    val TIMESTAMP_CREACION: Any? = 0L,
 
     /**
      * Timestamp de última modificación (en milisegundos)
      * Se actualiza cada vez que se edita el registro
+     * Se usa Any? para soportar tanto Long (Firebase) como String (VB.NET legacy)
      */
-    val TIMESTAMP_MODIFICACION: Long = 0,
+    val TIMESTAMP_MODIFICACION: Any? = 0L,
 
     /**
      * Origen del registro
@@ -125,7 +127,7 @@ data class Equipo(
      *
      * @return HashMap con los datos del equipo
      */
-    fun toMap(): HashMap<String, Any> {
+    fun toMap(): HashMap<String, Any?> {
         return hashMapOf(
             "CODIGOEQUIPO" to CODIGOEQUIPO,
             "EQUIPO" to EQUIPO.uppercase(),

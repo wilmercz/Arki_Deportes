@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Permite acceso desde cualquier parte de la app.
  *
  * @author ARKI SISTEMAS
- * @version 1.0.0
+ * @version 1.0.1
  */
 object CampeonatoContext {
 
@@ -36,35 +36,29 @@ object CampeonatoContext {
      */
     val campeonatoActivo: StateFlow<Campeonato?> = _campeonatoActivo.asStateFlow()
 
-
     /**
-     * Campeonato actualmente seleccionado
-     */
-    private var campeonatoActual: Campeonato? = null
-
-    /**
-     * Establece el campeonato actual
+     * Establece el campeonato actual y actualiza el Flow
      * Llamar cuando se selecciona un campeonato
      */
-    fun seleccionarCampeonato(campeonato: Campeonato) {
-        campeonatoActual = campeonato
+    fun seleccionarCampeonato(campeonato: Campeonato?) {
+        _campeonatoActivo.value = campeonato
     }
 
     /**
-     * Obtiene el campeonato actual
+     * Obtiene el campeonato actual de forma síncrona
      * @return Campeonato seleccionado o null si no hay ninguno
      */
-    fun getCampeonatoActual(): Campeonato? = campeonatoActual
+    fun getCampeonatoActual(): Campeonato? = _campeonatoActivo.value
 
     /**
      * Verifica si hay un campeonato seleccionado
      */
-    fun hayCampeonato(): Boolean = campeonatoActual != null
+    fun hayCampeonato(): Boolean = _campeonatoActivo.value != null
 
     /**
      * Limpia el campeonato actual
      */
     fun limpiar() {
-        campeonatoActual = null
+        _campeonatoActivo.value = null
     }
 }

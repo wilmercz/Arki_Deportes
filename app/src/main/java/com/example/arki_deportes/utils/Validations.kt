@@ -212,7 +212,7 @@ object Validations {
             grupo.GRUPO.length < 2 ->
                 "El nombre del grupo debe tener al menos 2 caracteres"
 
-            grupo.PROVINCIA.isBlank() ->
+            grupo.PROVINCIA?.toString().isNullOrBlank() ->
                 "La provincia es obligatoria"
 
             else -> null // Todo está bien

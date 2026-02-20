@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ fun SerieListScreen(
     viewModel: SerieListViewModel = viewModel(),
     onAddSerie: () -> Unit,
     onEditSerie: (String) -> Unit,
+    onManageGroups: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -47,13 +49,17 @@ fun SerieListScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (uiState.series.isEmpty()) {
                 Text(
                     text = "No hay series configuradas.\nPulsa + para crear la primera.",
-                    modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
             } else {
@@ -61,7 +67,21 @@ fun SerieListScreen(
                     items(uiState.series) { serie ->
                         ListItem(
                             headlineContent = { Text(serie.NOMBRESERIE) },
-                            supportingContent = { Text(serie.getReglaTexto()) },
+                            supportingContent = {
+                                Column {
+                                    Text(serie.getReglaTexto())
+                                    Spacer(Modifier.height(4.dp))
+                                    // BOTÓN PARA GESTIONAR GRUPOS
+                                    TextButton(
+                                        onClick = { onManageGroups(serie.CODIGOSERIE) },
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Icon(Icons.Default.Groups, null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Gestionar Grupos", style = MaterialTheme.typography.labelLarge)
+                                    }
+                                }
+                            },
                             trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
                             modifier = Modifier.clickable { onEditSerie(serie.CODIGOSERIE) }
                         )

@@ -54,46 +54,6 @@ class GrupoFormViewModel(
         observeCampeonatos()
     }
 
-    fun loadGrupo(campeonatoId: String, codigoGrupo: String?) {
-        if (codigoGrupo.isNullOrBlank()) {
-            _uiState.update { it.copy(isEditMode = false, formData = GrupoFormData(codigoCampeonato = campeonatoId)) }
-            originalGrupo = null
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, message = null) }
-            try {
-                val grupo = repository.getGrupo(campeonatoId, codigoGrupo)
-                if (grupo != null) {
-                    originalGrupo = grupo
-                    _uiState.update {
-                        it.copy(
-                            formData = GrupoFormData(
-                                codigoCampeonato = grupo.CODIGOCAMPEONATO,
-                                codigoGrupo = grupo.CODIGOGRUPO,
-                                nombre = grupo.GRUPO,
-                                provincia = grupo.PROVINCIA,
-                                anio = if (grupo.ANIO == 0) "" else grupo.ANIO.toString(),
-                                codigoProvincia = grupo.CODIGOPROVINCIA
-                            ),
-                            isEditMode = true,
-                            isLoading = false
-                        )
-                    }
-                } else {
-                    _uiState.update {
-                        it.copy(isLoading = false, message = FormMessage("No se encontró el grupo solicitado", isError = true))
-                    }
-                }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(isLoading = false, message = FormMessage(e.message ?: Constants.Mensajes.ERROR_DESCONOCIDO, isError = true))
-                }
-            }
-        }
-    }
-
 
     private fun observeCampeonatos() {
         observeCampeonatosJob?.cancel()

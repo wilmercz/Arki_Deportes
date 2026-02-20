@@ -352,7 +352,8 @@ private fun GrupoDropdown(
                 androidx.compose.material3.DropdownMenuItem(
                     text = { Text(grupo.GRUPO) },
                     onClick = {
-                        onSelected(grupo.CODIGOGRUPO)
+                        //onSelected(grupo.CODIGOGRUPO)
+                        onSelected(grupo.CODIGOGRUPO?.toString() ?: "")
                         expanded = false
                     }
                 )

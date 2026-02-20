@@ -39,8 +39,9 @@ class FirebaseCatalogRepository(
     internal fun campeonatosReference(): DatabaseReference =
         rootReference.child("DatosFutbol").child(Constants.FirebaseCollections.CAMPEONATOS)
 
-    private fun gruposReference(): DatabaseReference =
-        rootReference.child(Constants.FirebaseCollections.GRUPOS)
+    private fun equiposPorCampeonatoReference(campeonatoId: String): DatabaseReference =
+        campeonatosReference().child(campeonatoId).child("Equipos")
+
 
     private fun equiposReference(): DatabaseReference =
         rootReference.child(Constants.FirebaseCollections.EQUIPOS)
@@ -112,32 +113,27 @@ class FirebaseCatalogRepository(
     }
 
     fun observeEquipos(
-        campeonatoCodigo: String? = null,
+        campeonatoCodigo: String?,
         grupoCodigo: String? = null
     ): Flow<List<Equipo>> = callbackFlow {
-        val reference: Query = if (campeonatoCodigo.isNullOrBlank()) {
-            equiposReference()
-        } else {
-            equiposReference().orderByChild("CODIGOCAMPEONATO").equalTo(campeonatoCodigo)
+        if (campeonatoCodigo.isNullOrBlank()) {
+            trySend(emptyList())
+            return@callbackFlow
         }
+
+        val reference = equiposPorCampeonatoReference(campeonatoCodigo)
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val equipos = snapshot.children.mapNotNull { child ->
                     val equipo = child.getValue(Equipo::class.java)
-                    val equipoGrupo = child.child("CODIGOGRUPO").getValue(String::class.java)
-                    if (equipo != null && (grupoCodigo.isNullOrBlank() || equipoGrupo == grupoCodigo)) {
+                    if (equipo != null && (grupoCodigo.isNullOrBlank() || equipo.CODIGOGRUPO == grupoCodigo)) {
                         equipo
-                    } else {
-                        null
-                    }
+                    } else null
                 }
                 trySend(equipos.sortedBy { it.getNombreDisplay() })
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                close(error.toException())
-            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
         reference.addValueEventListener(listener)
         awaitClose { reference.removeEventListener(listener) }
@@ -156,6 +152,7 @@ class FirebaseCatalogRepository(
         val snapshot = campeonatosReference().child(campeonatoId).child("Series").child(serieId).get().await()
         return snapshot.getValue(Serie::class.java)
     }
+
 
     suspend fun getAllCampeonatos(): List<Campeonato> {
         val snapshot = rootReference.get().await()
@@ -176,17 +173,11 @@ class FirebaseCatalogRepository(
         }
     }
 
-    suspend fun getGrupo(campeonatoId: String, grupoId: String): Grupo? {
-        val snapshot = campeonatosReference().child(campeonatoId).child("Grupos").child(grupoId).get().await()
-        return snapshot.getValue(Grupo::class.java)
-    }
-
-    suspend fun getEquipo(codigoEquipo: String): Equipo? {
-        val snapshot = equiposReference().child(codigoEquipo).get().await()
+    suspend fun getEquipo(campeonatoId: String, codigoEquipo: String): Equipo? {
+        val snapshot = equiposPorCampeonatoReference(campeonatoId).child(codigoEquipo).get().await()
         return snapshot.getValue(Equipo::class.java)
     }
 
-    // FirebaseCatalogRepository.kt
 
     suspend fun getPartido(campeonatoId: String, partidoId: String): Partido? {
         return try {
@@ -351,6 +342,14 @@ class FirebaseCatalogRepository(
     }
 
 
+    suspend fun saveEquiposMasivo(campeonatoId: String, equipos: List<Equipo>) {
+        val ref = equiposPorCampeonatoReference(campeonatoId)
+        val updates = mutableMapOf<String, Any?>()
+        equipos.forEach { updates[it.CODIGOEQUIPO] = it.toMap() }
+        ref.updateChildren(updates).await()
+    }
+
+
     private fun generarCodigoUnico(input: String): String {
         val normalized = Normalizer.normalize(input, Normalizer.Form.NFD)
         return Regex("""\p{InCombiningDiacriticalMarks}+""").replace(normalized, "")
@@ -360,22 +359,31 @@ class FirebaseCatalogRepository(
             .trim('_')
     }
 
-    
+
     suspend fun saveGrupo(grupo: Grupo) {
-        campeonatosReference().child(grupo.CODIGOCAMPEONATO).child("Grupos")
-            .child(grupo.CODIGOGRUPO)
+        val codCampeonato = grupo.CODIGOCAMPEONATO
+        val codGrupo = grupo.CODIGOGRUPO?.toString() ?: ""
+
+        if (codCampeonato.isBlank() || codGrupo.isBlank()) {
+            Log.e("FirebaseCatalogRepo", "❌ No se puede guardar el grupo: IDs vacíos")
+            return
+        }
+
+        campeonatosReference().child(codCampeonato).child("Grupos")
+            .child(codGrupo)
             .setValue(grupo.toMap())
             .await()
     }
 
     suspend fun saveEquipo(equipo: Equipo) {
-        equiposReference().child(equipo.CODIGOEQUIPO)
+        equiposPorCampeonatoReference(equipo.CODIGOCAMPEONATO)
+            .child(equipo.CODIGOEQUIPO)
             .setValue(equipo.toMap())
             .await()
     }
 
-    suspend fun updateEquipoFields(codigoEquipo: String, updates: Map<String, Any?>) {
-        equiposReference().child(codigoEquipo).updateChildren(updates).await()
+    suspend fun updateEquipoFields(campeonatoId: String, codigoEquipo: String, updates: Map<String, Any?>) {
+        equiposPorCampeonatoReference(campeonatoId).child(codigoEquipo).updateChildren(updates).await()
     }
 
     suspend fun savePartido(partido: Partido) {
@@ -400,8 +408,9 @@ class FirebaseCatalogRepository(
         campeonatosReference().child(campeonatoId).child("Grupos").child(codigoGrupo).removeValue().await()
     }
 
-    suspend fun deleteEquipo(codigoEquipo: String) {
-        equiposReference().child(codigoEquipo).removeValue().await()
+
+    suspend fun deleteEquipo(campeonatoId: String, codigoEquipo: String) {
+        equiposPorCampeonatoReference(campeonatoId).child(codigoEquipo).removeValue().await()
     }
 
     suspend fun deletePartido(codigoPartido: String) {
