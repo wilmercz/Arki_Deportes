@@ -47,6 +47,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenuItem
+import com.example.arki_deportes.utils.EcuadorProvincias
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,6 +160,13 @@ fun EquipoFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            ProvinciaDropdown(
+                value = uiState.formData.provincia,
+                onValueChange = viewModel::onProvinciaChange,
+                showError = uiState.showValidationErrors && uiState.formData.provincia.isBlank()
+            )
+
+            /*
             OutlinedTextField(
                 value = uiState.formData.provincia,
                 onValueChange = viewModel::onProvinciaChange,
@@ -169,7 +178,7 @@ fun EquipoFormScreen(
                         Text(Constants.Mensajes.CAMPO_OBLIGATORIO)
                     }
                 }
-            )
+            )*/
 
             OutlinedTextField(
                 value = uiState.formData.fechaAlta,
@@ -307,6 +316,63 @@ private fun CampeonatoDropdown(
                         expanded = false
                     }
                 )
+            }
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProvinciaDropdown(
+    value: String,
+    onValueChange: (String) -> Unit,
+    showError: Boolean
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val provincias = remember { EcuadorProvincias.LISTA.map { it.nombre } }
+
+    // Filtramos las opciones basadas en lo que el usuario escribe
+    val filteredOptions = remember(value) {
+        if (value.isEmpty()) provincias
+        else provincias.filter { it.contains(value, ignoreCase = true) }
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {
+                onValueChange(it)
+                expanded = true
+            },
+            label = { Text("Provincia") },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth(),
+            isError = showError,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            supportingText = {
+                if (showError) Text(Constants.Mensajes.CAMPO_OBLIGATORIO)
+            }
+        )
+
+        if (filteredOptions.isNotEmpty()) {
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                filteredOptions.forEach { provincia ->
+                    DropdownMenuItem(
+                        text = { Text(provincia) },
+                        onClick = {
+                            onValueChange(provincia)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }
