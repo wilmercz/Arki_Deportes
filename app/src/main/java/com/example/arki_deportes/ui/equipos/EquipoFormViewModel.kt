@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.arki_deportes.data.context.CampeonatoContext
 
 private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault())
 
@@ -127,6 +128,12 @@ class EquipoFormViewModel(
 
     fun onCampeonatoSelected(codigo: String) {
         updateForm { copy(codigoCampeonato = codigo) }
+    }
+
+    fun setCampeonatoId(id: String) {
+        if (_uiState.value.formData.codigoCampeonato.isBlank()) {
+            updateForm { copy(codigoCampeonato = id) }
+        }
     }
 
     fun onNombreCortoChange(value: String) = updateForm { copy(nombreCorto = value) }
@@ -308,4 +315,31 @@ class EquipoFormViewModel(
     }
 
     private fun currentDate(): String = LocalDate.now().format(DATE_FORMATTER)
+
+    fun onImageSelected(uri: android.net.Uri?) {
+        if (uri == null) return
+
+        // ✅ Buscamos el ID en el form, y si no está, lo tomamos del contexto global
+        val campeonatoId = _uiState.value.formData.codigoCampeonato.ifBlank {
+            CampeonatoContext.campeonatoActivo.value?.CODIGO ?: ""
+        }
+
+        if (campeonatoId.isBlank()) {
+            _uiState.update { it.copy(message = FormMessage("Por favor, seleccione un campeonato en el menú lateral primero", isError = true)) }
+            return
+        }
+
+        val equipoId = _uiState.value.formData.codigoEquipo.ifBlank { "NUEVO" }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            try {
+                val downloadUrl = repository.uploadEscudo(campeonatoId, equipoId, uri)
+                onEscudoLinkChange(downloadUrl) // Actualiza la caja de texto automáticamente
+                _uiState.update { it.copy(isSaving = false, message = FormMessage("Escudo subido correctamente")) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSaving = false, message = FormMessage("Error al subir: ${e.message}", isError = true)) }
+            }
+        }
+    }
 }

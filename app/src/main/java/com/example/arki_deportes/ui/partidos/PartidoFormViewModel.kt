@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.arki_deportes.data.model.Serie
+import com.example.arki_deportes.data.context.CampeonatoContext
 
 private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault())
 
@@ -41,7 +43,10 @@ data class PartidoFormData(
     val goles1: Int = 0,
     val goles2: Int = 0,
     val textoFacebook: String = "",
-    val lugar: String = ""
+    val lugar: String = "",
+    val serieCodigo: String = "",
+    val grupoNombre: String = "",
+    val serieNombre: String = ""
 )
 
 data class PartidoFormUiState(
@@ -55,7 +60,8 @@ data class PartidoFormUiState(
     val isDeleting: Boolean = false,
     val showValidationErrors: Boolean = false,
     val message: FormMessage? = null,
-    val shouldClose: Boolean = false
+    val shouldClose: Boolean = false,
+    val series: List<Serie> = emptyList(),
 )
 
 class PartidoFormViewModel(
@@ -67,14 +73,63 @@ class PartidoFormViewModel(
 
     private var originalPartido: Partido? = null
     private var campeonatosJob: Job? = null
+    private var seriesJob: Job? = null
+
     private var gruposJob: Job? = null
     private var equiposJob: Job? = null
 
     init {
         observeCampeonatos()
+        // Cargar campeonato del contexto si existe
+        CampeonatoContext.campeonatoActivo.value?.let {
+            onCampeonatoSelected(it.CODIGO)
+        }
     }
 
+    private fun subscribeToSeries(campeonatoCodigo: String) {
+        seriesJob?.cancel()
+        seriesJob = viewModelScope.launch {
+            repository.observeSeries(campeonatoCodigo).collect { series ->
+                _uiState.update { it.copy(series = series) }
+            }
+        }
+    }
 
+    // Al seleccionar Serie, cargamos sus grupos
+    fun onSerieSelected(codigo: String) {
+        val serie = _uiState.value.series.firstOrNull { it.CODIGOSERIE == codigo }
+        val campId = _uiState.value.formData.campeonatoCodigo
+        subscribeToGrupos(campId) // Aquí podrías filtrar grupos por serie si tu repo lo soporta
+        updateForm { copy(serieCodigo = codigo, serieNombre = serie?.NOMBRESERIE ?: "") }
+    }
+
+    // Asignación rápida (como en VB.NET)
+    fun asignarEquipo(equipo: Equipo, numero: Int) {
+        updateForm {
+            if (numero == 1) copy(equipo1Codigo = equipo.CODIGOEQUIPO)
+            else copy(equipo2Codigo = equipo.CODIGOEQUIPO)
+        }
+        generarTextoSocial()
+    }
+
+    fun generarTextoSocial() {
+        val form = _uiState.value.formData
+        val e1 = _uiState.value.equipos.firstOrNull { it.CODIGOEQUIPO == form.equipo1Codigo }?.EQUIPO ?: ""
+        val e2 = _uiState.value.equipos.firstOrNull { it.CODIGOEQUIPO == form.equipo2Codigo }?.EQUIPO ?: ""
+        val fecha = form.fechaPartido
+        val hora = form.horaPartido
+        val estadio = form.estadio
+
+        val texto = """
+            ⚽ ¡PARTIDAZO! ⚽
+            $e1 vs $e2
+            📅 $fecha | 🕒 $hora
+            🏟️ $estadio
+            #ArkiDeportes #${e1.replace(" ","")} #${e2.replace(" ","")}
+        """.trimIndent()
+
+        onTextoFacebookChange(texto)
+    }
 
     fun loadPartido(codigoPartido: String?) {
         if (codigoPartido.isNullOrBlank()) {

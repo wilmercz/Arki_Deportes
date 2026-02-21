@@ -249,13 +249,18 @@ fun DrawerContent(
             }
         )
 
+
         DrawerMenuItem(
             icon = Icons.Default.SportsScore,
             label = "Partidos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_LIST) ||
-                    currentRoute.matchesRoute(AppDestinations.PARTIDO_FORM),
+            isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_LIST),
             onClick = {
-                navigator.navigateToPartidoList()
+                if (campeonatoActivo?.CODIGO.isNullOrBlank()) {
+                    Toast.makeText(context, "Seleccione un campeonato primero", Toast.LENGTH_SHORT).show()
+                    navigator.navigateToCampeonatoList()
+                } else {
+                    navigator.navigateToPartidoList()
+                }
                 onCloseDrawer()
             }
         )

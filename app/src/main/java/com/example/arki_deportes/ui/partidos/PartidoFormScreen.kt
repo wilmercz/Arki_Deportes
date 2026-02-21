@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -48,6 +52,11 @@ import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.model.Grupo
 import com.example.arki_deportes.utils.Constants
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import com.example.arki_deportes.data.model.Serie
+import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.SportsFootball
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +118,54 @@ fun PartidoFormScreen(
                 onSelected = viewModel::onCampeonatoSelected,
                 showError = uiState.showValidationErrors && uiState.formData.campeonatoCodigo.isBlank()
             )
+
+
+            // 1. FILTROS DE SELECCIÓN
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text("Asistente de Equipos", style = MaterialTheme.typography.titleSmall)
+
+                    SerieDropdown(
+                        series = uiState.series,
+                        selectedCodigo = uiState.formData.serieCodigo,
+                        onSelected = viewModel::onSerieSelected
+                    )
+
+                    GrupoDropdown(
+                        grupos = uiState.grupos,
+                        selectedCodigo = uiState.formData.grupoCodigo,
+                        onSelected = viewModel::onGrupoSelected,
+                        enabled = uiState.formData.serieCodigo.isNotBlank()
+                    )
+                }
+            }
+
+            // 2. LISTA DE EQUIPOS CON ASIGNACIÓN RÁPIDA (Como en VB.NET)
+            LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                items(uiState.equipos) { equipo ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(equipo.EQUIPO, modifier = Modifier.weight(1f))
+                        Button(onClick = { viewModel.asignarEquipo(equipo, 1) }, modifier = Modifier.padding(horizontal = 2.dp)) {
+                            Text("EQ 1")
+                        }
+                        Button(onClick = { viewModel.asignarEquipo(equipo, 2) }, modifier = Modifier.padding(horizontal = 2.dp)) {
+                            Text("EQ 2")
+                        }
+                    }
+                }
+            }
+
+            // 3. BOTÓN GENERAR TEXTO
+            OutlinedButton(onClick = { viewModel.generarTextoSocial() }) {
+                Icon(Icons.Default.AutoFixHigh, contentDescription = null)
+                Text("Generar Texto Social")
+            }
+
 
             GrupoDropdown(
                 grupos = uiState.grupos,
@@ -278,6 +335,44 @@ fun PartidoFormScreen(
         }
     }
 }
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SerieDropdown(
+    series: List<Serie>,
+    selectedCodigo: String,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = series.firstOrNull { it.CODIGOSERIE == selectedCodigo }
+    val display = selected?.NOMBRESERIE ?: ""
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = display,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Seleccionar Serie") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            series.forEach { serie ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(serie.NOMBRESERIE) },
+                    onClick = {
+                        onSelected(serie.CODIGOSERIE)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

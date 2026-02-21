@@ -1,5 +1,6 @@
 package com.example.arki_deportes.data.repository
 
+import android.net.Uri
 import android.util.Log
 import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Equipo
@@ -137,6 +138,31 @@ class FirebaseCatalogRepository(
         }
         reference.addValueEventListener(listener)
         awaitClose { reference.removeEventListener(listener) }
+    }
+
+    /**
+     * NUEVO: Observa los partidos de un campeonato específico
+     */
+    fun observePartidos(campeonatoId: String?): Flow<List<Partido>> = callbackFlow {
+        if (campeonatoId.isNullOrBlank()) {
+            trySend(emptyList())
+            return@callbackFlow
+        }
+
+        val reference = campeonatosReference()
+            .child(campeonatoId)
+            .child("Partidos")
+
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val partidos = snapshot.children.mapNotNull { it.getValue(Partido::class.java) }
+                trySend(partidos)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        reference.addValueEventListener(listener)
+        awaitClose { reference.removeEventListener(listener) }
+
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -572,5 +598,19 @@ class FirebaseCatalogRepository(
 
         ref.child("TRANSMISION").setValue(activa)
         ref.child("ULTIMA_ACTUALIZACION").setValue(ServerValue.TIMESTAMP)
+    }
+
+
+    suspend fun uploadEscudo(campeonatoId: String, equipoId: String, fileUri: Uri): String {
+        if (campeonatoId.isBlank()) throw Exception("Debe seleccionar un campeonato primero")
+        // Limpiamos IDs para evitar errores en la ruta de Storage
+        val safeCampId = campeonatoId.replace(Regex("[^A-Za-z0-9]"), "_")
+        val safeEquiId = equipoId.replace(Regex("[^A-Za-z0-9]"), "_").ifBlank { "NUEVO" }
+
+        val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
+        val fileRef = storageRef.child("ESCUDOS").child(safeCampId).child("${safeEquiId}_${System.currentTimeMillis()}.png")
+
+        fileRef.putFile(fileUri).await()
+        return fileRef.downloadUrl.await().toString()
     }
 }

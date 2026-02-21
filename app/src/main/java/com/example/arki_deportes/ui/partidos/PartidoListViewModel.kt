@@ -49,10 +49,9 @@ class PartidoListViewModel(
                         campeonatoNombre = campeonato?.CAMPEONATO ?: "Todos los campeonatos"
                     )
                 }
-                /*DESACTIVADO TEMPORALMENTE
+
                 loadPartidos(campeonato?.CODIGO)
 
-                 */
             }
         }
     }
@@ -61,11 +60,15 @@ class PartidoListViewModel(
      * Carga los partidos filtrados por el campeonato especificado
      * @param campeonatoCodigo Código del campeonato, o null para ver todos
      */
-    /* DESACTIVADO TEMPORALMENTE
+
     private fun loadPartidos(campeonatoCodigo: String?) {
         partidosJob?.cancel()
         Log.d("VM_PARTIDOS", "loadPartidos(${campeonatoCodigo ?: "null"})")  // <—
 
+        if (campeonatoCodigo == null) {
+            _uiState.update { it.copy(isLoading = false, partidos = emptyList()) }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
@@ -90,7 +93,7 @@ class PartidoListViewModel(
             }
         }
     }
-*/
+
 
 
     fun refresh() {
