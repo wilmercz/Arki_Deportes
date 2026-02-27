@@ -126,7 +126,10 @@ import com.example.arki_deportes.ui.campeonatos.CampeonatoListRoute
 import com.example.arki_deportes.ui.equipos.EquipoListRoute
 import com.example.arki_deportes.ui.partidos.PartidoListRoute
 import com.example.arki_deportes.ui.grupos.GrupoListRoute
-
+import com.example.arki_deportes.ui.envivo.PartidosEnVivoScreen
+import com.example.arki_deportes.ui.envivo.PartidosEnVivoViewModel
+import com.example.arki_deportes.ui.envivo.PartidosEnVivoViewModelFactory
+import androidx.lifecycle.ViewModelProvider // Necesario para la Factory
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -206,6 +209,9 @@ class MainActivity : ComponentActivity() {
                                 openDrawer = openDrawer
                             )
                         },
+                        partidosEnVivoRoute = { n ->
+                            PantallaPartidosEnVivo(n, openDrawer = openDrawer) // 👈 PASAR LA NUEVA FUNCIÓN
+                        },
                         catalogsRoute = { navigatorParam -> PantallaCatalogos(navigatorParam, openDrawer = openDrawer) },
                         mencionesRoute = { navigatorParam -> PantallaMenciones(navigatorParam, openDrawer = openDrawer) },
                         equipoProduccionRoute = { navigatorParam -> PantallaEquipoProduccion(navigatorParam, openDrawer = openDrawer) },
@@ -273,6 +279,25 @@ class MainActivity : ComponentActivity() {
                 }
             },
             onOpenDrawer = openDrawer // 👈 Pasamos la función
+        )
+    }
+
+    @Composable
+    fun PantallaPartidosEnVivo(navigator: AppNavigator, openDrawer: () -> Unit) {
+        val catalogRepo = remember(database, configManager) {
+            FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
+        }
+        // Asegúrate de importar PartidosEnVivoViewModel, Factory y Screen
+        val viewModel: PartidosEnVivoViewModel = viewModel(
+            factory = PartidosEnVivoViewModelFactory(catalogRepo)
+        )
+        PartidosEnVivoScreen(
+            viewModel = viewModel,
+            onPartidoClick = { campeonatoId, partidoId ->
+                // Futuro: navegar al monitor de detalle para el narrador
+                // navigator.navigateToMonitor(campeonatoId, partidoId)
+            },
+            onOpenDrawer = openDrawer
         )
     }
 

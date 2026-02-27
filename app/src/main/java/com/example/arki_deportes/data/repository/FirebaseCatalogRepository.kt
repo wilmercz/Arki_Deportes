@@ -21,7 +21,12 @@ import kotlinx.coroutines.tasks.await
 import com.google.firebase.database.ServerValue
 import java.text.Normalizer
 import java.util.Locale
-
+import com.example.arki_deportes.data.model.PartidoEnVivo
+import com.example.arki_deportes.data.model.GolEvento
+import com.example.arki_deportes.data.model.CambioEvento
+import com.example.arki_deportes.data.model.Jugador
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
 /**
  * Repositorio centralizado para operaciones CRUD sobre catálogos en Firebase.
  *
@@ -612,5 +617,74 @@ class FirebaseCatalogRepository(
 
         fileRef.putFile(fileUri).await()
         return fileRef.downloadUrl.await().toString()
+    }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NUEVAS FUNCIONES PARA MONITOR DE PRODUCCIÓN
+// ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Observa el nodo ligero para la lista rápida de partidos en vivo
+     */
+    fun observePartidosJugandoseGlobal(): Flow<List<PartidoEnVivo>> = callbackFlow {
+        val reference = database.reference.child("PartidosJugandose")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val partidos = snapshot.children.mapNotNull { it.getValue(PartidoEnVivo::class.java) }
+                trySend(partidos)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        reference.addValueEventListener(listener)
+        awaitClose { reference.removeEventListener(listener) }
+    }
+
+    /**
+     * Observa los goles de un partido (Ruta original)
+     */
+    fun observeGoles(campeonatoId: String, partidoId: String): Flow<List<GolEvento>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("Partidos").child(partidoId).child("Goles")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val goles = snapshot.children.mapNotNull { it.getValue(GolEvento::class.java) }
+                trySend(goles.sortedBy { it.MINUTO })
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    /**
+     * Observa los cambios de un equipo (Ruta original)
+     */
+    fun observeCambios(campeonatoId: String, partidoId: String, equipoNum: Int): Flow<List<CambioEvento>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("Partidos").child(partidoId).child("CambiosEquipo$equipoNum")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val cambios = snapshot.children.mapNotNull { it.getValue(CambioEvento::class.java) }
+                trySend(cambios)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    /**
+     * Observa la plantilla de jugadores de un equipo
+     */
+    fun observeJugadores(campeonatoId: String, equipoId: String): Flow<List<Jugador>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("Equipos").child(equipoId).child("Jugadores")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val jugadores = snapshot.children.mapNotNull { it.getValue(Jugador::class.java) }
+                trySend(jugadores.sortedBy { it.NUMERO.toIntOrNull() ?: 999 })
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
     }
 }

@@ -12,6 +12,7 @@ object AppDestinations {
     // Pantallas principales
     const val HYBRID_HOME: String = "hybrid_home"
     const val REAL_TIME: String = "real_time"
+    const val PARTIDOS_EN_VIVO: String = "partidos_en_vivo" // 👈 NUEVA RUTA
     const val CATALOGS: String = "catalogs"
 
     const val CAMPEONATO_LIST: String = "campeonato_list"
@@ -39,6 +40,7 @@ object AppDestinations {
     val mainDestinations: List<String> = listOf(
         HYBRID_HOME,
         REAL_TIME,
+        PARTIDOS_EN_VIVO,
         CAMPEONATO_LIST,
         SERIE_LIST,
         EQUIPO_LIST,
@@ -49,37 +51,20 @@ object AppDestinations {
         SETTINGS
     )
 
-    // Argumentos de navegación con parámetros opcionales
     fun campeonatoFormRoute(codigoCampeonato: String? = null): String {
-        return if (codigoCampeonato != null) {
-            "$CAMPEONATO_FORM/$codigoCampeonato"
-        } else {
-            CAMPEONATO_FORM
-        }
+        return if (codigoCampeonato != null) "$CAMPEONATO_FORM/$codigoCampeonato" else CAMPEONATO_FORM
     }
 
     fun grupoFormRoute(codigoGrupo: String? = null): String {
-        return if (codigoGrupo != null) {
-            "$GRUPO_FORM/$codigoGrupo"
-        } else {
-            GRUPO_FORM
-        }
+        return if (codigoGrupo != null) "$GRUPO_FORM/$codigoGrupo" else GRUPO_FORM
     }
 
     fun equipoFormRoute(codigoEquipo: String? = null): String {
-        return if (codigoEquipo != null) {
-            "$EQUIPO_FORM/$codigoEquipo"
-        } else {
-            EQUIPO_FORM
-        }
+        return if (codigoEquipo != null) "$EQUIPO_FORM/$codigoEquipo" else EQUIPO_FORM
     }
 
     fun partidoFormRoute(codigoPartido: String? = null): String {
-        return if (codigoPartido != null) {
-            "$PARTIDO_FORM/$codigoPartido"
-        } else {
-            PARTIDO_FORM
-        }
+        return if (codigoPartido != null) "$PARTIDO_FORM/$codigoPartido" else PARTIDO_FORM
     }
 
     fun serieListRoute(campeonatoId: String): String = "$SERIE_LIST/$campeonatoId"

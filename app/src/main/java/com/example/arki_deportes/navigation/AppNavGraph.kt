@@ -26,6 +26,7 @@ interface AppNavigator {
     fun navigateToHybridHome(clearBackStack: Boolean = false)
     fun navigateToRealTime()
     fun navigateToTiempoReal(campeonatoId: String, partidoId: String, clearBackStack: Boolean = false)
+    fun navigateToPartidosEnVivo()
     fun navigateToCatalogs()
 
     // Listas de catálogos
@@ -48,6 +49,8 @@ interface AppNavigator {
     fun navigateToMenciones()
     fun navigateToEquipoProduccion()
     fun navigateToSettings()
+
+
 }
 
 /**
@@ -95,6 +98,10 @@ private class DefaultAppNavigator(
                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
             }
         }
+    }
+
+    override fun navigateToPartidosEnVivo() {
+        navController.navigate(AppDestinations.PARTIDOS_EN_VIVO) { launchSingleTop = true }
     }
 
     override fun navigateToCatalogs() {
@@ -171,6 +178,7 @@ fun AppNavGraph(
     loginRoute: @Composable (AppNavigator) -> Unit,
     hybridHomeRoute: @Composable (AppNavigator) -> Unit,
     realTimeRoute: @Composable (AppNavigator, String, String) -> Unit,
+    partidosEnVivoRoute: @Composable (AppNavigator) -> Unit,
     catalogsRoute: @Composable (AppNavigator) -> Unit,
     mencionesRoute: @Composable (AppNavigator) -> Unit,
     equipoProduccionRoute: @Composable (AppNavigator) -> Unit,
@@ -190,7 +198,11 @@ fun AppNavGraph(
     ) {
         composable(AppDestinations.LOGIN) { loginRoute(navigator) }
         composable(AppDestinations.HYBRID_HOME) { hybridHomeRoute(navigator) }
-        
+
+        composable(AppDestinations.PARTIDOS_EN_VIVO) {
+            partidosEnVivoRoute(navigator)
+        }
+
         composable(
             route = "tiempo_real/{campeonatoId}/{partidoId}",
             arguments = listOf(

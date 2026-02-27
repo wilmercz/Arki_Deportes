@@ -169,11 +169,10 @@ fun DrawerContent(
         )
 
         DrawerMenuItem(
-            icon = Icons.Default.Home,
-            label = "Partidos Jugando",
-            //isSelected = currentRoute.matchesRoute(AppDestinations.HYBRID_HOME),
-            onClick = {
-                navigator.navigateToHybridHome()
+            icon = Icons.Default.LiveTv, // Usamos icono de TV para En Vivo
+            label = "Partidos En Vivo",
+            isSelected = currentRoute == AppDestinations.PARTIDOS_EN_VIVO,
+            onClick = {        navigator.navigateToPartidosEnVivo() // 👈 USAR LA FUNCIÓN DEL NAVIGATOR
                 onCloseDrawer()
             }
         )
