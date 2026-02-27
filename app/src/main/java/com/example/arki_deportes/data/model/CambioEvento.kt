@@ -22,6 +22,6 @@ data class CambioEvento(
     val SALE_NOMBRE: String = "",
     val SALE_NUMERO: String = "",
     val SALE_CODIGOJUGADOR: String = "",
-    
+    val MINUTO_DEL_CAMBIO: String = "",
     val FECHAALTA: String = ""
 )
