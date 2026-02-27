@@ -271,7 +271,8 @@ class MainActivity : ComponentActivity() {
                 if (!navigator.navigateBack()) {
                     navigator.navigateToHybridHome()
                 }
-            }
+            },
+            onOpenDrawer = openDrawer // 👈 Pasamos la función
         )
     }
 
@@ -634,7 +635,7 @@ class MainActivity : ComponentActivity() {
                 val partido = repository.getPartido(campeonatoId, partidoId)
 
                 if (partido != null) {
-                    val haCaducado = verificarCaducidadPartido(partido)
+                    val haCaducado = verificarSiEstaCaducado(partido.FECHA_PARTIDO)
                     if (haCaducado) {
                         Log.w(TAG, "⚠️ Partido CADUCADO. Se mostrará aviso en Home.")
                         // NO BORRAMOS AUTOMÁTICAMENTE. Solo navegamos.
@@ -662,18 +663,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun verificarCaducidadPartido(partido: Partido): Boolean {
-        try {
-            val fechaPartido = parsearFechaPartido(partido.FECHA_PARTIDO) ?: return false
-            val fechaCaducidad = fechaPartido.plusDays(1)
-            return LocalDate.now().isAfter(fechaCaducidad)
-        } catch (e: Exception) {
-            return false
-        }
-    }
-
-    private fun parsearFechaPartido(fechaStr: String): LocalDate? {
-        if (fechaStr.isBlank()) return null
+    private fun verificarSiEstaCaducado(fechaStr: String?): Boolean {
+        if (fechaStr.isNullOrBlank()) return false
         val formatos = listOf(
             DateTimeFormatter.ofPattern("yyyy-MM-dd"),
             DateTimeFormatter.ofPattern("dd/MM/yyyy"),
@@ -681,18 +672,17 @@ class MainActivity : ComponentActivity() {
             DateTimeFormatter.ofPattern("d/M/yyyy"),
             DateTimeFormatter.ofPattern("dd-MM-yyyy")
         )
+        val hoy = LocalDate.now()
         for (formato in formatos) {
             try {
-                return LocalDate.parse(fechaStr.trim(), formato)
+                val fechaPartido = LocalDate.parse(fechaStr.trim(), formato)
+                val fechaLimite = fechaPartido.plusDays(1)
+                return hoy.isAfter(fechaLimite)
             } catch (e: Exception) {}
         }
-        return null
+        return false
     }
 
-    /**
-     * Elimina el partido asignado del usuario actual en Firebase
-     * ✅ CORREGIDO: Ruta absoluta sin nodoRaiz para coincidir con AuthenticationManager
-     */
     private fun eliminarPartidoAsignado() {
         try {
             val usuarioActual = UsuarioContext.getUsuario() ?: return
@@ -704,7 +694,6 @@ class MainActivity : ComponentActivity() {
                 .child("Usuarios")
                 .child(nombreUsuario)
                 .child("permisos")
-
 
             val actualizaciones = mapOf(
                 "codigoCampeonato" to "NINGUNO",
@@ -798,10 +787,10 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun PantallaBienvenida(navigator: AppNavigator, openDrawer: () -> Unit) {
-        val repository = remember(database, configManager) {
+        val catalogRepo = remember(database, configManager) {
             FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
         }
-        val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory(repository, database))
+        val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory(catalogRepo, database))
         HomeRoute(
             viewModel = homeViewModel,
             onNavigateToPartidos = { navigator.navigateToPartidoList() },

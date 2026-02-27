@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.*
 fun TiempoRealScreen(
     viewModel: TiempoRealViewModel,
     onNavigateBack: () -> Unit,
+    onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -26,6 +27,13 @@ fun TiempoRealScreen(
             TopAppBar(
                 title = { Text("Control de Partido") },
                 navigationIcon = {
+                    // Ponemos el menú a la izquierda para acceso rápido
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Default.Menu, "Abrir menú")
+                    }
+                },
+                actions = {
+                    // Mantenemos el volver como una acción a la derecha
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Volver")
                     }
