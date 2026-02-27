@@ -1,12 +1,16 @@
 package com.example.arki_deportes.ui.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.arki_deportes.data.Repository
+import com.example.arki_deportes.data.context.UsuarioContext
+import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Partido
 import com.example.arki_deportes.data.model.PartidoActual
+import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import com.example.arki_deportes.utils.Constants
+import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,93 +26,176 @@ import java.time.LocalDate
  */
 data class HomeUiState(
     val isLoadingLive: Boolean = true,
-    val isRefreshing: Boolean = true,
+    val isRefreshing: Boolean = false,
     val liveMatch: PartidoActual? = null,
     val isLive: Boolean = false,
     val partidos: List<Partido> = emptyList(),
+    
+    // Asistente de Asignación
+    val campeonatos: List<Campeonato> = emptyList(),
+    val partidosDelCampeonato: List<Partido> = emptyList(),
+    val isLoadingAsistente: Boolean = false,
+    val mensajeAsistente: String? = null,
     val liveError: String? = null,
     val listError: String? = null
 )
 
 /**
- * ViewModel encargado de orquestar la información mostrada en la pantalla Home.
+ * ViewModel mejorado para manejar el asistente de asignación en tiempo real.
  */
 class HomeViewModel(
-    private val repository: Repository,
+    private val repository: FirebaseCatalogRepository,
+    private val database: FirebaseDatabase,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
+    private val TAG = "HomeViewModel"
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
         observarPartidoActual()
-        refrescarPartidos()
+        observarCampeonatos()
     }
 
     /**
-     * Refresca manualmente la lista de partidos dentro del rango configurado.
+     * Observa campeonatos en tiempo real para el selector
      */
-    fun refrescarPartidos(fechaReferencia: LocalDate = LocalDate.now()) {
+    private fun observarCampeonatos() {
         viewModelScope.launch(dispatcher) {
-            _uiState.update { it.copy(isRefreshing = true, listError = null) }
+            repository.observeCampeonatos()
+                .catch { e -> Log.e(TAG, "Error observando campeonatos: ${e.message}") }
+                .collect { lista ->
+                    _uiState.update { it.copy(campeonatos = lista) }
+                }
+        }
+    }
+
+    /**
+     * Observa los partidos de un campeonato seleccionado
+     */
+    fun cargarPartidosDeCampeonato(campeonatoCodigo: String) {
+        viewModelScope.launch(dispatcher) {
+            _uiState.update { it.copy(isLoadingAsistente = true) }
+            repository.observePartidos(campeonatoCodigo)
+                .catch { e -> 
+                    _uiState.update { it.copy(isLoadingAsistente = false, mensajeAsistente = "Error al cargar partidos") }
+                }
+                .collect { lista ->
+                    _uiState.update { it.copy(
+                        partidosDelCampeonato = lista,
+                        isLoadingAsistente = false
+                    )}
+                }
+        }
+    }
+
+    /**
+     * Asigna el partido al perfil del usuario y marca el partido con el nombre del operador
+     */
+    fun asignarPartido(campeonatoCodigo: String, partidoCodigo: String) {
+        val usuarioActual = UsuarioContext.getUsuario() ?: return
+        val idUsuario = usuarioActual.usuario // El ID de login
+        val nombreDisplay = usuarioActual.nombre // "Carlos V"
+        
+        viewModelScope.launch(dispatcher) {
             try {
-                val partidos = repository.obtenerPartidosRango(fechaReferencia)
-                _uiState.update { state ->
-                    state.copy(
-                        partidos = partidos,
-                        isRefreshing = false
-                    )
-                }
+                // 1. Actualizar permisos del usuario en la ruta global
+                val rutaPermisos = database.reference
+                    .child("AppConfig")
+                    .child("Usuarios")
+                    .child(idUsuario)
+                    .child("permisos")
+
+                val permisosUpdate = mapOf(
+                    "codigoCampeonato" to campeonatoCodigo,
+                    "codigoPartido" to partidoCodigo
+                )
+
+                // 2. Actualizar el campo OPERADOR en el nodo del partido
+                val nodoRaiz = repository.campeonatosReference().parent?.parent?.key ?: Constants.FIREBASE_NODO_RAIZ_DEFAULT
+                // Nota: Usamos la referencia del repositorio para ser consistentes con el nodoRaiz
+                val rutaPartido = repository.campeonatosReference()
+                    .child(campeonatoCodigo)
+                    .child("Partidos")
+                    .child(partidoCodigo)
+
+                val partidoUpdate = mapOf(
+                    "OPERADOR" to nombreDisplay,
+                    "TIMESTAMP_ASIGNACION" to System.currentTimeMillis()
+                )
+
+                // Realizar ambas actualizaciones
+                rutaPermisos.updateChildren(permisosUpdate)
+                rutaPartido.updateChildren(partidoUpdate)
+
+                _uiState.update { it.copy(mensajeAsistente = "¡Partido asignado con éxito a $nombreDisplay!") }
             } catch (e: Exception) {
-                _uiState.update { state ->
-                    state.copy(
-                        isRefreshing = false,
-                        listError = e.message ?: Constants.Mensajes.ERROR_DESCONOCIDO
-                    )
-                }
+                Log.e(TAG, "Error en asignación: ${e.message}")
+                _uiState.update { it.copy(mensajeAsistente = "Error al procesar la asignación") }
             }
         }
     }
 
-    private fun observarPartidoActual() {
+    fun limpiarAsignacionManual() {
+        val usuarioActual = UsuarioContext.getUsuario() ?: return
+        val idUsuario = usuarioActual.usuario
+        
         viewModelScope.launch(dispatcher) {
-            repository.observePartidoActual()
-                .catch { throwable ->
-                    _uiState.update { state ->
-                        state.copy(
-                            isLoadingLive = false,
-                            liveError = throwable.message ?: Constants.Mensajes.ERROR_DESCONOCIDO
-                        )
-                    }
+            try {
+                // Obtenemos los datos actuales de asignación para limpiar también el nodo del partido
+                val campeonatoId = usuarioActual.permisos.codigoCampeonato
+                val partidoId = usuarioActual.permisos.codigoPartido
+
+                // 1. Limpiar permisos del usuario
+                database.reference
+                    .child("AppConfig")
+                    .child("Usuarios")
+                    .child(idUsuario)
+                    .child("permisos")
+                    .updateChildren(mapOf("codigoCampeonato" to "NINGUNO", "codigoPartido" to "NINGUNO"))
+                
+                // 2. Limpiar OPERADOR en el partido si existía
+                if (!campeonatoId.isNullOrBlank() && campeonatoId != "NINGUNO" && 
+                    !partidoId.isNullOrBlank() && partidoId != "NINGUNO") {
+                    
+                    repository.campeonatosReference()
+                        .child(campeonatoId)
+                        .child("Partidos")
+                        .child(partidoId)
+                        .child("OPERADOR")
+                        .setValue("NINGUNO")
                 }
-                .collect { partido ->
-                    val partidoNormalizado = partido.normalizado()
-                    val hayPartido = partidoNormalizado.hayPartido()
-                    _uiState.update { state ->
-                        state.copy(
-                            liveMatch = if (hayPartido) partidoNormalizado else null,
-                            isLive = hayPartido && partidoNormalizado.estaEnTransmision(),
-                            isLoadingLive = false,
-                            liveError = null
-                        )
-                    }
-                }
+
+                UsuarioContext.limpiarPartidoAsignado()
+                _uiState.update { it.copy(mensajeAsistente = "Asignación liberada") }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al limpiar: ${e.message}")
+            }
         }
+    }
+
+    fun refrescarPartidos() {
+        // Implementar si es necesario
+    }
+
+    private fun observarPartidoActual() {
+        // Implementar si es necesario
     }
 }
 
 /**
- * Factory manual para proveer dependencias al HomeViewModel.
+ * Factory actualizada para inyectar FirebaseCatalogRepository.
  */
 class HomeViewModelFactory(
-    private val repository: Repository,
+    private val repository: FirebaseCatalogRepository,
+    private val database: FirebaseDatabase,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(repository, dispatcher) as T
+            return HomeViewModel(repository, database, dispatcher) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -303,7 +303,7 @@ data class Partido(
     // CONTROL DE CORRESPONSAL
     // ═══════════════════════════════════════════════════════════════════════
 
-    val usuarioAsignado: String = "",
+    val OPERADOR: String = "",
     val timestampAsignacion: Long? = null,
 
     // ==============================
@@ -616,7 +616,7 @@ data class Partido(
             "LUGAR" to LUGAR,
             "FECHA_PARTIDO" to FECHA_PARTIDO,
             "HORA_PARTIDO" to HORA_PARTIDO,
-            "usuarioAsignado" to usuarioAsignado,
+            "OPERADOR" to OPERADOR,
             "timestampAsignacion" to timestampAsignacion
         )
     }
