@@ -27,6 +27,7 @@ interface AppNavigator {
     fun navigateToRealTime()
     fun navigateToTiempoReal(campeonatoId: String, partidoId: String, clearBackStack: Boolean = false)
     fun navigateToPartidosEnVivo()
+    fun navigateToMonitorNarrador(campeonatoId: String, partidoId: String)
     fun navigateToCatalogs()
 
     // Listas de catálogos
@@ -104,6 +105,11 @@ private class DefaultAppNavigator(
         navController.navigate(AppDestinations.PARTIDOS_EN_VIVO) { launchSingleTop = true }
     }
 
+    override fun navigateToMonitorNarrador(campeonatoId: String, partidoId: String) {
+        val route = "monitor_narrador/$campeonatoId/$partidoId"
+        navController.navigate(route) { launchSingleTop = true }
+    }
+
     override fun navigateToCatalogs() {
         navController.navigate(AppDestinations.CATALOGS) { launchSingleTop = true }
     }
@@ -179,6 +185,7 @@ fun AppNavGraph(
     hybridHomeRoute: @Composable (AppNavigator) -> Unit,
     realTimeRoute: @Composable (AppNavigator, String, String) -> Unit,
     partidosEnVivoRoute: @Composable (AppNavigator) -> Unit,
+    monitorNarradorRoute: @Composable (AppNavigator, String, String) -> Unit,
     catalogsRoute: @Composable (AppNavigator) -> Unit,
     mencionesRoute: @Composable (AppNavigator) -> Unit,
     equipoProduccionRoute: @Composable (AppNavigator) -> Unit,
@@ -213,6 +220,18 @@ fun AppNavGraph(
             val campeonatoId = backStackEntry.arguments?.getString("campeonatoId").orEmpty()
             val partidoId = backStackEntry.arguments?.getString("partidoId").orEmpty()
             realTimeRoute(navigator, campeonatoId, partidoId)
+        }
+
+        composable(
+            route = "monitor_narrador/{campeonatoId}/{partidoId}",
+            arguments = listOf(
+                navArgument("campeonatoId") { type = NavType.StringType },
+                navArgument("partidoId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val cId = backStackEntry.arguments?.getString("campeonatoId").orEmpty()
+            val pId = backStackEntry.arguments?.getString("partidoId").orEmpty()
+            monitorNarradorRoute(navigator, cId, pId)
         }
 
         composable(AppDestinations.CATALOGS) { catalogsRoute(navigator) }

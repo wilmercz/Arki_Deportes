@@ -626,15 +626,30 @@ class FirebaseCatalogRepository(
 
     /**
      * Observa el nodo ligero para la lista rápida de partidos en vivo
+     * ✅ CORREGIDO: Ahora usa rootReference para apuntar a /ARKI_DEPORTES/PartidosJugandose
      */
     fun observePartidosJugandoseGlobal(): Flow<List<PartidoEnVivo>> = callbackFlow {
-        val reference = database.reference.child("PartidosJugandose")
+        // 📍 Cambiamos database.reference por rootReference
+        val reference = rootReference.child("PartidosJugandose")
+
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val partidos = snapshot.children.mapNotNull { it.getValue(PartidoEnVivo::class.java) }
+                val partidos = snapshot.children.mapNotNull { child ->
+                    try {
+                        child.getValue(PartidoEnVivo::class.java)
+                    } catch (e: Exception) {
+                        Log.e("FirebaseCatalogRepo", "❌ Error parseando partido en vivo: ${e.message}")
+                        null
+                    }
+                }
                 trySend(partidos)
             }
-            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+
+            override fun onCancelled(error: DatabaseError) {
+                // 🛠️ MEJORA: Log del error y evitamos el crash fatal enviando lista vacía
+                Log.e("FirebaseCatalogRepo", "⚠️ Error en PartidosJugandose: ${error.message}")
+                trySend(emptyList())
+            }
         }
         reference.addValueEventListener(listener)
         awaitClose { reference.removeEventListener(listener) }

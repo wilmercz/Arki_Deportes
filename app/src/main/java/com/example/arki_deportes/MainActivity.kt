@@ -130,6 +130,10 @@ import com.example.arki_deportes.ui.envivo.PartidosEnVivoScreen
 import com.example.arki_deportes.ui.envivo.PartidosEnVivoViewModel
 import com.example.arki_deportes.ui.envivo.PartidosEnVivoViewModelFactory
 import androidx.lifecycle.ViewModelProvider // Necesario para la Factory
+import com.example.arki_deportes.ui.monitor.MonitorNarradorScreen
+import com.example.arki_deportes.ui.monitor.MonitorNarradorViewModel
+import com.example.arki_deportes.ui.monitor.MonitorNarradorViewModelFactory
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -211,6 +215,9 @@ class MainActivity : ComponentActivity() {
                         },
                         partidosEnVivoRoute = { n ->
                             PantallaPartidosEnVivo(n, openDrawer = openDrawer) // 👈 PASAR LA NUEVA FUNCIÓN
+                        },
+                        monitorNarradorRoute = { n, cId, pId ->
+                            PantallaMonitorNarrador(n, cId, pId, openDrawer = openDrawer)
                         },
                         catalogsRoute = { navigatorParam -> PantallaCatalogos(navigatorParam, openDrawer = openDrawer) },
                         mencionesRoute = { navigatorParam -> PantallaMenciones(navigatorParam, openDrawer = openDrawer) },
@@ -294,9 +301,30 @@ class MainActivity : ComponentActivity() {
         PartidosEnVivoScreen(
             viewModel = viewModel,
             onPartidoClick = { campeonatoId, partidoId ->
-                // Futuro: navegar al monitor de detalle para el narrador
-                // navigator.navigateToMonitor(campeonatoId, partidoId)
+                // ✅ AHORA NAVEGA AL MONITOR:
+                navigator.navigateToMonitorNarrador(campeonatoId, partidoId)
             },
+            onOpenDrawer = openDrawer
+        )
+    }
+
+    // Añadir esta función en MainActivity
+    @Composable
+    fun PantallaMonitorNarrador(
+        navigator: AppNavigator,
+        campeonatoId: String,
+        partidoId: String,
+        openDrawer: () -> Unit
+    ) {
+        val catalogRepo = remember(database, configManager) {
+            FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
+        }
+        val viewModel: MonitorNarradorViewModel = viewModel(
+            factory = MonitorNarradorViewModelFactory(catalogRepo, campeonatoId, partidoId)
+        )
+        MonitorNarradorScreen(
+            viewModel = viewModel,
+            onBack = { navigator.navigateBack() },
             onOpenDrawer = openDrawer
         )
     }
