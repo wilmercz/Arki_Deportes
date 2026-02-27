@@ -168,7 +168,15 @@ fun DrawerContent(
             }
         )
 
-
+        DrawerMenuItem(
+            icon = Icons.Default.Home,
+            label = "Partidos Jugando",
+            //isSelected = currentRoute.matchesRoute(AppDestinations.HYBRID_HOME),
+            onClick = {
+                navigator.navigateToHybridHome()
+                onCloseDrawer()
+            }
+        )
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 

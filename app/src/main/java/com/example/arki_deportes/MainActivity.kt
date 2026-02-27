@@ -1071,6 +1071,7 @@ class MainActivity : ComponentActivity() {
      * Actualiza la ruta: /AppConfig/Usuarios/{usuario}/permisos
      * Elimina los campos: codigoCampeonato y codigoPartido
      */
+
     private fun eliminarPartidoAsignado() {
         try {
             val usuario = UsuarioContext.getUsuario()
@@ -1080,12 +1081,8 @@ class MainActivity : ComponentActivity() {
             }
 
             val nombreUsuario = usuario.usuario
-            if (nombreUsuario.isBlank()) {
-                Log.w(TAG, "⚠️ Nombre de usuario vacío")
-                return
-            }
+            if (nombreUsuario.isBlank()) return
 
-            // ✅ Ruta en Firebase: /AppConfig/Usuarios/{nombreUsuario}/permisos
             val nodoRaiz = configManager.obtenerNodoRaiz()
             val rutaPermisos = database.reference
                 .child(nodoRaiz)
@@ -1094,30 +1091,28 @@ class MainActivity : ComponentActivity() {
                 .child(nombreUsuario)
                 .child("permisos")
 
-            // ✅ Crear map con los valores a actualizar (null = eliminar)
+            Log.d(TAG, "🧹 Limpiando asignación caducada en:")
+
+            // Usamos "NINGUNO" en lugar de null para asegurar que Firebase actualice el valor
+            // y nuestras validaciones posteriores (isNullOrBlank || == "NINGUNO") lo detecten.
             val actualizaciones = mapOf(
-                "codigoCampeonato" to null,
-                "codigoPartido" to null
+                "codigoCampeonato" to "NINGUNO",
+                "codigoPartido" to "NINGUNO"
             )
 
-            // ✅ Actualizar Firebase
             rutaPermisos.updateChildren(actualizaciones)
                 .addOnSuccessListener {
-                    Log.d(TAG, "✅ Partido asignado eliminado correctamente de Firebase")
-                    Log.d(TAG, "   Usuario: $nombreUsuario")
-
-                    // ✅ Actualizar contexto local
+                    Log.d(TAG, "✅ Firebase: Asignación reseteada a NINGUNO")
                     UsuarioContext.limpiarPartidoAsignado()
                 }
                 .addOnFailureListener { error ->
-                    Log.e(TAG, "❌ Error al eliminar partido asignado de Firebase: ${error.message}", error)
+                    Log.e(TAG, "❌ Firebase Error al limpiar: ${error.message}")
                 }
 
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error al eliminar partido asignado: ${e.message}", e)
+            Log.e(TAG, "❌ Error crítico al eliminar partido asignado: ${e.message}")
         }
     }
-
 
 
 
@@ -1471,6 +1466,7 @@ class MainActivity : ComponentActivity() {
         HomeRoute(
             viewModel = homeViewModel,
             onNavigateToPartidos = { navigator.navigateToPartidoList() },
+            onNavigateToCampeonatos = { navigator.navigateToCampeonatoList() },
             onOpenDrawer = openDrawer
         )
     }

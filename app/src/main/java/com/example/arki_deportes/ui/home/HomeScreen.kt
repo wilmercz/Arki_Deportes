@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -40,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.arki_deportes.data.context.CampeonatoContext
+import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Partido
 import com.example.arki_deportes.data.model.PartidoActual
 import com.example.arki_deportes.utils.Constants
@@ -57,14 +60,19 @@ import java.util.Locale
 fun HomeRoute(
     viewModel: HomeViewModel,
     onNavigateToPartidos: () -> Unit,
+    onNavigateToCampeonatos: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenDrawer: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val campeonatoActivo by CampeonatoContext.campeonatoActivo.collectAsState()
+
     HomeScreen(
         state = uiState,
         onRefresh = { viewModel.refrescarPartidos() },
         onSearchMatches = onNavigateToPartidos,
+        onSelectCampeonato = onNavigateToCampeonatos,
+        campeonatoActivo = campeonatoActivo,
         modifier = modifier,
         onOpenDrawer = onOpenDrawer
     )
@@ -76,6 +84,8 @@ fun HomeScreen(
     state: HomeUiState,
     onRefresh: () -> Unit,
     onSearchMatches: () -> Unit,
+    onSelectCampeonato: () -> Unit,
+    campeonatoActivo: Campeonato?,
     modifier: Modifier = Modifier,
     onOpenDrawer: (() -> Unit)? = null
 ) {
@@ -135,7 +145,11 @@ fun HomeScreen(
                         if (state.listError != null) {
                             ErrorMessage(message = state.listError)
                         } else {
-                            EmptyMatchesMessage(onSearchMatches = onSearchMatches)
+                            EmptyMatchesMessage(
+                                onSearchMatches = onSearchMatches,
+                                onSelectCampeonato = onSelectCampeonato,
+                                campeonatoActivo = campeonatoActivo
+                            )
                         }
                     }
                 }
@@ -417,7 +431,13 @@ private fun DisciplinaryStats(partido: PartidoActual) {
 }
 
 @Composable
-private fun EmptyMatchesMessage(onSearchMatches: () -> Unit) {
+private fun EmptyMatchesMessage(
+    onSearchMatches: () -> Unit,
+    onSelectCampeonato: () -> Unit,
+    campeonatoActivo: Campeonato?
+) {
+    val hayCampeonato = campeonatoActivo != null
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -442,37 +462,53 @@ private fun EmptyMatchesMessage(onSearchMatches: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "⚽📅",
+                    text = if (hayCampeonato) "⚽📅" else "🏆🚩",
                     fontSize = 36.sp
                 )
 
                 Text(
-                    text = "No hay partido asignado",
+                    text = if (hayCampeonato) "No hay partido asignado" else "Falta seleccionar campeonato",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
 
-
                 Text(
-                    text = "Pero puedes buscar manualmente un partido disponible",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = if (hayCampeonato)
+                        "Campeonato: ${campeonatoActivo?.CAMPEONATO}\nBusca un partido para comenzar el control."
+                    else
+                        "Para ver los partidos disponibles, primero debes elegir un campeonato.",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Button(
-                    onClick = onSearchMatches,
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Buscar Partidos")
+                if (hayCampeonato) {
+                    Button(
+                        onClick = onSearchMatches,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Buscar Partidos")
+                    }
+                } else {
+                    Button(
+                        onClick = onSelectCampeonato,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.EmojiEvents,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Seleccionar Campeonato")
+                    }
                 }
             }
         }
