@@ -1470,6 +1470,7 @@ class MainActivity : ComponentActivity() {
         )
         HomeRoute(
             viewModel = homeViewModel,
+            onNavigateToPartidos = { navigator.navigateToPartidoList() },
             onOpenDrawer = openDrawer
         )
     }

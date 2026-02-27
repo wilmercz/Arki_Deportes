@@ -4,15 +4,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.rounded.LiveTv
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +56,7 @@ import java.util.Locale
 @Composable
 fun HomeRoute(
     viewModel: HomeViewModel,
+    onNavigateToPartidos: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenDrawer: (() -> Unit)? = null
 ) {
@@ -58,6 +64,7 @@ fun HomeRoute(
     HomeScreen(
         state = uiState,
         onRefresh = { viewModel.refrescarPartidos() },
+        onSearchMatches = onNavigateToPartidos,
         modifier = modifier,
         onOpenDrawer = onOpenDrawer
     )
@@ -68,6 +75,7 @@ fun HomeRoute(
 fun HomeScreen(
     state: HomeUiState,
     onRefresh: () -> Unit,
+    onSearchMatches: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenDrawer: (() -> Unit)? = null
 ) {
@@ -127,7 +135,7 @@ fun HomeScreen(
                         if (state.listError != null) {
                             ErrorMessage(message = state.listError)
                         } else {
-                            EmptyMatchesMessage()
+                            EmptyMatchesMessage(onSearchMatches = onSearchMatches)
                         }
                     }
                 }
@@ -409,7 +417,7 @@ private fun DisciplinaryStats(partido: PartidoActual) {
 }
 
 @Composable
-private fun EmptyMatchesMessage() {
+private fun EmptyMatchesMessage(onSearchMatches: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -439,18 +447,33 @@ private fun EmptyMatchesMessage() {
                 )
 
                 Text(
-                    text = "No hay partidos programados",
+                    text = "No hay partido asignado",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
                 )
 
+
                 Text(
-                    text = "Dentro del rango de fechas configurado.\nVuelve más tarde o desliza para actualizar.",
+                    text = "Pero puedes buscar manualmente un partido disponible",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onSearchMatches,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Buscar Partidos")
+                }
             }
         }
 

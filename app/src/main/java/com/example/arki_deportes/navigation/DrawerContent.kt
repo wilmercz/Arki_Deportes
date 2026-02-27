@@ -108,7 +108,7 @@ fun DrawerContent(
 
         DrawerMenuItem(
             icon = Icons.Default.VideoLibrary,
-            label = "Tiempo Real",
+            label = "Control Partido",
             isSelected = currentRoute.matchesRoute(AppDestinations.REAL_TIME),
             onClick = {
                 // Cierra el drawer de una para que se sienta rápido
