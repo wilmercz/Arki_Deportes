@@ -187,7 +187,7 @@ class EquipoFormViewModel(
                     val codEquipo = "PROV_${prov.nombre.replace(" ", "_")}_$timestamp"
                     Equipo(
                         CODIGOEQUIPO = codEquipo,
-                        EQUIPO = EcuadorProvincias.generarNombreCorto(prov.nombre),
+                        EQUIPO = abreviarNombreLargo(prov.nombre),
                         PROVINCIA = prov.nombre,
                         FECHAALTA = fechaHoy,
                         CODIGOCAMPEONATO = campeonatoId,
@@ -230,7 +230,7 @@ class EquipoFormViewModel(
 
         val equipo = Equipo(
             CODIGOEQUIPO = codigo,
-            EQUIPO = form.nombreCorto,
+            EQUIPO = abreviarNombreLargo(form.nombreCorto.ifBlank { form.nombreCompleto }),
             PROVINCIA = form.provincia,
             FECHAALTA = form.fechaAlta.ifBlank { currentDate() },
             ESCUDOLOCAL = form.escudoLocal,
@@ -312,6 +312,28 @@ class EquipoFormViewModel(
             .trim('_')
         val safeBase = if (base.isBlank()) "EQUIPO" else base
         return "${safeBase}_${timestamp}"
+    }
+
+    /**
+     * Aplica reglas de abreviación para nombres de provincias/equipos muy largos
+     * según lo solicitado por el usuario.
+     */
+    private fun abreviarNombreLargo(nombre: String): String {
+        val n = nombre.trim()
+        return when {
+            // Reglas específicas solicitadas
+            n.contains("SANTO DOMINGO", ignoreCase = true) -> "STO. DOMINGO"
+            n.contains("ZAMORA CHINCHIPE", ignoreCase = true) -> "ZAMORA CH."
+            n.contains("MORONA SANTIAGO", ignoreCase = true) -> "MORONA S."
+            n.contains("SANTA ELENA", ignoreCase = true) -> "SANTA ELENA"
+
+            // No truncar si el nombre es razonable (ej: AZUAY tiene 5 letras, no debe ser AZU)
+            n.length <= 12 -> n
+
+            // Truncado inteligente solo para nombres extremadamente largos que no están en la lista
+            n.length > 15 -> n.take(12) + ".."
+            else -> n
+        }
     }
 
     private fun currentDate(): String = LocalDate.now().format(DATE_FORMATTER)

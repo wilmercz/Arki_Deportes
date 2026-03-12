@@ -114,9 +114,15 @@ class PartidoListViewModel(
     }
 
     fun deletePartido(codigo: String) {
+        val campeonatoId = _uiState.value.campeonatoActivo
+        if (campeonatoId == null) {
+            _uiState.update { it.copy(errorMessage = "No hay un campeonato seleccionado") }
+            return
+        }
+
         viewModelScope.launch {
             try {
-                repository.deletePartido(codigo)
+                repository.deletePartido(campeonatoId, codigo)
                 // El observePartidos actualizará automáticamente la lista
             } catch (e: Exception) {
                 _uiState.update {

@@ -25,8 +25,7 @@ import com.example.arki_deportes.data.model.PartidoEnVivo
 import com.example.arki_deportes.data.model.GolEvento
 import com.example.arki_deportes.data.model.CambioEvento
 import com.example.arki_deportes.data.model.Jugador
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.channels.awaitClose
+
 /**
  * Repositorio centralizado para operaciones CRUD sobre catálogos en Firebase.
  *
@@ -447,8 +446,30 @@ class FirebaseCatalogRepository(
         equiposPorCampeonatoReference(campeonatoId).child(codigoEquipo).removeValue().await()
     }
 
-    suspend fun deletePartido(codigoPartido: String) {
-        partidosReference().child(codigoPartido).removeValue().await()
+    /**
+     * Elimina un partido de la base de datos
+     * @param campeonatoId ID del campeonato al que pertenece el partido
+     * @param codigoPartido ID del partido a eliminar
+     */
+    suspend fun deletePartido(campeonatoId: String, codigoPartido: String) {
+        if (campeonatoId.isBlank() || codigoPartido.isBlank()) {
+            Log.e("FirebaseCatalogRepo", "❌ No se puede eliminar el partido: IDs vacíos")
+            return
+        }
+
+        campeonatosReference()
+            .child(campeonatoId)
+            .child("Partidos")
+            .child(codigoPartido)
+            .removeValue()
+            .await()
+            
+        // También intentar removerlo de partidos en vivo por si acaso
+        try {
+            removerDePartidosJugandose(codigoPartido)
+        } catch (e: Exception) {
+            Log.e("FirebaseCatalogRepo", "⚠️ No se pudo remover de PartidosJugandose: ${e.message}")
+        }
     }
 
     /**

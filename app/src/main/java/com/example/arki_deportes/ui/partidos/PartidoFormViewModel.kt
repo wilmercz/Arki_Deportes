@@ -526,12 +526,13 @@ class PartidoFormViewModel(
 
     fun deletePartido() {
         val codigo = _uiState.value.formData.codigoPartido
-        if (codigo.isBlank() || _uiState.value.isDeleting) return
+        val campeonatoId = _uiState.value.formData.campeonatoCodigo
+        if (codigo.isBlank() || campeonatoId.isBlank() || _uiState.value.isDeleting) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isDeleting = true) }
             try {
-                repository.deletePartido(codigo)
+                repository.deletePartido(campeonatoId, codigo)
                 _uiState.update {
                     it.copy(
                         isDeleting = false,
@@ -549,6 +550,7 @@ class PartidoFormViewModel(
             }
         }
     }
+
 
     private fun generateCodigo(equipo1: String, equipo2: String, timestamp: Long): String {
         val base1 = equipo1.uppercase(Locale.getDefault()).replace("[^A-Z0-9]".toRegex(), "_").trim('_')

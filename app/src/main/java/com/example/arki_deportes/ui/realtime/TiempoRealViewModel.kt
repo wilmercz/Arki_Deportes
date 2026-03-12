@@ -1677,7 +1677,7 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             val updates = mapOf(
                 "ACCION_JUGADA_MINUTO" to texto,
-                "ACCION_JUGADA_PLAY_" to rutaAudio,
+                "ACCION_AUDIO_URL" to rutaAudio,
                 "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
             )
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -1706,7 +1706,7 @@ class TiempoRealViewModel(
 
                 val updates = mapOf(
                     "ACCION_JUGADA_MINUTO" to texto,
-                    "ACCION_JUGADA_PLAY_" to rutaAudio,
+                    "ACCION_AUDIO_URL" to rutaAudio,
                     "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
                 )
 
