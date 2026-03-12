@@ -57,6 +57,15 @@ import com.example.arki_deportes.data.model.Serie
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.SportsFootball
+import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.KeyboardHide
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.material.icons.filled.Place
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +78,7 @@ fun PartidoFormScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(codigoPartido) {
         viewModel.loadPartido(codigoPartido)
@@ -96,6 +106,11 @@ fun PartidoFormScreen(
                 navigationIcon = {
                     TextButton(onClick = onBack) { Text("Cancelar") }
                 },
+                actions = {
+                    IconButton(onClick = { keyboardController?.hide() }) {
+                        Icon(Icons.Default.KeyboardHide, contentDescription = "Ocultar teclado")
+                    }
+                },
                 scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
             )
         },
@@ -112,12 +127,61 @@ fun PartidoFormScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
-            CampeonatoDropdown(
-                campeonatos = uiState.campeonatos,
-                selectedCodigo = uiState.formData.campeonatoCodigo,
-                onSelected = viewModel::onCampeonatoSelected,
-                showError = uiState.showValidationErrors && uiState.formData.campeonatoCodigo.isBlank()
-            )
+
+            // 💡 MEJORA: Si ya hay un campeonato seleccionado (del contexto o edición),
+            // mostramos un indicador claro en lugar de repetir la elección.
+            if (uiState.formData.campeonatoCodigo.isNotBlank()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SportsFootball,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.size(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Campeonato Seleccionado",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = uiState.formData.campeonatoNombre.ifBlank {
+                                    // Búsqueda de respaldo si el nombre aún no carga en el form
+                                    uiState.campeonatos.firstOrNull { it.CODIGO == uiState.formData.campeonatoCodigo }?.CAMPEONATO ?: "Cargando..."
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        // Permitimos cambiar el campeonato solo si es un partido NUEVO.
+                        // En modo EDICIÓN no se debería cambiar el campeonato.
+                        if (!uiState.isEditMode) {
+                            TextButton(onClick = { viewModel.onCampeonatoSelected("") }) {
+                                Text("Cambiar")
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Si está vacío, mostramos el selector normal
+
+                CampeonatoDropdown(
+                    campeonatos = uiState.campeonatos,
+                    selectedCodigo = uiState.formData.campeonatoCodigo,
+                    onSelected = viewModel::onCampeonatoSelected,
+                    showError = uiState.showValidationErrors && uiState.formData.campeonatoCodigo.isBlank()
+                )
+            }
+
 
 
             // 1. FILTROS DE SELECCIÓN
@@ -160,42 +224,15 @@ fun PartidoFormScreen(
                 }
             }
 
-            // 3. BOTÓN GENERAR TEXTO
-            OutlinedButton(onClick = { viewModel.generarTextoSocial() }) {
-                Icon(Icons.Default.AutoFixHigh, contentDescription = null)
-                Text("Generar Texto Social")
-            }
-
-
-            GrupoDropdown(
-                grupos = uiState.grupos,
-                selectedCodigo = uiState.formData.grupoCodigo,
-                onSelected = viewModel::onGrupoSelected,
-                enabled = uiState.formData.campeonatoCodigo.isNotBlank()
-            )
-
-            EquipoDropdown(
-                label = "Equipo 1",
-                equipos = uiState.equipos,
-                selectedCodigo = uiState.formData.equipo1Codigo,
-                onSelected = viewModel::onEquipo1Selected,
-                showError = uiState.showValidationErrors && uiState.formData.equipo1Codigo.isBlank()
-            )
-
-            EquipoDropdown(
-                label = "Equipo 2",
-                equipos = uiState.equipos.filter { it.CODIGOEQUIPO != uiState.formData.equipo1Codigo },
-                selectedCodigo = uiState.formData.equipo2Codigo,
-                onSelected = viewModel::onEquipo2Selected,
-                showError = uiState.showValidationErrors && uiState.formData.equipo2Codigo.isBlank()
-            )
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = uiState.formData.fechaPartido,
                     onValueChange = viewModel::onFechaChange,
-                    label = { Text("Fecha (yyyy-MM-dd)") },
+                    label = { Text("Fecha del Partido") },
+                    placeholder = { Text("yyyy-MM-dd") },
                     modifier = Modifier.weight(1f),
+                    leadingIcon = { Icon(Icons.Default.Event, contentDescription = null) },
                     isError = uiState.showValidationErrors && uiState.formData.fechaPartido.isBlank(),
                     supportingText = {
                         if (uiState.showValidationErrors && uiState.formData.fechaPartido.isBlank()) {
@@ -206,8 +243,10 @@ fun PartidoFormScreen(
                 OutlinedTextField(
                     value = uiState.formData.horaPartido,
                     onValueChange = viewModel::onHoraChange,
-                    label = { Text("Hora (HH:mm)") },
+                    label = { Text("Hora") },
+                    placeholder = { Text("HH:mm") },
                     modifier = Modifier.weight(1f),
+                    leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null) },
                     isError = uiState.showValidationErrors && uiState.formData.horaPartido.isBlank(),
                     supportingText = {
                         if (uiState.showValidationErrors && uiState.formData.horaPartido.isBlank()) {
@@ -217,32 +256,36 @@ fun PartidoFormScreen(
                 )
             }
 
-            OutlinedTextField(
-                value = uiState.formData.estadio,
-                onValueChange = viewModel::onEstadioChange,
-                label = { Text("Estadio/Cancha") },
-                modifier = Modifier.fillMaxWidth(),
-                isError = uiState.showValidationErrors && uiState.formData.estadio.isBlank(),
-                supportingText = {
-                    if (uiState.showValidationErrors && uiState.formData.estadio.isBlank()) {
-                        Text(Constants.Mensajes.CAMPO_OBLIGATORIO)
-                    }
-                }
-            )
-
+            // 🗺️ Provincia (Se carga sola del campeonato)
             OutlinedTextField(
                 value = uiState.formData.provincia,
                 onValueChange = viewModel::onProvinciaChange,
                 label = { Text("Provincia") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.Default.Place, contentDescription = null) }
             )
 
-            OutlinedTextField(
+
+            SugerenciaDropdownField(
+                label = "Estadio/Cancha",
+                value = uiState.formData.estadio,
+                onValueChange = viewModel::onEstadioChange,
+                sugerencias = uiState.estadiosSugeridos
+            )
+
+            SugerenciaDropdownField(
+                label = "Lugar",
                 value = uiState.formData.lugar,
                 onValueChange = viewModel::onLugarChange,
-                label = { Text("Lugar") },
-                modifier = Modifier.fillMaxWidth()
+                sugerencias = uiState.lugaresSugeridos
             )
+
+
+            // 3. BOTÓN GENERAR TEXTO
+            OutlinedButton(onClick = { viewModel.generarTextoSocial() }) {
+                Icon(Icons.Default.AutoFixHigh, contentDescription = null)
+                Text("Generar Texto Social")
+            }
 
             OutlinedTextField(
                 value = uiState.formData.textoFacebook,
@@ -295,7 +338,7 @@ fun PartidoFormScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                /*DESACTIVADO TEMPORALMENTE
+
 
                 Button(
                     onClick = viewModel::savePartido,
@@ -307,8 +350,6 @@ fun PartidoFormScreen(
                     Text(if (uiState.isSaving) "Guardando..." else "Guardar")
                 }
 
-
-                 */
 
 
                 if (uiState.isEditMode) {
@@ -330,6 +371,46 @@ fun PartidoFormScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SugerenciaDropdownField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    sugerencias: List<String>
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded && sugerencias.isNotEmpty(),
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(),
+            trailingIcon = { if(sugerencias.isNotEmpty()) ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
+        )
+
+        if (sugerencias.isNotEmpty()) {
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                sugerencias.forEach { sugerencia ->
+                    DropdownMenuItem(
+                        text = { Text(sugerencia) },
+                        onClick = {
+                            onValueChange(sugerencia)
+                            expanded = false
+                        }
+                    )
                 }
             }
         }

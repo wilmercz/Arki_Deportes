@@ -848,6 +848,10 @@ class MainActivity : ComponentActivity() {
             viewModel = homeViewModel,
             onNavigateToPartidos = { navigator.navigateToPartidoList() },
             onNavigateToCampeonatos = { navigator.navigateToCampeonatoList() },
+            // ✅ CONEXIÓN DE NAVEGACIÓN:
+            onNavigateToControlPartido = { cId, pId ->
+                navigator.navigateToTiempoReal(cId, pId)
+            },
             onOpenDrawer = openDrawer
         )
     }

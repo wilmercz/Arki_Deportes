@@ -418,8 +418,11 @@ class FirebaseCatalogRepository(
     }
 
     suspend fun savePartido(partido: Partido) {
-        partidosReference().child(partido.CODIGOPARTIDO)
-            .setValue(partido.toMap())
+        campeonatosReference()
+            .child(partido.CAMPEONATOCODIGO) // 2. Entramos al ID del campeonato
+            .child("Partidos")               // 3. Entramos al nodo Partidos
+            .child(partido.CODIGOPARTIDO)    // 4. Ponemos el ID del partido
+            .setValue(partido.toMap())       // 5. Guardamos todos los campos (goles, equipos, etc.)
             .await()
     }
 
@@ -458,7 +461,8 @@ class FirebaseCatalogRepository(
      * @param partidoId ID del partido
      * @return Flow que emite el partido cuando hay cambios
      */
-    fun observePartido(campeonatoId: String, partidoId: String): Flow<Partido> = callbackFlow {
+    // Cambiar el tipo de retorno a Flow<Partido?> (con signo de interrogación)
+    fun observePartido(campeonatoId: String, partidoId: String): Flow<Partido?> = callbackFlow {
         val reference = database.reference
             .child(rootNode)
             .child("DatosFutbol")
@@ -467,23 +471,17 @@ class FirebaseCatalogRepository(
             .child("Partidos")
             .child(partidoId)
 
-        Log.d("FirebaseCatalogRepo", "👁️ Observando: $partidoId en $campeonatoId")
-
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val partido = snapshot.getValue(Partido::class.java)
-                if (partido != null) {
-                    Log.d("FirebaseCatalogRepo", "📥 Actualizado: ${partido.EQUIPO1} vs ${partido.EQUIPO2}")
-                    trySend(partido)
-                }
+                // Emitimos el resultado, sea el objeto o null (si no existe)
+                trySend(partido)
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("FirebaseCatalogRepo", "❌ Error: ${error.message}")
                 close(error.toException())
             }
         }
-
         reference.addValueEventListener(listener)
         awaitClose { reference.removeEventListener(listener) }
     }
@@ -564,7 +562,7 @@ class FirebaseCatalogRepository(
             "NumeroDeTiempo" to partido.NumeroDeTiempo,
             "TIEMPOSJUGADOS" to partido.TIEMPOSJUGADOS,
             "ESTADO" to partido.ESTADO,
-
+            "TIEMPOJUEGO" to partido.TIEMPOJUEGO,
             // Opcionales (los que pediste)
             "ESCUDO1_URL" to partido.BANDERAEQUIPO1,
             "ESCUDO2_URL" to partido.BANDERAEQUIPO2,
@@ -701,5 +699,88 @@ class FirebaseCatalogRepository(
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
+    }
+
+    // En FirebaseCatalogRepository.kt
+    fun observeEstadios(campeonatoId: String): Flow<List<String>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("Estadios")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val lista = snapshot.children.mapNotNull { it.child("ESTADIO").getValue(String::class.java) }
+                trySend(lista)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    // En FirebaseCatalogRepository.kt
+    fun observeLugares(campeonatoId: String): Flow<List<String>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("Lugares")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val lista = snapshot.children.mapNotNull { it.child("LUGAR").getValue(String::class.java) }
+                trySend(lista)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+
+    /**
+     * Publica el partido en el nodo global /PartidosJugandose
+     * VB.NET Equivalente: /PartidosJugandose/{CodigoPartido}/
+     */
+    suspend fun publicarEnPartidosJugandose(partido: Partido): Result<Unit> = try {
+        val reference = rootReference
+            .child("PartidosJugandose")
+            .child(partido.CODIGOPARTIDO)
+
+        val data = mapOf(
+            "CODIGOPARTIDO" to partido.CODIGOPARTIDO,
+            "CODIGOCAMPEONATO" to partido.CAMPEONATOCODIGO,
+            "EQUIPO1" to partido.EQUIPO1,
+            "EQUIPO2" to partido.EQUIPO2,
+            "GOLES1" to partido.GOLES1,
+            "GOLES2" to partido.GOLES2,
+            "DEPORTE" to "FUTBOL",
+            "TIEMPOSJUGADOS" to partido.TIEMPOSJUGADOS,
+            "ESTADO" to partido.ESTADO, // 0 = Jugándose, 1 = Finalizado
+            "FECHA_PLAY" to partido.FECHA_PLAY,
+            "HORA_PLAY" to partido.HORA_PLAY,
+            "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP
+        )
+
+        reference.setValue(data).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    /**
+     * Remueve el partido de la lista de PartidosJugandose
+     */
+    suspend fun removerDePartidosJugandose(codigoPartido: String) {
+        rootReference.child("PartidosJugandose").child(codigoPartido).removeValue().await()
+    }
+
+    /**
+     * Actualiza los permisos de un usuario (para sincronizar autoasignación)
+     */
+    suspend fun actualizarPermisosUsuario(nombreUsuario: String, campeonatoId: String, partidoId: String) {
+        val ref = database.reference        .child("AppConfig")
+            .child("Usuarios")
+            .child(nombreUsuario)
+            .child("permisos")
+
+        val updates = mapOf(
+            "codigoCampeonato" to campeonatoId,
+            "codigoPartido" to partidoId
+        )
+
+        ref.updateChildren(updates).await()
     }
 }

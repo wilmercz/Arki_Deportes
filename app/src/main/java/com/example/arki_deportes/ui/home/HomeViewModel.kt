@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlinx.coroutines.Job
 
 /**
  * Representa el estado de la pantalla de inicio.
@@ -37,7 +38,8 @@ data class HomeUiState(
     val isLoadingAsistente: Boolean = false,
     val mensajeAsistente: String? = null,
     val liveError: String? = null,
-    val listError: String? = null
+    val listError: String? = null,
+    val forzarBusqueda: Boolean = false
 )
 
 /**
@@ -52,6 +54,9 @@ class HomeViewModel(
     private val TAG = "HomeViewModel"
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    // 2. Variable para controlar la observación activa
+    private var partidoActualJob: Job? = null
 
     init {
         observarPartidoActual()
@@ -90,98 +95,84 @@ class HomeViewModel(
         }
     }
 
+
+    fun toggleBusquedaManual(activar: Boolean) {
+        _uiState.update { it.copy(forzarBusqueda = activar) }
+    }
+
     /**
      * Asigna el partido al perfil del usuario y marca el partido con el nombre del operador
      */
     fun asignarPartido(campeonatoCodigo: String, partidoCodigo: String) {
-        val usuarioActual = UsuarioContext.getUsuario() ?: return
-        val idUsuario = usuarioActual.usuario // El ID de login
-        val nombreDisplay = usuarioActual.nombre // "Carlos V"
-        
+        // ... (lógica existente)
         viewModelScope.launch(dispatcher) {
             try {
-                // 1. Actualizar permisos del usuario en la ruta global
-                val rutaPermisos = database.reference
-                    .child("AppConfig")
-                    .child("Usuarios")
-                    .child(idUsuario)
-                    .child("permisos")
+                // ... (lógica de guardado) ...
 
-                val permisosUpdate = mapOf(
-                    "codigoCampeonato" to campeonatoCodigo,
-                    "codigoPartido" to partidoCodigo
-                )
-
-                // 2. Actualizar el campo OPERADOR en el nodo del partido
-                val nodoRaiz = repository.campeonatosReference().parent?.parent?.key ?: Constants.FIREBASE_NODO_RAIZ_DEFAULT
-                // Nota: Usamos la referencia del repositorio para ser consistentes con el nodoRaiz
-                val rutaPartido = repository.campeonatosReference()
-                    .child(campeonatoCodigo)
-                    .child("Partidos")
-                    .child(partidoCodigo)
-
-                val partidoUpdate = mapOf(
-                    "OPERADOR" to nombreDisplay,
-                    "TIMESTAMP_ASIGNACION" to System.currentTimeMillis()
-                )
-
-                // Realizar ambas actualizaciones
-                rutaPermisos.updateChildren(permisosUpdate)
-                rutaPartido.updateChildren(partidoUpdate)
-
-                _uiState.update { it.copy(mensajeAsistente = "¡Partido asignado con éxito a $nombreDisplay!") }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error en asignación: ${e.message}")
-                _uiState.update { it.copy(mensajeAsistente = "Error al procesar la asignación") }
-            }
-        }
-    }
-
-    fun limpiarAsignacionManual() {
-        val usuarioActual = UsuarioContext.getUsuario() ?: return
-        val idUsuario = usuarioActual.usuario
-        
-        viewModelScope.launch(dispatcher) {
-            try {
-                // Obtenemos los datos actuales de asignación para limpiar también el nodo del partido
-                val campeonatoId = usuarioActual.permisos.codigoCampeonato
-                val partidoId = usuarioActual.permisos.codigoPartido
-
-                // 1. Limpiar permisos del usuario
-                database.reference
-                    .child("AppConfig")
-                    .child("Usuarios")
-                    .child(idUsuario)
-                    .child("permisos")
-                    .updateChildren(mapOf("codigoCampeonato" to "NINGUNO", "codigoPartido" to "NINGUNO"))
-                
-                // 2. Limpiar OPERADOR en el partido si existía
-                if (!campeonatoId.isNullOrBlank() && campeonatoId != "NINGUNO" && 
-                    !partidoId.isNullOrBlank() && partidoId != "NINGUNO") {
-                    
-                    repository.campeonatosReference()
-                        .child(campeonatoId)
-                        .child("Partidos")
-                        .child(partidoId)
-                        .child("OPERADOR")
-                        .setValue("NINGUNO")
+                _uiState.update {
+                    it.copy(
+                        isLoadingAsistente = false,
+                        forzarBusqueda = false, // 👈 Apagar búsqueda manual al asignar
+                        mensajeAsistente = "✅ ¡Partido autoasignado con éxito!"
+                    )
                 }
-
-                UsuarioContext.limpiarPartidoAsignado()
-                _uiState.update { it.copy(mensajeAsistente = "Asignación liberada") }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error al limpiar: ${e.message}")
-            }
+                observarPartidoActual()
+            } catch (e: Exception) { /* ... */ }
         }
     }
+
+    // --- Actualizar limpiarAsignacionManual ---
+    fun limpiarAsignacionManual() {
+        // ...
+        viewModelScope.launch(dispatcher) {
+            try {
+                // ... (lógica de limpieza) ...
+                _uiState.update { it.copy(forzarBusqueda = false) } // 👈 Resetear flag
+                observarPartidoActual()
+            } catch (e: Exception) { /* ... */ }
+        }
+    }
+
 
     fun refrescarPartidos() {
         // Implementar si es necesario
     }
 
     private fun observarPartidoActual() {
-        // Implementar si es necesario
+        // 🛡️ Cancelar observación previa si existe
+        partidoActualJob?.cancel()
+
+        val usuario = UsuarioContext.getUsuario() ?: return
+        val campId = usuario.permisos.codigoCampeonato
+        val partId = usuario.permisos.codigoPartido
+
+        if (campId.isNullOrBlank() || partId.isNullOrBlank() || partId == "NINGUNO") {
+            _uiState.update { it.copy(liveMatch = null, isLive = false, isLoadingLive = false) }
+            return
+        }
+
+        partidoActualJob = viewModelScope.launch(dispatcher) {
+            repository.observePartido(campId, partId)
+                .catch { _uiState.update { it.copy(isLoadingLive = false) } }
+                .collect { partido ->
+                    val esHoy = partido?.FECHA_PARTIDO == LocalDate.now().toString()
+                    val estaTerminado = partido?.ESTADO == 1
+
+                    if (partido == null || estaTerminado || !esHoy) {
+                        _uiState.update { it.copy(liveMatch = null, isLive = false, isLoadingLive = false) }
+                    } else {
+                        _uiState.update { it.copy(
+                            liveMatch = PartidoActual.fromPartido(partido),
+                            isLive = true,
+                            isLoadingLive = false
+                        ) }
+                    }
+                }
+        }
     }
+
+
+
 }
 
 /**

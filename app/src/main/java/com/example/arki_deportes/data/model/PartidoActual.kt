@@ -75,6 +75,7 @@ data class PartidoActual(
      */
     val TIEMPO_TRANSCURRIDO: String = "00:00",
 
+    val TIEMPOJUEGO: String = "45",
     /**
 
      * Estado actual del partido heredado del backend clásico.
@@ -523,6 +524,8 @@ data class PartidoActual(
 
                 // Tiempo (usar TIEMPOJUEGO del partido)
                 TIEMPO_TRANSCURRIDO = partido.TIEMPOJUEGO,
+
+                TIEMPOJUEGO = partido.TIEMPOJUEGO,
 
                 // Estado
                 ESTADO = when (partido.getNumeroDeTiempoEfectivo()) {

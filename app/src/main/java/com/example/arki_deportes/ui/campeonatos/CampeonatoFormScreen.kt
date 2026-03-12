@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardHide
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +50,8 @@ import com.example.arki_deportes.utils.Constants
 import com.example.arki_deportes.ui.common.DatePickerField
 import com.example.arki_deportes.utils.SportType
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +65,7 @@ fun CampeonatoFormScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(codigoCampeonato) {
         viewModel.loadCampeonato(codigoCampeonato)
@@ -89,6 +93,11 @@ fun CampeonatoFormScreen(
                 navigationIcon = {
                     TextButton(onClick = onBack) {
                         Text("Cancelar")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { keyboardController?.hide() }) {
+                        Icon(Icons.Default.KeyboardHide, contentDescription = "Ocultar teclado")
                     }
                 },
                 scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())

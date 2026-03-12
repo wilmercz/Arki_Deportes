@@ -69,6 +69,7 @@ import androidx.compose.runtime.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.example.arki_deportes.data.context.CampeonatoContext
 
 
@@ -85,6 +86,7 @@ fun EquipoFormScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // Launcher para seleccionar imagen de la galería
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -140,6 +142,11 @@ fun EquipoFormScreen(
                 title = { Text(if (uiState.isEditMode) "Editar equipo" else "Nuevo equipo") },
                 navigationIcon = {
                     TextButton(onClick = onBack) { Text("Cancelar") }
+                },
+                actions = {
+                    IconButton(onClick = { keyboardController?.hide() }) {
+                        Icon(Icons.Default.KeyboardHide, contentDescription = "Ocultar teclado")
+                    }
                 },
                 scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
             )

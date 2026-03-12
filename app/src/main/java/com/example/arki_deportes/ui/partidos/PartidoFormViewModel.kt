@@ -2,6 +2,7 @@ package com.example.arki_deportes.ui.partidos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.await
 import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.model.Grupo
@@ -21,8 +22,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.example.arki_deportes.data.model.Serie
 import com.example.arki_deportes.data.context.CampeonatoContext
+import java.time.LocalTime
 
 private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault())
+private val TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
 /**
  * Datos del formulario de partidos.
@@ -46,7 +49,8 @@ data class PartidoFormData(
     val lugar: String = "",
     val serieCodigo: String = "",
     val grupoNombre: String = "",
-    val serieNombre: String = ""
+    val serieNombre: String = "",
+    val tiempoJuego: String = "45"
 )
 
 data class PartidoFormUiState(
@@ -62,6 +66,8 @@ data class PartidoFormUiState(
     val message: FormMessage? = null,
     val shouldClose: Boolean = false,
     val series: List<Serie> = emptyList(),
+    val estadiosSugeridos: List<String> = emptyList(),
+    val lugaresSugeridos: List<String> = emptyList()
 )
 
 class PartidoFormViewModel(
@@ -80,9 +86,21 @@ class PartidoFormViewModel(
 
     init {
         observeCampeonatos()
-        // Cargar campeonato del contexto si existe
-        CampeonatoContext.campeonatoActivo.value?.let {
-            onCampeonatoSelected(it.CODIGO)
+
+        val hoy = LocalDate.now()
+        val ahora = LocalTime.now()
+
+        updateForm {
+            copy(
+                fechaPartido = hoy.format(DATE_FORMATTER),
+                horaPartido = ahora.format(TIME_FORMATTER)
+            )
+        }
+
+        CampeonatoContext.getCampeonatoActual()?.let { camp ->
+            onCampeonatoSelected(camp.CODIGO)
+            // Forzamos el nombre desde el contexto para que la UI lo muestre de inmediato
+            updateForm { copy(campeonatoNombre = camp.CAMPEONATO, provincia = camp.PROVINCIA) }
         }
     }
 
@@ -114,26 +132,45 @@ class PartidoFormViewModel(
 
     fun generarTextoSocial() {
         val form = _uiState.value.formData
+        val campNombre = form.campeonatoNombre
         val e1 = _uiState.value.equipos.firstOrNull { it.CODIGOEQUIPO == form.equipo1Codigo }?.EQUIPO ?: ""
         val e2 = _uiState.value.equipos.firstOrNull { it.CODIGOEQUIPO == form.equipo2Codigo }?.EQUIPO ?: ""
         val fecha = form.fechaPartido
         val hora = form.horaPartido
         val estadio = form.estadio
+        val lugar = form.lugar
+        val provincia = form.provincia
+
+        // Generamos hashtags limpios (sin espacios)
+        val hashtagCamp = "#${campNombre.replace(" ", "")}"
+        val hashtagE1 = "#${e1.replace(" ", "")}"
+        val hashtagE2 = "#${e2.replace(" ", "")}"
 
         val texto = """
+            EN VIVO : $e1 🆚 $e2
+            
+            🏆 $campNombre 🏆
             ⚽ ¡PARTIDAZO! ⚽
-            $e1 vs $e2
-            📅 $fecha | 🕒 $hora
-            🏟️ $estadio
-            #ArkiDeportes #${e1.replace(" ","")} #${e2.replace(" ","")}
+            
+
+            📅 Fecha: $fecha
+            🕒 Hora: $hora
+            🏟️ Estadio: $estadio
+            📍 Ubicación: $lugar, $provincia
+            
+            $hashtagCamp $hashtagE1 $hashtagE2 #ArkiDeportes #FutbolEnVivo
         """.trimIndent()
 
         onTextoFacebookChange(texto)
     }
 
+
     fun loadPartido(codigoPartido: String?) {
         if (codigoPartido.isNullOrBlank()) {
-            _uiState.update { PartidoFormUiState(campeonatos = it.campeonatos) }
+            _uiState.update { it.copy(
+                isEditMode = false,
+                isLoading = false
+            ) }
             originalPartido = null
             return
         }
@@ -172,7 +209,8 @@ class PartidoFormViewModel(
                                 goles1 = partido.GOLES1,
                                 goles2 = partido.GOLES2,
                                 textoFacebook = partido.TEXTOFACEBOOK,
-                                lugar = partido.LUGAR
+                                lugar = partido.LUGAR,
+                                tiempoJuego = partido.TIEMPOJUEGO
                             ),
                             isEditMode = true,
                             isLoading = false
@@ -253,12 +291,29 @@ class PartidoFormViewModel(
 
     fun onCampeonatoSelected(codigo: String) {
         val campeonato = _uiState.value.campeonatos.firstOrNull { it.CODIGO == codigo }
+
+        viewModelScope.launch {
+            repository.observeEstadios(codigo).collect { lista ->
+                _uiState.update { it.copy(estadiosSugeridos = lista) }
+            }
+        }
+        viewModelScope.launch {
+            repository.observeLugares(codigo).collect { lista ->
+                _uiState.update { it.copy(lugaresSugeridos = lista) }
+            }
+        }
+
+        // 💡 IMPORTANTE: Ahora también nos suscribimos a las series
+        subscribeToSeries(codigo)
         subscribeToGrupos(codigo)
         subscribeToEquipos(codigo, null)
+
         updateForm {
             copy(
                 campeonatoCodigo = codigo,
                 campeonatoNombre = campeonato?.CAMPEONATO ?: "",
+                provincia = campeonato?.PROVINCIA ?: provincia,
+                tiempoJuego = campeonato?.getTiempoJuegoStr() ?: "45",
                 grupoCodigo = "",
                 equipo1Codigo = "",
                 equipo2Codigo = ""
@@ -404,6 +459,71 @@ class PartidoFormViewModel(
         }
     }
 */
+
+    fun savePartido() {
+        val form = _uiState.value.formData
+        val timestamp = System.currentTimeMillis()
+        val equipo1 = _uiState.value.equipos.firstOrNull { it.CODIGOEQUIPO == form.equipo1Codigo }
+        val equipo2 = _uiState.value.equipos.firstOrNull { it.CODIGOEQUIPO == form.equipo2Codigo }
+        val campeonato = _uiState.value.campeonatos.firstOrNull { it.CODIGO == form.campeonatoCodigo }
+
+        val codigo = if (form.codigoPartido.isNotBlank()) {
+            form.codigoPartido
+        } else {
+            generateCodigo(equipo1?.EQUIPO ?: "EQUIPO1", equipo2?.EQUIPO ?: "EQUIPO2", timestamp)
+        }
+
+        val partido = Partido(
+            CODIGOPARTIDO = codigo,
+            EQUIPO1 = equipo1?.EQUIPO ?: "",
+            EQUIPO2 = equipo2?.EQUIPO ?: "",
+            CAMPEONATOCODIGO = form.campeonatoCodigo,
+            CAMPEONATOTXT = campeonato?.CAMPEONATO ?: form.campeonatoNombre,
+            FECHAALTA = originalPartido?.FECHAALTA ?: currentDate(),
+            FECHA_PARTIDO = form.fechaPartido,
+            HORA_PARTIDO = form.horaPartido,
+            TEXTOFACEBOOK = form.textoFacebook,
+            ESTADIO = form.estadio,
+            PROVINCIA = form.provincia,
+            TIEMPOJUEGO = form.tiempoJuego,
+            GOLES1 = form.goles1, // 👈 Corregido: Quitamos .ifBlank porque es Int
+            GOLES2 = form.goles2, // 👈 Corregido
+            ANIO = deriveYear(form.fechaPartido),
+            CODIGOEQUIPO1 = form.equipo1Codigo,
+            CODIGOEQUIPO2 = form.equipo2Codigo,
+            TRANSMISION = form.transmision,
+            ETAPA = form.etapa,
+            LUGAR = form.lugar,
+            TIMESTAMP_CREACION = (originalPartido?.TIMESTAMP_CREACION ?: timestamp.toString()),
+            TIMESTAMP_MODIFICACION = timestamp.toString(),
+            ORIGEN = Constants.ORIGEN_MOBILE
+        )
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            try {
+                // El Repositorio ya tiene la lógica de dónde guardar.
+                repository.savePartido(partido)
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        isEditMode = true,
+                        shouldClose = true,
+                        message = FormMessage(Constants.Mensajes.EXITO_GUARDAR)
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        message = FormMessage(e.message ?: "Error al guardar", isError = true)
+                    )
+                }
+            }
+        }
+    }
+
+
     fun deletePartido() {
         val codigo = _uiState.value.formData.codigoPartido
         if (codigo.isBlank() || _uiState.value.isDeleting) return

@@ -10,6 +10,9 @@ import androidx.compose.ui.unit.dp
 import com.example.arki_deportes.ui.realtime.components.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,6 +23,8 @@ fun TiempoRealScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
+// 💡 Estado para controlar el diálogo de confirmación de desincronización
+    var showConfirmDesync by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -33,6 +38,23 @@ fun TiempoRealScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            if (state.modoTransmision) { // Si está activo, pedimos confirmación
+                                showConfirmDesync = true
+                            } else {
+                                // Si está apagado, lo encendemos directamente
+                                viewModel.toggleModoTransmision()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (state.modoTransmision) Icons.Default.Sensors else Icons.Default.SensorsOff,
+                            contentDescription = "Sincronización Overlay",
+                            tint = if (state.modoTransmision) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+
                     // Mantenemos el volver como una acción a la derecha
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Volver")
@@ -206,5 +228,31 @@ fun TiempoRealScreen(
                 )
             }
         }
+
+        // ⚠️ DIÁLOGO DE CONFIRMACIÓN PARA DESACTIVAR SINCRONIZACIÓN
+        if (showConfirmDesync) {
+            AlertDialog(
+                onDismissRequest = { showConfirmDesync = false },
+                title = { Text("¿Desactivar Sincronización?") },
+                text = { Text("El partido dejará de actualizarse en los overlays web (PARTIDOACTUAL). ¿Estás seguro?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.toggleModoTransmision()
+                            showConfirmDesync = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Desactivar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConfirmDesync = false }) {
+                        Text("Mantener Activo")
+                    }
+                }
+            )
+        }
+
     }
 }

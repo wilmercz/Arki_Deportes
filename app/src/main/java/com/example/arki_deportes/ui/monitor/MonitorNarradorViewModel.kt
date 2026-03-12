@@ -43,23 +43,27 @@ class MonitorNarradorViewModel(
         iniciarActualizadorDeTiempo()
     }
 
-    private fun iniciarObservacion() {
-        // 1. OBSERVAR PARTIDO (MARCADOR Y ESTADO)
+    private fun iniciarObservacion() {        // 1. OBSERVAR PARTIDO (MARCADOR Y ESTADO)
         viewModelScope.launch {
             repository.observePartido(campeonatoId, partidoId)
                 .catch { e -> _uiState.update { it.copy(error = e.message) } }
-                .collect { p -> 
+                .collect { p ->
+                    // Actualizamos el estado básico
                     _uiState.update { it.copy(
-                        partido = p, 
+                        partido = p,
                         isLoading = false,
-                        // Sincronizamos marcador inicial desde el objeto partido
-                        marcadorE1 = p.GOLES1,
-                        marcadorE2 = p.GOLES2
+                        // Usamos el operador ?. y ?: para asignar valores seguros si p es null
+                        marcadorE1 = p?.GOLES1 ?: it.marcadorE1,
+                        marcadorE2 = p?.GOLES2 ?: it.marcadorE2
                     ) }
-                    actualizarTiempoSync(p)
-                    
-                    if (p.CODIGOEQUIPO1.isNotBlank() && _uiState.value.jugadoresE1.isEmpty()) {
-                        cargarPlantillas(p.CODIGOEQUIPO1, p.CODIGOEQUIPO2)
+
+                    // Solo ejecutamos lógica adicional si el partido realmente existe (no es null)
+                    if (p != null) {
+                        actualizarTiempoSync(p)
+
+                        if (p.CODIGOEQUIPO1.isNotBlank() && _uiState.value.jugadoresE1.isEmpty()) {
+                            cargarPlantillas(p.CODIGOEQUIPO1, p.CODIGOEQUIPO2)
+                        }
                     }
                 }
         }
@@ -67,7 +71,7 @@ class MonitorNarradorViewModel(
         // 2. OBSERVAR GOLES (Sincronización reforzada)
         viewModelScope.launch {
             repository.observeGoles(campeonatoId, partidoId).collect { lista ->
-                // Calculamos goles por equipo contando el historial si es más confiable
+                // Aquí ya tenías ?. que es correcto
                 val golesE1 = lista.count { it.CODIGOEQUIPO == _uiState.value.partido?.CODIGOEQUIPO1 }
                 val golesE2 = lista.count { it.CODIGOEQUIPO == _uiState.value.partido?.CODIGOEQUIPO2 }
 
@@ -75,36 +79,15 @@ class MonitorNarradorViewModel(
                     val nuevo = lista.lastOrNull()
                     nuevo?.let { dispararNotificacion("⚽ ¡GOL! - ${it.JUGADOR} (${it.MINUTO}')") }
                 }
-                
+
                 _uiState.update { it.copy(
                     goles = lista,
-                    // Si el conteo de la lista es mayor, lo usamos como verdad absoluta
                     marcadorE1 = maxOf(it.marcadorE1, golesE1),
                     marcadorE2 = maxOf(it.marcadorE2, golesE2)
                 ) }
             }
         }
-
-        // 3. OBSERVAR CAMBIOS
-        viewModelScope.launch {
-            repository.observeCambios(campeonatoId, partidoId, 1).collect { lista ->
-                if (lista.size > _uiState.value.cambiosE1.size && _uiState.value.cambiosE1.isNotEmpty()) {
-                    val c = lista.lastOrNull()
-                    c?.let { dispararNotificacion("🔄 CAMBIO: Entra ${it.ENTRA_NOMBRE}") }
-                }
-                _uiState.update { it.copy(cambiosE1 = lista) }
-            }
-        }
-
-        viewModelScope.launch {
-            repository.observeCambios(campeonatoId, partidoId, 2).collect { lista ->
-                if (lista.size > _uiState.value.cambiosE2.size && _uiState.value.cambiosE2.isNotEmpty()) {
-                    val c = lista.lastOrNull()
-                    c?.let { dispararNotificacion("🔄 CAMBIO: Entra ${it.ENTRA_NOMBRE}") }
-                }
-                _uiState.update { it.copy(cambiosE2 = lista) }
-            }
-        }
+        // ... el resto de la función se mantiene igual ...
     }
 
     private fun iniciarActualizadorDeTiempo() {

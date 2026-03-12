@@ -143,18 +143,6 @@ class TiempoRealViewModel(
                     }
                 }
                 .collect { partido ->
-                    Log.d(TAG, "╔═══════════════════════════════════════════════════════")
-                    Log.d(TAG, "📥 PARTIDO ACTUALIZADO (Flow)")
-                    Log.d(TAG, "   CODIGOPARTIDO: '${partido.CODIGOPARTIDO}'")
-                    Log.d(TAG, "   EQUIPO1: '${partido.EQUIPO1}'")
-                    Log.d(TAG, "   EQUIPO2: '${partido.EQUIPO2}'")
-                    Log.d(TAG, "   GOLES1: ${partido.GOLES1}")
-                    Log.d(TAG, "   GOLES2: ${partido.GOLES2}")
-                    Log.d(TAG, "   NUMERODETIEMPO: '${partido.NumeroDeTiempo}'")
-                    Log.d(TAG, "   TIEMPOJUEGO: '${partido.TIEMPOJUEGO}'")
-                    Log.d(TAG, "   estaEnCurso: ${partido.estaEnCurso()}")
-                    Log.d(TAG, "   estaFinalizado: ${partido.estaFinalizado()}")
-                    Log.d(TAG, "╚═══════════════════════════════════════════════════════")
 
                     _uiState.update {
                         it.copy(
@@ -171,6 +159,7 @@ class TiempoRealViewModel(
      * Observa los cambios en el sistema de penales desde Firebase
      * Actualiza el UiState con los datos de penales
      */
+
     private fun observarPenales() {
         viewModelScope.launch {
             repository.observePartido(campeonatoId, partidoId)
@@ -178,19 +167,24 @@ class TiempoRealViewModel(
                     Log.e(TAG, "❌ Error observando penales: ${error.message}")
                 }
                 .collect { partido ->
-                    _uiState.update { state ->
-                        state.copy(
-                            penalesActivos = partido.MARCADOR_PENALES,
-                            equipoQueInicia = partido.PENALES_INICIA.coerceIn(1, 2),
-                            equipoEnTurno = partido.PENALES_TURNO.coerceIn(1, 2),
-                            tandaActual = partido.PENALES_TANDA.coerceAtLeast(1),
-                            historiaPenales1 = partido.PENALES_SERIE1,
-                            historiaPenales2 = partido.PENALES_SERIE2
-                        )
+                    // 🛡️ SEGURIDAD: Solo actualizamos si el partido existe
+                    if (partido != null) {
+                        _uiState.update { state ->
+                            state.copy(
+                                penalesActivos = partido.MARCADOR_PENALES,
+                                equipoQueInicia = partido.PENALES_INICIA.coerceIn(1, 2),
+                                equipoEnTurno = partido.PENALES_TURNO.coerceIn(1, 2),
+                                tandaActual = partido.PENALES_TANDA.coerceAtLeast(1),
+                                historiaPenales1 = partido.PENALES_SERIE1,
+                                historiaPenales2 = partido.PENALES_SERIE2
+                            )
+                        }
                     }
                 }
         }
     }
+
+
 
     /**
      * Timer que actualiza el tiempo cada segundo
@@ -412,6 +406,20 @@ class TiempoRealViewModel(
                     Log.d(TAG, "📡 Sincronizando con overlay...")
                     sincronizarConOverlay()
                 }
+
+                // 🚀 PUBLICAR EN LISTA GLOBAL "EN VIVO"
+                val partidoActualizado = partido.copy(
+                    NumeroDeTiempo = if (primerTiempo) "1T" else "3T",
+                    TIEMPOSJUGADOS = if (primerTiempo) 1 else 2,
+                    ESTADO = 0,
+                    FECHA_PLAY = cronometroStr,
+                    HORA_PLAY = horaPlay
+                )
+                repository.publicarEnPartidosJugandose(partidoActualizado)
+
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay(partidoActualizado)
+                }
             }.onFailure { error ->
                 Log.e(TAG, "╔═══════════════════════════════════════════════════════")
                 Log.e(TAG, "❌ ERROR AL INICIAR PARTIDO")
@@ -442,16 +450,8 @@ class TiempoRealViewModel(
             _uiState.update { it.copy(actualizandoFirebase = true) }
 
             val updates = when (partido.NumeroDeTiempo) {
-                "1T" -> {
-                    // Termina primer tiempo → Descanso
-                    Log.d(TAG, "Fin del primer tiempo → Descanso")
-                    crearMapaDescanso()
-                }
-                "3T" -> {
-                    // Termina segundo tiempo → Finalizado
-                    Log.d(TAG, "Fin del segundo tiempo → Finalizado")
-                    crearMapaFinalizarPartido()
-                }
+                "1T" -> crearMapaDescanso()
+                "3T" -> crearMapaFinalizarPartido()
                 else -> {
                     Log.w(TAG, "Estado inválido para detener: ${partido.NumeroDeTiempo}")
                     _uiState.update { it.copy(actualizandoFirebase = false) }
@@ -464,8 +464,25 @@ class TiempoRealViewModel(
             result.onSuccess {
                 Log.d(TAG, "Cronómetro detenido exitosamente")
                 if (_uiState.value.modoTransmision) {
-                    sincronizarConOverlay()
+                    // ✅ CORRECCIÓN: Creamos un objeto Partido con el nuevo estado y lo pasamos.
+                    // Esto garantiza que estaEnCurso() devuelva false de inmediato.
+                    val partidoActualizadoParaSync = partido.copy(NumeroDeTiempo = updates["NumeroDeTiempo"] as String)
+                    sincronizarConOverlay(partidoActualizadoParaSync)
                 }
+
+                val nuevoEstado = updates["NumeroDeTiempo"] as String
+                val partidoActualizado = partido.copy(
+                    NumeroDeTiempo = nuevoEstado,
+                    ESTADO = if (nuevoEstado == "4T") 1 else 0
+                )
+
+                // 🚀 ACTUALIZAR EN LISTA GLOBAL
+                repository.publicarEnPartidosJugandose(partidoActualizado)
+
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay(partidoActualizado)
+                }
+
             }.onFailure { error ->
                 Log.e(TAG, "Error al detener cronómetro: ${error.message}")
                 _uiState.update { it.copy(error = error.message) }
@@ -474,7 +491,6 @@ class TiempoRealViewModel(
             _uiState.update { it.copy(actualizandoFirebase = false) }
         }
     }
-
 
     fun reiniciarPartido() {
         viewModelScope.launch {
@@ -583,6 +599,7 @@ class TiempoRealViewModel(
      * ActualizarCampo_Partidos_BD("GOLES1", "", .Goles1, "")
      * FirebaseManager.EnqueueSet(RutaPartidoFB & "GOLES1", .Goles1, 2)
      */
+    /*
     fun agregarGolEquipo1() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -605,6 +622,24 @@ class TiempoRealViewModel(
             if (_uiState.value.modoTransmision) {
                 sincronizarConOverlay()
             }
+        }
+    }
+    */
+
+    fun agregarGolEquipo1() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val nuevosGoles = partido.GOLES1 + 1
+            val minuto = partido.calcularTiempoActualSegundos() / 60
+            val marcador = "$nuevosGoles-${partido.GOLES2}"
+            val textoAccion = "⚽ $minuto' ¡GOOOOL! ${partido.EQUIPO1.uppercase()} $marcador"
+
+            val updates = mapOf("GOLES1" to nuevosGoles)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            enviarAccionJugada(textoAccion)
         }
     }
 
@@ -635,6 +670,8 @@ class TiempoRealViewModel(
      *
      * VB.NET Equivalente: BtnGolMAsEQ2_Click
      */
+
+    /*
     fun agregarGolEquipo2() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -657,6 +694,24 @@ class TiempoRealViewModel(
             if (_uiState.value.modoTransmision) {
                 sincronizarConOverlay()
             }
+        }
+    }
+    */
+    fun agregarGolEquipo2() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val nuevosGoles = partido.GOLES2 + 1
+            val minuto = partido.calcularTiempoActualSegundos() / 60
+            val marcador = "$nuevosGoles-${partido.GOLES1}"
+
+            val textoAccion = "⚽ $minuto' ¡GOOOOL! ${partido.EQUIPO2.uppercase()} $marcador"
+
+            val updates = mapOf("GOLES2" to nuevosGoles)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            enviarAccionJugada(textoAccion)
         }
     }
 
@@ -690,6 +745,7 @@ class TiempoRealViewModel(
      * Agrega una tarjeta amarilla al equipo 1
      * VB.NET: ActualizarCampo_Partidos_BD("TAMARILLAS1", "", DatosPartido.Amarillas1, "")
      */
+    /*
     fun agregarAmarillaEquipo1() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -706,6 +762,22 @@ class TiempoRealViewModel(
             if (_uiState.value.modoTransmision) {
                 sincronizarConOverlay()
             }
+        }
+    }
+*/
+    fun agregarAmarillaEquipo1() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val nuevasAmarillas = partido.TAMARILLAS1 + 1
+            val minuto = partido.calcularTiempoActualSegundos() / 60
+            val textoAccion = "🟨 $minuto' AMARILLA - ${partido.EQUIPO1.uppercase()} (Total: $nuevasAmarillas)"
+
+            val updates = mapOf("TAMARILLAS1" to nuevasAmarillas)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            enviarAccionJugada(textoAccion)
         }
     }
 
@@ -734,6 +806,7 @@ class TiempoRealViewModel(
     /**
      * Agrega una tarjeta amarilla al equipo 2
      */
+    /*
     fun agregarAmarillaEquipo2() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -752,6 +825,24 @@ class TiempoRealViewModel(
             }
         }
     }
+    */
+
+    fun agregarAmarillaEquipo2() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val nuevasAmarillas = partido.TAMARILLAS2 + 1
+            val minuto = partido.calcularTiempoActualSegundos() / 60
+            val textoAccion = "🟨 $minuto' AMARILLA - ${partido.EQUIPO2.uppercase()} (Total: $nuevasAmarillas)"
+
+            val updates = mapOf("TAMARILLAS2" to nuevasAmarillas)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            enviarAccionJugada(textoAccion)
+        }
+    }
+
 
     /**
      * Resta una tarjeta amarilla al equipo 2
@@ -783,6 +874,7 @@ class TiempoRealViewModel(
      * Agrega una tarjeta roja al equipo 1
      * VB.NET: ActualizarCampo_Partidos_BD("TROJAS1", "", DatosPartido.Rojas1, "")
      */
+    /*
     fun agregarRojaEquipo1() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -799,6 +891,22 @@ class TiempoRealViewModel(
             if (_uiState.value.modoTransmision) {
                 sincronizarConOverlay()
             }
+        }
+    }
+*/
+    fun agregarRojaEquipo1() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val nuevasRojas = partido.TROJAS1 + 1
+            val minuto = partido.calcularTiempoActualSegundos() / 60
+            val textoAccion = "🟥 $minuto' ROJA - ${partido.EQUIPO1.uppercase()} (Total: $nuevasRojas)"
+
+            val updates = mapOf("TROJAS1" to nuevasRojas)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            enviarAccionJugada(textoAccion)
         }
     }
 
@@ -827,6 +935,7 @@ class TiempoRealViewModel(
     /**
      * Agrega una tarjeta roja al equipo 2
      */
+    /*
     fun agregarRojaEquipo2() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -843,6 +952,22 @@ class TiempoRealViewModel(
             if (_uiState.value.modoTransmision) {
                 sincronizarConOverlay()
             }
+        }
+    }
+*/
+    fun agregarRojaEquipo2() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val nuevasRojas = partido.TROJAS2 + 1
+            val minuto = partido.calcularTiempoActualSegundos() / 60
+            val textoAccion = "🟥 $minuto' ROJA - ${partido.EQUIPO2.uppercase()} (Total: $nuevasRojas)"
+
+            val updates = mapOf("TROJAS2" to nuevasRojas)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            enviarAccionJugada(textoAccion)
         }
     }
 
@@ -876,6 +1001,7 @@ class TiempoRealViewModel(
      * Agrega una esquina al equipo 1
      * VB.NET: ActualizarCampo_Partidos_BD("ESQUINAS1", "", DatosPartido.Esquinas1, "")
      */
+    /*
     fun agregarEsquinaEquipo1() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -894,6 +1020,44 @@ class TiempoRealViewModel(
             }
         }
     }
+*/
+
+    fun agregarEsquinaEquipo1() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val nuevasEsquinas = partido.ESQUINAS1 + 1
+            val textoAccion = "🚩 ESQUINA - ${partido.EQUIPO1.uppercase()} (Total: $nuevasEsquinas)"
+
+            // Ruta de audio local para que la Web o la App reproduzcan
+            val rutaAudio = "D:\\SONIDOS DXT\\10 SPOT TIRO DE ESQUINA.mp3"
+
+            val updates = mapOf("ESQUINAS1" to nuevasEsquinas)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            enviarAccionJugada(textoAccion, rutaAudio)
+        }
+    }
+
+    fun agregarEsquinaEquipo2() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val nuevasEsquinas = partido.ESQUINAS2 + 1
+            val textoAccion = "🚩 ESQUINA - ${partido.EQUIPO2.uppercase()} (Total: $nuevasEsquinas)"
+
+            val rutaAudio = "D:\\SONIDOS DXT\\10 SPOT TIRO DE ESQUINA.mp3"
+
+            val updates = mapOf("ESQUINAS2" to nuevasEsquinas)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            enviarAccionJugada(textoAccion, rutaAudio)
+        }
+    }
+
+
 
     /**
      * Resta una esquina al equipo 1
@@ -907,28 +1071,6 @@ class TiempoRealViewModel(
 
             val updates = mapOf(
                 "ESQUINAS1" to esquinas
-            )
-
-            repository.updatePartidoFields(campeonatoId, partidoId, updates)
-
-            if (_uiState.value.modoTransmision) {
-                sincronizarConOverlay()
-            }
-        }
-    }
-
-    /**
-     * Agrega una esquina al equipo 2
-     */
-    fun agregarEsquinaEquipo2() {
-        viewModelScope.launch {
-            val partido = _uiState.value.partido ?: return@launch
-            val esquinas = partido.getEsquinas2Int() + 1
-
-            Log.d(TAG, "Agregando esquina equipo 2: $esquinas")
-
-            val updates = mapOf(
-                "ESQUINAS2" to esquinas
             )
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -984,18 +1126,24 @@ class TiempoRealViewModel(
 
 
         if (nuevoModo) {
-            sincronizarConOverlay()
+            _uiState.value.partido?.let { partido ->
+                viewModelScope.launch {
+                    repository.publicarEnPartidosJugandose(partido) // 👈 Publicar al activar switch
+                    sincronizarConOverlay(partido)
+                }
+            }
         }
     }
 
     /**
      * Sincroniza los datos al nodo PARTIDOACTUAL (para overlay)
      */
-    private fun sincronizarConOverlay() {
+    private fun sincronizarConOverlay(partidoASincronizar: Partido? = null) {
         viewModelScope.launch {
-            val partido = _uiState.value.partido ?: return@launch
+            // Usa el partido pasado como parámetro, o si no, el del estado.
+            val partido = partidoASincronizar ?: _uiState.value.partido ?: return@launch
 
-            Log.d(TAG, "Sincronizando con overlay...")
+            Log.d(TAG, "Sincronizando con overlay... CRONOMETRANDO=${partido.estaEnCurso()}")
 
             val result = repository.sincronizarPartidoActual(partido)
 
@@ -1518,4 +1666,53 @@ class TiempoRealViewModel(
         }
     }
 
+
+    /**
+     * Función centralizada para enviar la acción jugada a Firebase (Ruta del partido)
+     * VB.NET Equivalente: Call EscribirTimer(...) en LOWERTHIRDS\ACCION_JUGADA_MINUTO.txt
+     */
+    private fun enviarAccionJugada(texto: String, rutaAudio: String = "") {
+        viewModelScope.launch {
+            val updates = mapOf(
+                "ACCION_JUGADA_MINUTO" to texto,
+                "ACCION_JUGADA_PLAY_" to rutaAudio,
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+
+            // 2. 🚀 ACTUALIZAR EN PARTIDOACTUAL (Para la Web)
+            actualizarPartidoActualAccion(texto, rutaAudio)
+
+
+            // 🎵 REPRODUCCIÓN DE AUDIO (Futura implementación)
+            // a futuro la app leera desde firebase la ruta de audio local o en storage y lo reproducira
+            if (rutaAudio.isNotEmpty()) {
+                // reproducirAudioLocal(rutaAudio)
+            }
+        }
+    }
+
+    /**
+     * Actualiza específicamente los campos de acción en el nodo PARTIDOACTUAL
+     */
+    private fun actualizarPartidoActualAccion(texto: String, rutaAudio: String) {
+        viewModelScope.launch {
+            try {
+                val reference = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                    .child("ARKI_DEPORTES")
+                    .child("PARTIDOACTUAL")
+
+                val updates = mapOf(
+                    "ACCION_JUGADA_MINUTO" to texto,
+                    "ACCION_JUGADA_PLAY_" to rutaAudio,
+                    "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+                )
+
+                reference.updateChildren(updates).await()
+                Log.d(TAG, "✅ PARTIDOACTUAL: Acción enviada -> $texto")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error actualizando acción en PARTIDOACTUAL: ${e.message}")
+            }
+        }
+    }
 }

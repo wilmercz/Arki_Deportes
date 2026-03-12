@@ -25,25 +25,56 @@ class PartidosEnVivoViewModel(
 
     init {
         viewModelScope.launch {
-            // 1. Observamos el índice ligero de partidos jugándose
             repository.observePartidosJugandoseGlobal()
                 .flatMapLatest { listaLigera ->
                     if (listaLigera.isEmpty()) {
+                        // Si no hay nada, quitamos el loading de inmediato
+                        _uiState.update { it.copy(isLoading = false, partidos = emptyList()) }
                         flowOf(emptyList<Partido>())
                     } else {
-                        // 2. Por cada ID, creamos un observador a la RUTA REAL completa
-                        val flows = listaLigera.map { itemLigero ->
-                            repository.observePartido(itemLigero.CODIGOCAMPEONATO, itemLigero.CODIGOPARTIDO)
+                        val flows = listaLigera.map { item ->
+                            repository.observePartido(item.CODIGOCAMPEONATO, item.CODIGOPARTIDO)
                         }
-                        // Combinamos todos los flujos de partidos individuales en una sola lista
                         combine(flows) { detailedArray ->
-                            detailedList(detailedArray, listaLigera)
+                            // 🛠️ FILTRAR PARTIDOS ROTOS:
+                            // Solo nos quedamos con los que NO son nulos
+                            detailedArray.filterNotNull().mapIndexed { index, partido ->
+                                // Aseguramos que el objeto tenga el ID del campeonato
+                                partido.copy(CAMPEONATOCODIGO = partido.CAMPEONATOCODIGO.ifBlank {
+                                    listaLigera.find { it.CODIGOPARTIDO == partido.CODIGOPARTIDO }?.CODIGOCAMPEONATO ?: ""
+                                })
+                            }
                         }
                     }
                 }
-                .collect { partidosDetallados ->
-                    _uiState.update { it.copy(partidos = partidosDetallados, isLoading = false) }
+                .collect { partidosValidos ->
+                    _uiState.update {
+                        it.copy(
+                            partidos = partidosValidos,
+                            isLoading = false // ✅ Aquí se apaga el círculo
+                        )
+                    }
                 }
+        }
+    }
+
+    /**
+     * Elimina un partido específico de la lista de partidos jugándose
+     */
+    fun eliminarPartidoDeEnVivo(codigoPartido: String) {
+        viewModelScope.launch {
+            repository.removerDePartidosJugandose(codigoPartido)
+        }
+    }
+
+    /**
+     * Elimina todos los partidos finalizados de la lista de partidos jugándose
+     */
+    fun eliminarFinalizados() {
+        viewModelScope.launch {
+            _uiState.value.partidos.filter { it.ESTADO == 1 }.forEach { partido ->
+                repository.removerDePartidosJugandose(partido.CODIGOPARTIDO)
+            }
         }
     }
 
