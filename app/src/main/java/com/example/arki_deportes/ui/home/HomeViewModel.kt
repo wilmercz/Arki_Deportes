@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.tasks.await
 
 /**
  * Representa el estado de la pantalla de inicio.
@@ -104,32 +105,85 @@ class HomeViewModel(
      * Asigna el partido al perfil del usuario y marca el partido con el nombre del operador
      */
     fun asignarPartido(campeonatoCodigo: String, partidoCodigo: String) {
-        // ... (lógica existente)
         viewModelScope.launch(dispatcher) {
             try {
-                // ... (lógica de guardado) ...
+                val usuario = UsuarioContext.getUsuario() ?: return@launch
 
-                _uiState.update {
-                    it.copy(
-                        isLoadingAsistente = false,
-                        forzarBusqueda = false, // 👈 Apagar búsqueda manual al asignar
-                        mensajeAsistente = "✅ ¡Partido autoasignado con éxito!"
-                    )
-                }
+                // 1. Actualizar Operador en el Partido
+                repository.updatePartidoFields(campeonatoCodigo, partidoCodigo, mapOf(
+                    "OPERADOR" to usuario.nombre
+                ))
+
+                // 2. Actualizar Permisos del Usuario
+                database.reference.child("AppConfig").child("Usuarios")
+                    .child(usuario.usuario).child("permisos").updateChildren(mapOf(
+                        "codigoCampeonato" to campeonatoCodigo,
+                        "codigoPartido" to partidoCodigo
+                    ))
+
+                // 3. Actualizar Contexto Local
+                val nuevosPermisos = usuario.permisos.copy(
+                    codigoCampeonato = campeonatoCodigo,
+                    codigoPartido = partidoCodigo
+                )
+                UsuarioContext.setUsuario(usuario.copy(permisos = nuevosPermisos))
+
+                _uiState.update { it.copy(forzarBusqueda = false, mensajeAsistente = "✅ Asignado") }
                 observarPartidoActual()
-            } catch (e: Exception) { /* ... */ }
+            } catch (e: Exception) { /* Log error */ }
         }
     }
 
-    // --- Actualizar limpiarAsignacionManual ---
+    /**
+     * Limpia la asignación actual tanto del usuario como del partido.
+     * Esto libera al operador para que otro pueda elegir el partido.
+     */
     fun limpiarAsignacionManual() {
-        // ...
         viewModelScope.launch(dispatcher) {
             try {
-                // ... (lógica de limpieza) ...
-                _uiState.update { it.copy(forzarBusqueda = false) } // 👈 Resetear flag
+                val usuario = UsuarioContext.getUsuario() ?: return@launch
+                val campId = usuario.permisos.codigoCampeonato
+                val partId = usuario.permisos.codigoPartido
+
+                // 1. Limpiar Operador en el Partido (si existía uno asignado)
+                if (!campId.isNullOrBlank() && !partId.isNullOrBlank() && partId != "NINGUNO") {
+                    repository.updatePartidoFields(campId, partId, mapOf(
+                        "OPERADOR" to "NINGUNO"
+                    ))
+                }
+
+                // 2. Limpiar Permisos en Firebase
+                database.reference.child("AppConfig").child("Usuarios")
+                    .child(usuario.usuario).child("permisos").updateChildren(mapOf(
+                        "codigoCampeonato" to "NINGUNO",
+                        "codigoPartido" to "NINGUNO"
+                    )).await()
+
+                // 3. Limpiar Contexto Local
+                UsuarioContext.limpiarPartidoAsignado()
+
+                _uiState.update { it.copy(forzarBusqueda = false, mensajeAsistente = "✅ Asignación liberada") }
                 observarPartidoActual()
-            } catch (e: Exception) { /* ... */ }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al limpiar asignación: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Libera el operador de un partido específico sin afectar al usuario actual necesariamente.
+     * Útil cuando se quiere liberar un partido desde la lista del asistente.
+     */
+    fun liberarOperadorPartido(campeonatoCodigo: String, partidoCodigo: String) {
+        viewModelScope.launch(dispatcher) {
+            try {
+                repository.updatePartidoFields(campeonatoCodigo, partidoCodigo, mapOf(
+                    "OPERADOR" to "NINGUNO"
+                ))
+                _uiState.update { it.copy(mensajeAsistente = "✅ Operador liberado") }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al liberar operador: ${e.message}")
+            }
         }
     }
 

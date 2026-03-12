@@ -135,45 +135,27 @@ fun HomeScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 1. PARTIDO EN VIVO (Estado global del sistema si aplica)
-                if (state.isLive && state.liveMatch != null) {
-                    item { LiveMatchCard(state.liveMatch) }
-                }
-
-                // 2. GESTIÓN DE LA ASIGNACIÓN DEL USUARIO
-                if (tieneAsignacionEnPerfil) {
-                    if (state.isLive) {
-                        // El partido asignado sigue vigente: Mostrar acceso directo
-                        item {
-                            ActiveAssignmentCard(
-                                partidoNombre = state.partidosDelCampeonato
-                                    .firstOrNull { it.CODIGOPARTIDO == usuario?.permisos?.codigoPartido }
-                                    ?.getNombrePartido() ?: "Controlar Partido",
-                                onNavigateToControl = {
-                                    val camp = usuario?.permisos?.codigoCampeonato ?: ""
-                                    val part = usuario?.permisos?.codigoPartido ?: ""
-                                    if (camp.isNotEmpty() && part.isNotEmpty()) {
-                                        onNavigateToControlPartido(camp, part)
-                                    }
-                                },
-                                onSearchAnother = onCambiarPartido
-                            )
-                        }
-                    } else {
-                        // El partido asignado ha caducado: Mostrar aviso para limpiar antes de seguir
-                        item {
-                            ExpiredAssignmentCard(
-                                campeonatoNombre = usuario?.permisos?.codigoCampeonato ?: "",
-                                partidoNombre = usuario?.permisos?.codigoPartido ?: "",
-                                onClear = onLimpiarAsignacion
-                            )
-                        }
+                // A. SI EL USUARIO TIENE UN PARTIDO (SEA CUANDO SEA)
+                if (tieneAsignacionEnPerfil && !state.forzarBusqueda) {
+                    item {
+                        ActiveAssignmentCard(
+                            partidoNombre = state.partidosDelCampeonato
+                                .firstOrNull { it.CODIGOPARTIDO == usuario?.permisos?.codigoPartido }
+                                ?.getNombrePartido() ?: "Cargando partido...",
+                            esHoy = state.isLive, // Si es hoy, permite ir al control
+                            onNavigateToControl = {
+                                val camp = usuario?.permisos?.codigoCampeonato ?: ""
+                                val part = usuario?.permisos?.codigoPartido ?: ""
+                                onNavigateToControlPartido(camp, part)
+                            },
+                            onSearchAnother = onCambiarPartido, // Muestra el asistente abajo
+                            onRelease = onLimpiarAsignacion // Borra la asignación
+                        )
                     }
                 }
 
-                // 3. ASISTENTE DE ASIGNACIÓN
-                // Se muestra si NO hay partido vigente O si el usuario forzó la búsqueda (ej. pulsó "Cambiar")
-                if (!state.isLive || state.forzarBusqueda) {
+                // B. SI NO TIENE PARTIDO O QUIERE CAMBIARLO
+                if (!tieneAsignacionEnPerfil || state.forzarBusqueda) {
                     item {
                         AssignmentAssistantPanel(
                             campeonatos = state.campeonatos,
@@ -183,21 +165,12 @@ fun HomeScreen(
                             onAsignarPartido = onAsignarPartido,
                             isLoading = state.isLoadingAsistente,
                             mensaje = state.mensajeAsistente,
-                            // El botón cerrar solo aparece si estamos forzando búsqueda teniendo un partido vivo
-                            onCancelar = if (state.forzarBusqueda && state.isLive) onCancelarBusqueda else null
+                            onCancelar = if (state.forzarBusqueda) onCancelarBusqueda else null
                         )
                     }
                 }
-
-                // 4. LISTA DE PARTIDOS GENERALES (Próximos 7 días)
-                if (state.partidos.isNotEmpty()) {
-                    item { SectionTitle(text = "Próximos Encuentros (±7 días)") }
-                    items(state.partidos) { partido ->
-                        PartidoCard(partido = partido)
-                    }
-                }
-
             }
+
         }
     }
 }
@@ -284,7 +257,7 @@ private fun AssignmentAssistantPanel(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
 
             if (campeonatos.isEmpty()) {
@@ -560,7 +533,7 @@ private fun verificarSiEstaCaducado(fechaStr: String?): Boolean {
         DateTimeFormatter.ofPattern("d/M/yyyy"),
         DateTimeFormatter.ofPattern("dd-MM-yyyy")
     )
-    
+
     val hoy = LocalDate.now()
     for (formato in formatos) {
         try {
@@ -574,79 +547,49 @@ private fun verificarSiEstaCaducado(fechaStr: String?): Boolean {
 
 
 @Composable
-private fun ActiveAssignmentCard(
-    partidoNombre: String,
-    onNavigateToControl: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onNavigateToControl() },
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFE8F5E9), // Verde claro
-            contentColor = Color(0xFF2E7D32)
-        ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E7D32))
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.PlayCircle, // 👈 Cambiado para evitar error
-                contentDescription = null,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("TIENES UN PARTIDO ASIGNADO", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                Text(partidoNombre, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-            Icon(Icons.Default.ArrowForwardIos, null, modifier = Modifier.size(16.dp))
-        }
-    }
-}
-
-@Composable
 fun ActiveAssignmentCard(
     partidoNombre: String,
+    esHoy: Boolean,
     onNavigateToControl: () -> Unit,
-    onSearchAnother: () -> Unit
+    onSearchAnother: () -> Unit,
+    onRelease: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2E7D32)), // Verde Bosque
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = if (esHoy) Color(0xFF1B5E20) else Color(0xFF455A64) // Verde si es hoy, Gris si es otro día
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.LiveTv, contentDescription = null, tint = Color.White)
-                Spacer(Modifier.width(8.dp))
-                Text("PARTIDO ASIGNADO", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            }
-            Text(partidoNombre, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text(
+                text = if (esHoy) "🔴 PARTIDO EN VIVO ASIGNADO" else "📅 ASIGNACIÓN PENDIENTE",
+                color = Color.White.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.labelSmall
+            )
+            Text(partidoNombre, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
 
             Spacer(Modifier.height(16.dp))
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onNavigateToControl,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF2E7D32))
-                ) {
-                    Text("CONTROL EN VIVO")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (esHoy) {
+                    Button(
+                        onClick = onNavigateToControl,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
+                    ) { Text("CONTROLAR AHORA") }
                 }
 
-                // 🔍 ESTE ES EL BOTÓN QUE BUSCABAS
                 OutlinedButton(
                     onClick = onSearchAnother,
                     border = BorderStroke(1.dp, Color.White),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                ) {
-                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text("BUSCAR OTRO", fontSize = 10.sp)
+                ) { Text("CAMBIAR") }
+
+                IconButton(onClick = onRelease) {
+                    Icon(Icons.Default.DeleteForever, "Liberar", tint = Color.White)
                 }
             }
         }
     }
 }
+
