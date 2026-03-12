@@ -281,9 +281,9 @@ class MainActivity : ComponentActivity() {
         TiempoRealScreen(
             viewModel = viewModel,
             onNavigateBack = {
-                if (!navigator.navigateBack()) {
-                    navigator.navigateToHybridHome()
-                }
+                // ✅ MEJORA: Siempre ir al Home al salir del control de partido,
+                // limpiando el rastro del Login si fuera necesario.
+                navigator.navigateToHybridHome(clearBackStack = true)
             },
             onOpenDrawer = openDrawer // 👈 Pasamos la función
         )

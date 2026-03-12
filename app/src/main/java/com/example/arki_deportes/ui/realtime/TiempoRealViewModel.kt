@@ -17,7 +17,9 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
+import com.example.arki_deportes.data.context.UsuarioContext
 import com.example.arki_deportes.data.model.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -1712,6 +1714,42 @@ class TiempoRealViewModel(
                 Log.d(TAG, "✅ PARTIDOACTUAL: Acción enviada -> $texto")
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error actualizando acción en PARTIDOACTUAL: ${e.message}")
+            }
+        }
+    }
+
+
+    /**
+     * Finaliza la asignación del partido actual y libera el perfil del usuario.
+     * Esto permite que el usuario pueda autoasignarse un nuevo partido desde el Home.*/
+    fun finalizarPartido(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                val usuario = UsuarioContext.getUsuario() ?: return@launch
+                val idUsuario = usuario.usuario // Usamos el ID de usuario (ej: "Carlos")
+
+                Log.d(TAG, "🏁 Finalizando y liberando partido para: $idUsuario")
+
+                // 1. Limpiar asignación en Firebase
+                com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                    .child("AppConfig")
+                    .child("Usuarios")
+                    .child(idUsuario)
+                    .child("permisos")
+                    .updateChildren(mapOf(
+                        "codigoCampeonato" to "NINGUNO",
+                        "codigoPartido" to "NINGUNO"
+                    )).await()
+
+                // 2. Limpiar contexto local para que la App sepa que no hay partido
+                UsuarioContext.limpiarPartidoAsignado()
+
+                // 3. Ejecutar navegación (volver al Home)
+                onSuccess()
+
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error al liberar partido: ${e.message}")
+                _uiState.update { it.copy(error = "Error al liberar partido: ${e.message}") }
             }
         }
     }

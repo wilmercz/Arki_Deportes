@@ -25,6 +25,7 @@ fun TiempoRealScreen(
     val state by viewModel.uiState.collectAsState()
 // 💡 Estado para controlar el diálogo de confirmación de desincronización
     var showConfirmDesync by remember { mutableStateOf(false) }
+    var showConfirmFinalizar by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -54,7 +55,14 @@ fun TiempoRealScreen(
                             tint = if (state.modoTransmision) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     }
-
+                    // ✅ NUEVO BOTÓN: FINALIZAR (Icono de salida)
+                    IconButton(onClick = { showConfirmFinalizar = true }) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Finalizar y Liberar",
+                            tint = MaterialTheme.colorScheme.error // Rojo
+                        )
+                    }
                     // Mantenemos el volver como una acción a la derecha
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Volver")
@@ -227,6 +235,32 @@ fun TiempoRealScreen(
                     modifier = Modifier.padding(16.dp)
                 )
             }
+        }
+
+
+        // ⚠️ DIÁLOGO DE CONFIRMACIÓN PARA FINALIZAR/LIBERAR
+        if (showConfirmFinalizar) {
+            AlertDialog(
+                onDismissRequest = { showConfirmFinalizar = false },
+                title = { Text("¿Finalizar Partido?") },
+                text = { Text("Se liberará el partido de tu perfil para que puedas elegir otro. Asegúrate de haber guardado todos los cambios.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.finalizarPartido { onNavigateBack() }
+                            showConfirmFinalizar = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Finalizar y Liberar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConfirmFinalizar = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
         }
 
         // ⚠️ DIÁLOGO DE CONFIRMACIÓN PARA DESACTIVAR SINCRONIZACIÓN
