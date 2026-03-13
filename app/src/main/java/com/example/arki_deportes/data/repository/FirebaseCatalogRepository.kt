@@ -838,10 +838,47 @@ class FirebaseCatalogRepository(
     }
 
     suspend fun uploadAudioFile(fileUri: Uri, fileName: String): String {
-        val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
-        val fileRef = storageRef.child("AUDIOS").child("${System.currentTimeMillis()}_$fileName")
-        fileRef.putFile(fileUri).await()
-        return fileRef.downloadUrl.await().toString()
+        try {
+            val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
+            val safeName = fileName.replace(Regex("[^A-Za-z0-9.]"), "_")
+            // Generamos un prefijo único una sola vez para esta operación
+            val uniqueName = "${System.currentTimeMillis()}_$safeName"
+
+            val fileRef = storageRef.child("ARKI_DEPORTES/CONFIGURACION/AUDIOS/$uniqueName")
+
+            Log.d("FirebaseStorage", "Iniciando subida de audio: ${fileRef.path}")
+
+            // Subir archivo y esperar resultado
+            val uploadTask = fileRef.putFile(fileUri).await()
+
+            if (uploadTask.task.isSuccessful) {
+                return fileRef.downloadUrl.await().toString()
+            } else {
+                throw Exception("La subida no fue exitosa")
+            }
+        } catch (e: Exception) {
+            Log.e("FirebaseStorage", "Error en uploadAudioFile: ${e.message}")
+            throw e
+        }
+    }
+
+    suspend fun uploadBannerMedia(fileUri: Uri, folder: String, fileName: String): String {
+        try {
+            val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
+            val safeName = fileName.replace(Regex("[^A-Za-z0-9.]"), "_")
+            val uniqueName = "${System.currentTimeMillis()}_$safeName"
+
+            // RUTA: /ARKI_DEPORTES/CONFIGURACION/PUBLICIDAD/IMAGENES/ o /VIDEOS/
+            val fileRef = storageRef.child("ARKI_DEPORTES/CONFIGURACION/PUBLICIDAD/$folder/$uniqueName")
+
+            Log.d("FirebaseStorage", "Iniciando subida de banner: ${fileRef.path}")
+
+            fileRef.putFile(fileUri).await()
+            return fileRef.downloadUrl.await().toString()
+        } catch (e: Exception) {
+            Log.e("FirebaseStorage", "Error en uploadBannerMedia: ${e.message}")
+            throw e
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -874,19 +911,12 @@ class FirebaseCatalogRepository(
         bannersReference().child(bannerId).removeValue().await()
     }
 
-    suspend fun uploadBannerMedia(fileUri: Uri, folder: String, fileName: String): String {
-        val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
-        val fileRef = storageRef.child("PUBLICIDAD").child(folder).child("${System.currentTimeMillis()}_$fileName")
-        fileRef.putFile(fileUri).await()
-        return fileRef.downloadUrl.await().toString()
-    }
-
     // ─────────────────────────────────────────────────────────────────────────────
     // CONTROL DE OVERLAY (PRODUCCIÓN EN VIVO)
     // ─────────────────────────────────────────────────────────────────────────────
 
     fun overlayConfigReference(): DatabaseReference =
-        database.reference.child("CONFIGURACION_OVERLAYWEB")
+        rootReference.child("CONFIGURACION_OVERLAYWEB")
 
     suspend fun publicarBannerEnOverlay(banner: BannerResource?) {
         val ref = overlayConfigReference().child("BANNER_ACTIVO")
