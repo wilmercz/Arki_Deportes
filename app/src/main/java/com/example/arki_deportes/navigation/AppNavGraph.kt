@@ -46,6 +46,10 @@ interface AppNavigator {
     fun navigateToSerieList(campeonatoId: String)
     fun navigateToSerieForm(campeonatoId: String, serieId: String? = null)
 
+    // GESTIÓN DE PRODUCCIÓN
+    fun navigateToGestionAudio()
+    fun navigateToGestionBanner()
+
     // OTRAS PANTALLAS
     fun navigateToMenciones()
     fun navigateToEquipoProduccion()
@@ -159,6 +163,14 @@ private class DefaultAppNavigator(
         navController.navigate(route) { launchSingleTop = true }
     }
 
+    override fun navigateToGestionAudio() {
+        navController.navigate(AppDestinations.GESTION_AUDIO) { launchSingleTop = true }
+    }
+
+    override fun navigateToGestionBanner() {
+        navController.navigate(AppDestinations.GESTION_BANNER) { launchSingleTop = true }
+    }
+
     override fun navigateToMenciones() {
         navController.navigate(AppDestinations.MENCIONES) { launchSingleTop = true }
     }
@@ -197,7 +209,9 @@ fun AppNavGraph(
     partidoListRoute: @Composable (AppNavigator) -> Unit,
     grupoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     equipoFormRoute: @Composable (AppNavigator, String?) -> Unit,
-    partidoFormRoute: @Composable (AppNavigator, String?) -> Unit
+    partidoFormRoute: @Composable (AppNavigator, String?) -> Unit,
+    gestionAudioRoute: @Composable (AppNavigator) -> Unit = {},
+    gestionBannerRoute: @Composable (AppNavigator) -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -242,6 +256,10 @@ fun AppNavGraph(
         composable(AppDestinations.GRUPO_LIST) { grupoListRoute(navigator) }
         composable(AppDestinations.EQUIPO_LIST) { equipoListRoute(navigator) }
         composable(AppDestinations.PARTIDO_LIST) { partidoListRoute(navigator) }
+        
+        // GESTIÓN DE PRODUCCIÓN
+        composable(AppDestinations.GESTION_AUDIO) { gestionAudioRoute(navigator) }
+        composable(AppDestinations.GESTION_BANNER) { gestionBannerRoute(navigator) }
 
         composable(AppDestinations.CAMPEONATO_FORM) { campeonatoFormRoute(navigator, null) }
         composable(
@@ -306,6 +324,7 @@ fun AppNavGraph(
             arguments = listOf(navArgument("codigoGrupo") { type = NavType.StringType; nullable = true })
         ) { backStackEntry ->
             val codigo = backStackEntry.arguments?.getString("codigoGrupo")
+            // CAMBIAR groupFormRoute por grupoFormRoute
             grupoFormRoute(navigator, codigo)
         }
 

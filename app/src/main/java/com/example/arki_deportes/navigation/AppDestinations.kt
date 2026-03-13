@@ -12,7 +12,7 @@ object AppDestinations {
     // Pantallas principales
     const val HYBRID_HOME: String = "hybrid_home"
     const val REAL_TIME: String = "real_time"
-    const val PARTIDOS_EN_VIVO: String = "partidos_en_vivo" // 👈 NUEVA RUTA
+    const val PARTIDOS_EN_VIVO: String = "partidos_en_vivo"
     const val CATALOGS: String = "catalogs"
 
     const val CAMPEONATO_LIST: String = "campeonato_list"
@@ -27,6 +27,10 @@ object AppDestinations {
     const val EQUIPO_FORM: String = "equipo_form"
     const val PARTIDO_FORM: String = "partido_form"
     const val SERIE_FORM: String = "serie_form"
+
+    // Gestión de Producción
+    const val GESTION_AUDIO: String = "gestion_audio"
+    const val GESTION_BANNER: String = "gestion_banner"
 
     // Otras pantallas
     const val MENCIONES: String = "menciones"
@@ -48,6 +52,8 @@ object AppDestinations {
         GRUPO_LIST,
         MENCIONES,
         EQUIPO_PRODUCCION,
+        GESTION_AUDIO,
+        GESTION_BANNER,
         SETTINGS
     )
 

@@ -129,10 +129,18 @@ import com.example.arki_deportes.ui.grupos.GrupoListRoute
 import com.example.arki_deportes.ui.envivo.PartidosEnVivoScreen
 import com.example.arki_deportes.ui.envivo.PartidosEnVivoViewModel
 import com.example.arki_deportes.ui.envivo.PartidosEnVivoViewModelFactory
-import androidx.lifecycle.ViewModelProvider // Necesario para la Factory
+import androidx.lifecycle.ViewModelProvider
 import com.example.arki_deportes.ui.monitor.MonitorNarradorScreen
 import com.example.arki_deportes.ui.monitor.MonitorNarradorViewModel
 import com.example.arki_deportes.ui.monitor.MonitorNarradorViewModelFactory
+
+// GESTIÓN DE PRODUCCIÓN (AUDIOS Y BANNERS)
+import com.example.arki_deportes.ui.produccion.audios.GestionAudioScreen
+import com.example.arki_deportes.ui.produccion.audios.GestionAudioViewModel
+import com.example.arki_deportes.ui.produccion.audios.GestionAudioViewModelFactory
+import com.example.arki_deportes.ui.produccion.banners.GestionBannerScreen
+import com.example.arki_deportes.ui.produccion.banners.GestionBannerViewModel
+import com.example.arki_deportes.ui.produccion.banners.GestionBannerViewModelFactory
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -214,7 +222,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         partidosEnVivoRoute = { n ->
-                            PantallaPartidosEnVivo(n, openDrawer = openDrawer) // 👈 PASAR LA NUEVA FUNCIÓN
+                            PantallaPartidosEnVivo(n, openDrawer = openDrawer)
                         },
                         monitorNarradorRoute = { n, cId, pId ->
                             PantallaMonitorNarrador(n, cId, pId, openDrawer = openDrawer)
@@ -244,7 +252,9 @@ class MainActivity : ComponentActivity() {
                         campeonatoFormRoute = { navigatorParam, codigo -> PantallaCampeonatoForm(navigatorParam, codigo) },
                         grupoFormRoute = { navigatorParam, codigo -> PantallaGrupoForm(navigatorParam, codigo) },
                         equipoFormRoute = { navigatorParam, codigo -> PantallaEquipoForm(navigatorParam, codigo) },
-                        partidoFormRoute = { navigatorParam, codigo -> PantallaPartidoForm(navigatorParam, codigo) }
+                        partidoFormRoute = { navigatorParam, codigo -> PantallaPartidoForm(navigatorParam, codigo) },
+                        gestionAudioRoute = { n -> PantallaGestionAudio(n, openDrawer = openDrawer) },
+                        gestionBannerRoute = { n -> PantallaGestionBanner(n, openDrawer = openDrawer) }
                     )
                 }
             }
@@ -281,11 +291,9 @@ class MainActivity : ComponentActivity() {
         TiempoRealScreen(
             viewModel = viewModel,
             onNavigateBack = {
-                // ✅ MEJORA: Siempre ir al Home al salir del control de partido,
-                // limpiando el rastro del Login si fuera necesario.
                 navigator.navigateToHybridHome(clearBackStack = true)
             },
-            onOpenDrawer = openDrawer // 👈 Pasamos la función
+            onOpenDrawer = openDrawer
         )
     }
 
@@ -294,21 +302,18 @@ class MainActivity : ComponentActivity() {
         val catalogRepo = remember(database, configManager) {
             FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
         }
-        // Asegúrate de importar PartidosEnVivoViewModel, Factory y Screen
         val viewModel: PartidosEnVivoViewModel = viewModel(
             factory = PartidosEnVivoViewModelFactory(catalogRepo)
         )
         PartidosEnVivoScreen(
             viewModel = viewModel,
             onPartidoClick = { campeonatoId, partidoId ->
-                // ✅ AHORA NAVEGA AL MONITOR:
                 navigator.navigateToMonitorNarrador(campeonatoId, partidoId)
             },
             onOpenDrawer = openDrawer
         )
     }
 
-    // Añadir esta función en MainActivity
     @Composable
     fun PantallaMonitorNarrador(
         navigator: AppNavigator,
@@ -323,6 +328,36 @@ class MainActivity : ComponentActivity() {
             factory = MonitorNarradorViewModelFactory(catalogRepo, campeonatoId, partidoId)
         )
         MonitorNarradorScreen(
+            viewModel = viewModel,
+            onBack = { navigator.navigateBack() },
+            onOpenDrawer = openDrawer
+        )
+    }
+
+    @Composable
+    fun PantallaGestionAudio(navigator: AppNavigator, openDrawer: () -> Unit) {
+        val catalogRepo = remember(database, configManager) {
+            FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
+        }
+        val viewModel: GestionAudioViewModel = viewModel(
+            factory = GestionAudioViewModelFactory(catalogRepo)
+        )
+        GestionAudioScreen(
+            viewModel = viewModel,
+            onBack = { navigator.navigateBack() },
+            onOpenDrawer = openDrawer
+        )
+    }
+
+    @Composable
+    fun PantallaGestionBanner(navigator: AppNavigator, openDrawer: () -> Unit) {
+        val catalogRepo = remember(database, configManager) {
+            FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
+        }
+        val viewModel: GestionBannerViewModel = viewModel(
+            factory = GestionBannerViewModelFactory(catalogRepo)
+        )
+        GestionBannerScreen(
             viewModel = viewModel,
             onBack = { navigator.navigateBack() },
             onOpenDrawer = openDrawer
@@ -691,7 +726,6 @@ class MainActivity : ComponentActivity() {
                     val haCaducado = verificarSiEstaCaducado(partido.FECHA_PARTIDO)
                     if (haCaducado) {
                         Log.w(TAG, "⚠️ Partido CADUCADO. Se mostrará aviso en Home.")
-                        // NO BORRAMOS AUTOMÁTICAMENTE. Solo navegamos.
                         navigator.navigateToHybridHome(clearBackStack = true)
                     } else {
                         PartidoContext.setPartidoActivo(partido)
@@ -848,7 +882,6 @@ class MainActivity : ComponentActivity() {
             viewModel = homeViewModel,
             onNavigateToPartidos = { navigator.navigateToPartidoList() },
             onNavigateToCampeonatos = { navigator.navigateToCampeonatoList() },
-            // ✅ CONEXIÓN DE NAVEGACIÓN:
             onNavigateToControlPartido = { cId, pId ->
                 navigator.navigateToTiempoReal(cId, pId)
             },

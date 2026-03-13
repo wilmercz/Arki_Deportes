@@ -25,6 +25,8 @@ import com.example.arki_deportes.data.model.PartidoEnVivo
 import com.example.arki_deportes.data.model.GolEvento
 import com.example.arki_deportes.data.model.CambioEvento
 import com.example.arki_deportes.data.model.Jugador
+import com.example.arki_deportes.data.model.AudioResource
+import com.example.arki_deportes.data.model.BannerResource
 
 /**
  * Repositorio centralizado para operaciones CRUD sobre catálogos en Firebase.
@@ -476,7 +478,7 @@ class FirebaseCatalogRepository(
      * Observa un partido específico en tiempo real
      *
      * Ruta Firebase: /DatosFutbol/Campeonatos/{campeonatoId}/Partidos/{partidoId}
-     * VB.NET Equivalente: RutaPartidoFB = RaizFireBase & "/DatosFutbol/Campeonatos/" & CodigoCampeonato & "/Partidos/" & CodigoPartido
+     * VB.NET Equivalente: RaizFireBase & "/DatosFutbol/Campeonatos/" & CodigoCampeonato & "/Partidos/" & CodigoPartido
      *
      * @param campeonatoId ID del campeonato
      * @param partidoId ID del partido
@@ -803,5 +805,106 @@ class FirebaseCatalogRepository(
         )
 
         ref.updateChildren(updates).await()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // GESTIÓN DE AUDIOS Y MÚSICA
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    fun audiosReference(): DatabaseReference =
+        rootReference.child(Constants.FirebaseCollections.CONFIGURACION).child(Constants.FirebaseCollections.AUDIOS)
+
+    fun observeAudios(): Flow<List<AudioResource>> = callbackFlow {
+        val ref = audiosReference()
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val audios = snapshot.children.mapNotNull { it.getValue(AudioResource::class.java) }
+                trySend(audios)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    suspend fun saveAudio(audio: AudioResource) {
+        val id = if (audio.id.isBlank()) audiosReference().push().key ?: "" else audio.id
+        val finalAudio = audio.copy(id = id)
+        audiosReference().child(id).setValue(finalAudio.toMap()).await()
+    }
+
+    suspend fun deleteAudio(audioId: String) {
+        audiosReference().child(audioId).removeValue().await()
+    }
+
+    suspend fun uploadAudioFile(fileUri: Uri, fileName: String): String {
+        val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
+        val fileRef = storageRef.child("AUDIOS").child("${System.currentTimeMillis()}_$fileName")
+        fileRef.putFile(fileUri).await()
+        return fileRef.downloadUrl.await().toString()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // GESTIÓN DE BANNERS Y PUBLICIDAD
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    fun bannersReference(): DatabaseReference =
+        rootReference.child(Constants.FirebaseCollections.CONFIGURACION).child(Constants.FirebaseCollections.PUBLICIDAD_BANNER)
+
+    fun observeBanners(): Flow<List<BannerResource>> = callbackFlow {
+        val ref = bannersReference()
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val banners = snapshot.children.mapNotNull { it.getValue(BannerResource::class.java) }
+                trySend(banners)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    suspend fun saveBanner(banner: BannerResource) {
+        val id = if (banner.id.isBlank()) bannersReference().push().key ?: "" else banner.id
+        val finalBanner = banner.copy(id = id)
+        bannersReference().child(id).setValue(finalBanner.toMap()).await()
+    }
+
+    suspend fun deleteBanner(bannerId: String) {
+        bannersReference().child(bannerId).removeValue().await()
+    }
+
+    suspend fun uploadBannerMedia(fileUri: Uri, folder: String, fileName: String): String {
+        val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
+        val fileRef = storageRef.child("PUBLICIDAD").child(folder).child("${System.currentTimeMillis()}_$fileName")
+        fileRef.putFile(fileUri).await()
+        return fileRef.downloadUrl.await().toString()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // CONTROL DE OVERLAY (PRODUCCIÓN EN VIVO)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    fun overlayConfigReference(): DatabaseReference =
+        database.reference.child("CONFIGURACION_OVERLAYWEB")
+
+    suspend fun publicarBannerEnOverlay(banner: BannerResource?) {
+        val ref = overlayConfigReference().child("BANNER_ACTIVO")
+        if (banner == null) {
+            ref.removeValue().await()
+        } else {
+            ref.setValue(banner.toMap()).await()
+        }
+    }
+
+    suspend fun reproducirAudioEnOverlay(audio: AudioResource?) {
+        val ref = overlayConfigReference().child("AUDIO_PLAY")
+        if (audio == null) {
+            ref.removeValue().await()
+        } else {
+            val data = audio.toMap().toMutableMap()
+            data["timestamp"] = ServerValue.TIMESTAMP
+            ref.setValue(data).await()
+        }
     }
 }

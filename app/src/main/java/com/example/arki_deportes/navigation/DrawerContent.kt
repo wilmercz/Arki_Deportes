@@ -33,8 +33,9 @@ import com.example.arki_deportes.data.context.DeporteContext
 
 import com.example.arki_deportes.utils.SportType
 import com.example.arki_deportes.data.model.Partido
-// Al principio del archivo DrawerContent.kt, añade esta importación si no está:
 import android.widget.Toast
+import androidx.compose.foundation.rememberScrollState // 👈 Añadir este
+import androidx.compose.foundation.verticalScroll//
 
 private fun String?.matchesRoute(route: String): Boolean {
     return this == route || this?.startsWith("$route/") == true
@@ -68,264 +69,277 @@ fun DrawerContent(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
         drawerTonalElevation = 0.dp
     ) {
-        // Header del Drawer
-        DrawerHeader()
+        // 1. Envolver todo en un Column con scroll
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()) // 👈 Habilita el scroll
+        ) {
+            // Header del Drawer
+            DrawerHeader()
 
-        Divider()
+            Divider()
 
-        // ═══════════════════════════════════════════════════════════════════
-        // SELECTOR DE CAMPEONATO - ¡NUEVO!
-        // ═══════════════════════════════════════════════════════════════════
-        if (campeonatos.isNotEmpty()) {
-            CampeonatoSelector(
-                campeonatos = campeonatos,
-                modifier = Modifier.padding(top = 8.dp),
-                onCampeonatoSeleccionado = { camp ->
-                    // Esto asegura que el contexto se actualice al hacer click
-                    CampeonatoContext.seleccionarCampeonato(camp)
+            if (campeonatos.isNotEmpty()) {
+                CampeonatoSelector(
+                    campeonatos = campeonatos,
+                    modifier = Modifier.padding(top = 8.dp),
+                    onCampeonatoSeleccionado = { camp ->
+                        CampeonatoContext.seleccionarCampeonato(camp)
+                    }
+                )
+            } else {
+                Text(
+                    text = "Cargando campeonatos...",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+
+            // Menú principal
+            DrawerMenuItem(
+                icon = Icons.Default.Home,
+                label = "Inicio",
+                isSelected = currentRoute.matchesRoute(AppDestinations.HYBRID_HOME),
+                onClick = {
+                    navigator.navigateToHybridHome()
+                    onCloseDrawer()
                 }
             )
-        } else {
+
+            DrawerMenuItem(
+                icon = Icons.Default.VideoLibrary,
+                label = "Control Partido",
+                isSelected = currentRoute.matchesRoute(AppDestinations.REAL_TIME),
+                onClick = {
+                    onCloseDrawer()
+                    scope.launch {
+                        val user = UsuarioContext.getUsuario()
+                        val partidoId = user?.permisos?.codigoPartido
+                        val campeonatoId = user?.permisos?.codigoCampeonato
+
+                        if (campeonatoId.isNullOrBlank() || campeonatoId == "NINGUNO" ||
+                            partidoId.isNullOrBlank() || partidoId == "NINGUNO"
+                        ) {
+                            navigator.navigateToHybridHome()
+                            return@launch
+                        }
+
+                        try {
+                            val partido = catalogRepository.getPartido(campeonatoId, partidoId)
+                            if (partido == null) {
+                                navigator.navigateToHybridHome()
+                                return@launch
+                            }
+
+                            val haCaducado = verificarCaducidadPartido(partido)
+                            if (haCaducado) {
+                                UsuarioContext.limpiarPartidoAsignado()
+                                navigator.navigateToHybridHome()
+                                return@launch
+                            }
+
+                            PartidoContext.setPartidoActivo(partido)
+                            val campeonato = catalogRepository.getCampeonato(campeonatoId)
+                            if (campeonato != null) {
+                                CampeonatoContext.seleccionarCampeonato(campeonato)
+                                val deporte = SportType.fromId(campeonato.DEPORTE)
+                                DeporteContext.seleccionarDeporte(deporte)
+                            }
+
+                            navigator.navigateToTiempoReal(
+                                campeonatoId = campeonatoId,
+                                partidoId = partidoId,
+                                clearBackStack = false
+                            )
+                        } catch (e: Exception) {
+                            navigator.navigateToHybridHome()
+                        }
+                    }
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.LiveTv,
+                label = "Partidos En Vivo",
+                isSelected = currentRoute == AppDestinations.PARTIDOS_EN_VIVO,
+                onClick = {
+                    navigator.navigateToPartidosEnVivo()
+                    onCloseDrawer()
+                }
+            )
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+
+            // Sección de gestión
             Text(
-                text = "Cargando campeonatos...",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "GESTIÓN",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.EmojiEvents,
+                label = "Campeonatos",
+                isSelected = currentRoute.matchesRoute(AppDestinations.CAMPEONATO_LIST) ||
+                        currentRoute.matchesRoute(AppDestinations.CAMPEONATO_FORM),
+                onClick = {
+                    navigator.navigateToCampeonatoList()
+                    onCloseDrawer()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.Layers,
+                label = "Series",
+                isSelected = currentRoute.matchesRoute("serie_list") ||
+                        currentRoute.matchesRoute("serie_form"),
+                onClick = {
+                    val codigoId = campeonatoActivo?.CODIGO
+                    if (!codigoId.isNullOrBlank()) {
+                        navigator.navigateToSerieList(codigoId)
+                    } else {
+                        Toast.makeText(context, "Por favor, seleccione un campeonato primero", Toast.LENGTH_SHORT).show()
+                        navigator.navigateToCampeonatoList()
+                    }
+                    onCloseDrawer()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.Group,
+                label = "Grupos",
+                isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_LIST),
+                onClick = {
+                    val campeonatoId = campeonatoActivo?.CODIGO
+                    if (campeonatoId.isNullOrBlank()) {
+                        Toast.makeText(context, "Por favor, seleccione un campeonato primero", Toast.LENGTH_SHORT).show()
+                        navigator.navigateToCampeonatoList()
+                    } else {
+                        Toast.makeText(context, "Seleccione una serie para gestionar sus grupos", Toast.LENGTH_SHORT).show()
+                        navigator.navigateToSerieList(campeonatoId)
+                    }
+                    onCloseDrawer()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.Shield,
+                label = "Equipos",
+                isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_LIST) ||
+                        currentRoute.matchesRoute(AppDestinations.EQUIPO_FORM),
+                onClick = {
+                    navigator.navigateToEquipoList()
+                    onCloseDrawer()
+                }
+            )
+
+
+            DrawerMenuItem(
+                icon = Icons.Default.SportsScore,
+                label = "Partidos",
+                isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_LIST),
+                onClick = {
+                    if (campeonatoActivo?.CODIGO.isNullOrBlank()) {
+                        Toast.makeText(context, "Seleccione un campeonato primero", Toast.LENGTH_SHORT).show()
+                        navigator.navigateToCampeonatoList()
+                    } else {
+                        navigator.navigateToPartidoList()
+                    }
+                    onCloseDrawer()
+                }
+            )
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Sección de Producción
+            Text(
+                text = "PRODUCCIÓN",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.MusicNote,
+                label = "Gestión Audios",
+                isSelected = currentRoute.matchesRoute(AppDestinations.GESTION_AUDIO),
+                onClick = {
+                    navigator.navigateToGestionAudio()
+                    onCloseDrawer()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.FeaturedVideo,
+                label = "Gestión Banners",
+                isSelected = currentRoute.matchesRoute(AppDestinations.GESTION_BANNER),
+                onClick = {
+                    navigator.navigateToGestionBanner()
+                    onCloseDrawer()
+                }
+            )
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Otras opciones
+            Text(
+                text = "OTRAS OPCIONES",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.Mic,
+                label = "Menciones",
+                isSelected = currentRoute.matchesRoute(AppDestinations.MENCIONES),
+                onClick = {
+                    navigator.navigateToMenciones()
+                    onCloseDrawer()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.People,
+                label = "Equipo Producción",
+                isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_PRODUCCION),
+                onClick = {
+                    navigator.navigateToEquipoProduccion()
+                    onCloseDrawer()
+                }
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Divider()
+
+            // Configuración y Cerrar Sesión
+            DrawerMenuItem(
+                icon = Icons.Default.Settings,
+                label = "Configuración",
+                isSelected = currentRoute.matchesRoute(AppDestinations.SETTINGS),
+                onClick = {
+                    navigator.navigateToSettings()
+                    onCloseDrawer()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Default.ExitToApp,
+                label = "Cerrar Sesión",
+                onClick = {
+                    onLogout()
+                    navigator.navigateToLogin(clearBackStack = true)
+                    onCloseDrawer()
+                }
             )
         }
 
-
-        // Menú principal
-        DrawerMenuItem(
-            icon = Icons.Default.Home,
-            label = "Inicio",
-            isSelected = currentRoute.matchesRoute(AppDestinations.HYBRID_HOME),
-            onClick = {
-                navigator.navigateToHybridHome()
-                onCloseDrawer()
-            }
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.VideoLibrary,
-            label = "Control Partido",
-            isSelected = currentRoute.matchesRoute(AppDestinations.REAL_TIME),
-            onClick = {
-                // Cierra el drawer de una para que se sienta rápido
-                onCloseDrawer()
-
-                scope.launch {
-                    val user = UsuarioContext.getUsuario()
-
-                    val partidoId = user?.permisos?.codigoPartido
-                    val campeonatoId = user?.permisos?.codigoCampeonato
-
-                    // Si no hay asignación → Home (lista/selección de partidos)
-                    if (campeonatoId.isNullOrBlank() || campeonatoId == "NINGUNO" ||
-                        partidoId.isNullOrBlank() || partidoId == "NINGUNO"
-                    ) {
-                        navigator.navigateToHybridHome()
-                        return@launch
-                    }
-
-                    try {
-                        // 1) Obtener partido
-                        val partido = catalogRepository.getPartido(campeonatoId, partidoId)
-                        if (partido == null) {
-                            navigator.navigateToHybridHome()
-                            return@launch
-                        }
-
-                        // 2) Verificar caducidad (misma regla del MainActivity)
-                        val haCaducado = verificarCaducidadPartido(partido)
-                        if (haCaducado) {
-                            // Opcional: aquí podrías también limpiar el contexto local
-                            UsuarioContext.limpiarPartidoAsignado()
-                            navigator.navigateToHybridHome()
-                            return@launch
-                        }
-
-                        // 3) Partido vigente → set contextos como en MainActivity
-                        PartidoContext.setPartidoActivo(partido)
-
-                        val campeonato = catalogRepository.getCampeonato(campeonatoId)
-                        if (campeonato != null) {
-                            CampeonatoContext.seleccionarCampeonato(campeonato)
-                            val deporte = SportType.fromId(campeonato.DEPORTE)
-                            DeporteContext.seleccionarDeporte(deporte)
-                        }
-
-                        // 4) Navegar a Tiempo Real con los ids asignados
-                        navigator.navigateToTiempoReal(
-                            campeonatoId = campeonatoId,
-                            partidoId = partidoId,
-                            clearBackStack = false
-                        )
-                    } catch (e: Exception) {
-                        navigator.navigateToHybridHome()
-                    }
-                }
-            }
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.LiveTv, // Usamos icono de TV para En Vivo
-            label = "Partidos En Vivo",
-            isSelected = currentRoute == AppDestinations.PARTIDOS_EN_VIVO,
-            onClick = {        navigator.navigateToPartidosEnVivo() // 👈 USAR LA FUNCIÓN DEL NAVIGATOR
-                onCloseDrawer()
-            }
-        )
-
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-        // Sección de gestión
-        Text(
-            text = "GESTIÓN",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.EmojiEvents,
-            label = "Campeonatos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.CAMPEONATO_LIST) ||
-                    currentRoute.matchesRoute(AppDestinations.CAMPEONATO_FORM),
-            onClick = {
-                navigator.navigateToCampeonatoList()
-                onCloseDrawer()
-            }
-        )
-
-        // ✅ NUEVO: Item de Series
-        DrawerMenuItem(
-            icon = Icons.Default.Layers,
-            label = "Series",
-            isSelected = currentRoute.matchesRoute("serie_list") ||
-                    currentRoute.matchesRoute("serie_form"),
-            onClick = {
-                val codigoId = campeonatoActivo?.CODIGO
-
-                if (!codigoId.isNullOrBlank()) {
-                    // Si hay un campeonato seleccionado, vamos a su lista de series
-                    navigator.navigateToSerieList(codigoId)
-                } else {
-
-                    // ✅ AVISO AL USUARIO
-                    android.widget.Toast.makeText(
-                        context,
-                        "Por favor, seleccione un campeonato primero",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-
-                    // Si no hay seleccionado, mostramos la lista de campeonatos para que elija uno
-                    navigator.navigateToCampeonatoList()
-                }
-                onCloseDrawer()
-            }
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.Group,
-            label = "Grupos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.GRUPO_LIST),
-            onClick = {
-                val campeonatoId = campeonatoActivo?.CODIGO
-
-                if (campeonatoId.isNullOrBlank()) {
-                    Toast.makeText(context, "Por favor, seleccione un campeonato primero", Toast.LENGTH_SHORT).show()
-                    navigator.navigateToCampeonatoList()
-                } else {
-                    // ✅ MEJORA: Lo mandamos a Series para que elija cuál gestionar
-                    Toast.makeText(context, "Seleccione una serie para gestionar sus grupos", Toast.LENGTH_SHORT).show()
-                    navigator.navigateToSerieList(campeonatoId)
-                }
-                onCloseDrawer()
-            }
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.Shield,
-            label = "Equipos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_LIST) || 
-                    currentRoute.matchesRoute(AppDestinations.EQUIPO_FORM),
-            onClick = {
-                navigator.navigateToEquipoList()
-                onCloseDrawer()
-            }
-        )
-
-
-        DrawerMenuItem(
-            icon = Icons.Default.SportsScore,
-            label = "Partidos",
-            isSelected = currentRoute.matchesRoute(AppDestinations.PARTIDO_LIST),
-            onClick = {
-                if (campeonatoActivo?.CODIGO.isNullOrBlank()) {
-                    Toast.makeText(context, "Seleccione un campeonato primero", Toast.LENGTH_SHORT).show()
-                    navigator.navigateToCampeonatoList()
-                } else {
-                    navigator.navigateToPartidoList()
-                }
-                onCloseDrawer()
-            }
-        )
-
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-        // Otras opciones
-        Text(
-            text = "OTRAS OPCIONES",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.Mic,
-            label = "Menciones",
-            isSelected = currentRoute.matchesRoute(AppDestinations.MENCIONES),
-            onClick = {
-                navigator.navigateToMenciones()
-                onCloseDrawer()
-            }
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.People,
-            label = "Equipo Producción",
-            isSelected = currentRoute.matchesRoute(AppDestinations.EQUIPO_PRODUCCION),
-            onClick = {
-                navigator.navigateToEquipoProduccion()
-                onCloseDrawer()
-            }
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Divider()
-
-        // Configuración y Cerrar Sesión
-        DrawerMenuItem(
-            icon = Icons.Default.Settings,
-            label = "Configuración",
-            isSelected = currentRoute.matchesRoute(AppDestinations.SETTINGS),
-            onClick = {
-                navigator.navigateToSettings()
-                onCloseDrawer()
-            }
-        )
-
-        DrawerMenuItem(
-            icon = Icons.Default.ExitToApp,
-            label = "Cerrar Sesión",
-            onClick = {
-                onLogout()
-                navigator.navigateToLogin(clearBackStack = true)
-                onCloseDrawer()
-            }
-        )
     }
 }
 
@@ -339,7 +353,6 @@ private fun verificarCaducidadPartido(partido: Partido): Boolean {
 
 private fun parsearFechaPartido(fechaStr: String): LocalDate? {
     if (fechaStr.isBlank()) return null
-
     val formatos = listOf(
         DateTimeFormatter.ofPattern("yyyy-MM-dd"),
         DateTimeFormatter.ofPattern("dd/MM/yyyy"),
@@ -349,7 +362,6 @@ private fun parsearFechaPartido(fechaStr: String): LocalDate? {
         DateTimeFormatter.ofPattern("dd-MM-yyyy"),
         DateTimeFormatter.ofPattern("d-M-yyyy")
     )
-
     for (f in formatos) {
         try {
             return LocalDate.parse(fechaStr.trim(), f)
@@ -358,9 +370,6 @@ private fun parsearFechaPartido(fechaStr: String): LocalDate? {
     return null
 }
 
-/**
- * Header del Drawer con información de la app
- */
 @Composable
 private fun DrawerHeader() {
     Box(
@@ -392,9 +401,6 @@ private fun DrawerHeader() {
     }
 }
 
-/**
- * Item individual del menú
- */
 @Composable
 private fun DrawerMenuItem(
     icon: ImageVector,
