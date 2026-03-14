@@ -1,10 +1,12 @@
 package com.example.arki_deportes.ui.produccion.banners
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.arki_deportes.data.model.BannerResource
+import com.example.arki_deportes.data.repository.CloudinaryUploader
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +22,8 @@ data class BannerUiState(
 )
 
 class GestionBannerViewModel(
-    private val repository: FirebaseCatalogRepository
+    private val repository: FirebaseCatalogRepository,
+    private val cloudinaryUploader: CloudinaryUploader   // ← nuevo
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BannerUiState())
@@ -44,14 +47,27 @@ class GestionBannerViewModel(
             _uiState.update { it.copy(isUploading = true) }
             try {
                 var finalBanner = banner
+
+                // ── Subida imagen a Cloudinary (reemplaza uploadBannerMedia_Storage) ──
                 if (imageUri != null) {
-                    val imageUrl = repository.uploadBannerMedia(imageUri, "IMAGENES", "${banner.nombre}_img")
+                    val imageUrl = cloudinaryUploader.uploadBannerMedia(
+                        fileUri = imageUri,
+                        folder = "IMAGENES",
+                        fileName = "${banner.nombre}_img"
+                    )
                     finalBanner = finalBanner.copy(urlImagen = imageUrl)
                 }
+
+                // ── Subida video a Cloudinary (reemplaza uploadBannerMedia_Storage) ──
                 if (videoUri != null) {
-                    val videoUrl = repository.uploadBannerMedia(videoUri, "VIDEOS", "${banner.nombre}_vid")
+                    val videoUrl = cloudinaryUploader.uploadBannerMedia(
+                        fileUri = videoUri,
+                        folder = "VIDEOS",
+                        fileName = "${banner.nombre}_vid"
+                    )
                     finalBanner = finalBanner.copy(urlVideo = videoUrl)
                 }
+
                 repository.saveBanner(finalBanner)
                 _uiState.update { it.copy(isUploading = false) }
             } catch (e: Exception) {
@@ -85,11 +101,17 @@ class GestionBannerViewModel(
     }
 }
 
-class GestionBannerViewModelFactory(private val repository: FirebaseCatalogRepository) : ViewModelProvider.Factory {
+class GestionBannerViewModelFactory(
+    private val repository: FirebaseCatalogRepository,
+    private val context: Context                         // ← nuevo (para CloudinaryUploader)
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(GestionBannerViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return GestionBannerViewModel(repository) as T
+            return GestionBannerViewModel(
+                repository = repository,
+                cloudinaryUploader = CloudinaryUploader(context)
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

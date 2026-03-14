@@ -3,10 +3,14 @@ package com.example.arki_deportes.ui.tiemporeal
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.arki_deportes.data.local.ConfigManager
+import com.example.arki_deportes.data.model.AnuncioPublicidad
+import com.example.arki_deportes.data.model.BannerResource
 import com.example.arki_deportes.data.model.PartidoActual
+import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import com.example.arki_deportes.utils.Constants
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -20,10 +24,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class TiempoRealViewModel(application: Application) : AndroidViewModel(application) {
 
     private val configManager = ConfigManager(application)
+    private val repository = FirebaseCatalogRepository(FirebaseDatabase.getInstance(), configManager.obtenerNodoRaiz())
+
     private val database: FirebaseDatabase = FirebaseDatabase.getInstance()
     private val partidoReference: DatabaseReference = database.reference
         .child(configManager.obtenerNodoRaiz())
@@ -72,11 +79,20 @@ class TiempoRealViewModel(application: Application) : AndroidViewModel(applicati
 
     init {
         observePartidoActual()
+        observeBanners()
     }
 
     private fun observePartidoActual() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         partidoReference.addValueEventListener(listener)
+    }
+
+    private fun observeBanners() {
+        viewModelScope.launch {
+            repository.observeBanners().collect { banners ->
+                _uiState.update { it.copy(banners = banners) }
+            }
+        }
     }
 
     private fun mapMarcador(partido: PartidoActual, snapshot: DataSnapshot?): MarcadorUi {
@@ -168,6 +184,65 @@ class TiempoRealViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    // --- Gestión de Publicidad ---
+
+    fun toggleBannerSelection(bannerId: String) {
+        _uiState.update { state ->
+            val newList = if (state.selectedBannerIds.contains(bannerId)) {
+                state.selectedBannerIds - bannerId
+            } else {
+                state.selectedBannerIds + bannerId
+            }
+            state.copy(selectedBannerIds = newList)
+        }
+    }
+
+    fun enviarPublicidadUnica(banner: BannerResource) {
+        viewModelScope.launch {
+            val anuncio = AnuncioPublicidad(
+                tipo = banner.tipo.lowercase(),
+                contenido = when (banner.tipo.uppercase()) {
+                    "VIDEO" -> banner.urlVideo
+                    "HTML" -> banner.codigoHtml
+                    else -> banner.urlImagen
+                },
+                duracion = 10
+            )
+            repository.enviarAnuncioUnico(anuncio)
+        }
+    }
+
+    fun enviarListaSecuencial() {
+        val selectedIds = _uiState.value.selectedBannerIds
+        if (selectedIds.isEmpty()) return
+
+        viewModelScope.launch {
+            val anuncios = _uiState.value.banners
+                .filter { it.id in selectedIds }
+                .sortedBy { selectedIds.indexOf(it.id) }
+                .map { banner ->
+                    AnuncioPublicidad(
+                        tipo = banner.tipo.lowercase(),
+                        contenido = when (banner.tipo.uppercase()) {
+                            "VIDEO" -> banner.urlVideo
+                            "HTML" -> banner.codigoHtml
+                            else -> banner.urlImagen
+                        },
+                        duracion = 10
+                    )
+                }
+            repository.enviarListaAnuncios(anuncios)
+            // Limpiar selección después de enviar
+            _uiState.update { it.copy(selectedBannerIds = emptySet()) }
+        }
+    }
+
+    fun ocultarPublicidad() {
+        viewModelScope.launch {
+            repository.ocultarPublicidad()
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         partidoReference.removeEventListener(listener)
@@ -232,6 +307,8 @@ data class TiempoRealUiState(
     val marcador: MarcadorUi = MarcadorUi(),
     val estadisticas: EstadisticasUi = EstadisticasUi(),
     val alineaciones: AlineacionesUi = AlineacionesUi(),
+    val banners: List<BannerResource> = emptyList(),
+    val selectedBannerIds: Set<String> = emptySet(),
     val ultimaActualizacionTexto: String? = null,
     val errorMessage: String? = null,
     val isLoading: Boolean = true,

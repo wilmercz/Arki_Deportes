@@ -1,10 +1,12 @@
 package com.example.arki_deportes.ui.produccion.audios
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.arki_deportes.data.model.AudioResource
+import com.example.arki_deportes.data.repository.CloudinaryUploader
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +22,8 @@ data class AudioUiState(
 )
 
 class GestionAudioViewModel(
-    private val repository: FirebaseCatalogRepository
+    private val repository: FirebaseCatalogRepository,
+    private val cloudinaryUploader: CloudinaryUploader   // ← nuevo
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AudioUiState())
@@ -43,7 +46,9 @@ class GestionAudioViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isUploading = true) }
             try {
-                val downloadUrl = repository.uploadAudioFile(uri, fileName)
+                // ── Subida a Cloudinary (reemplaza uploadAudioFile_Storage) ──
+                val downloadUrl = cloudinaryUploader.uploadAudioFile(uri, fileName)
+
                 val audio = AudioResource(
                     nombre = fileName,
                     url = downloadUrl,
@@ -84,11 +89,17 @@ class GestionAudioViewModel(
     }
 }
 
-class GestionAudioViewModelFactory(private val repository: FirebaseCatalogRepository) : ViewModelProvider.Factory {
+class GestionAudioViewModelFactory(
+    private val repository: FirebaseCatalogRepository,
+    private val context: Context                         // ← nuevo (para CloudinaryUploader)
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(GestionAudioViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return GestionAudioViewModel(repository) as T
+            return GestionAudioViewModel(
+                repository = repository,
+                cloudinaryUploader = CloudinaryUploader(context)
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

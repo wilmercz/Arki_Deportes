@@ -27,6 +27,7 @@ import com.example.arki_deportes.data.model.CambioEvento
 import com.example.arki_deportes.data.model.Jugador
 import com.example.arki_deportes.data.model.AudioResource
 import com.example.arki_deportes.data.model.BannerResource
+import com.example.arki_deportes.data.model.AnuncioPublicidad
 
 /**
  * Repositorio centralizado para operaciones CRUD sobre catálogos en Firebase.
@@ -812,8 +813,7 @@ class FirebaseCatalogRepository(
     // ─────────────────────────────────────────────────────────────────────────────
 
     fun audiosReference(): DatabaseReference =
-        rootReference.child(Constants.FirebaseCollections.CONFIGURACION).child(Constants.FirebaseCollections.AUDIOS)
-
+        database.reference.child("CONFIGURACION_OVERLAYWEB").child("CONFIGURACION_MEDIA").child("AUDIOS")
     fun observeAudios(): Flow<List<AudioResource>> = callbackFlow {
         val ref = audiosReference()
         val listener = object : ValueEventListener {
@@ -837,56 +837,12 @@ class FirebaseCatalogRepository(
         audiosReference().child(audioId).removeValue().await()
     }
 
-    suspend fun uploadAudioFile(fileUri: Uri, fileName: String): String {
-        try {
-            val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
-            val safeName = fileName.replace(Regex("[^A-Za-z0-9.]"), "_")
-            // Generamos un prefijo único una sola vez para esta operación
-            val uniqueName = "${System.currentTimeMillis()}_$safeName"
-
-            val fileRef = storageRef.child("ARKI_DEPORTES/CONFIGURACION/AUDIOS/$uniqueName")
-
-            Log.d("FirebaseStorage", "Iniciando subida de audio: ${fileRef.path}")
-
-            // Subir archivo y esperar resultado
-            val uploadTask = fileRef.putFile(fileUri).await()
-
-            if (uploadTask.task.isSuccessful) {
-                return fileRef.downloadUrl.await().toString()
-            } else {
-                throw Exception("La subida no fue exitosa")
-            }
-        } catch (e: Exception) {
-            Log.e("FirebaseStorage", "Error en uploadAudioFile: ${e.message}")
-            throw e
-        }
-    }
-
-    suspend fun uploadBannerMedia(fileUri: Uri, folder: String, fileName: String): String {
-        try {
-            val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
-            val safeName = fileName.replace(Regex("[^A-Za-z0-9.]"), "_")
-            val uniqueName = "${System.currentTimeMillis()}_$safeName"
-
-            // RUTA: /ARKI_DEPORTES/CONFIGURACION/PUBLICIDAD/IMAGENES/ o /VIDEOS/
-            val fileRef = storageRef.child("ARKI_DEPORTES/CONFIGURACION/PUBLICIDAD/$folder/$uniqueName")
-
-            Log.d("FirebaseStorage", "Iniciando subida de banner: ${fileRef.path}")
-
-            fileRef.putFile(fileUri).await()
-            return fileRef.downloadUrl.await().toString()
-        } catch (e: Exception) {
-            Log.e("FirebaseStorage", "Error en uploadBannerMedia: ${e.message}")
-            throw e
-        }
-    }
-
     // ─────────────────────────────────────────────────────────────────────────────
     // GESTIÓN DE BANNERS Y PUBLICIDAD
     // ─────────────────────────────────────────────────────────────────────────────
 
     fun bannersReference(): DatabaseReference =
-        rootReference.child(Constants.FirebaseCollections.CONFIGURACION).child(Constants.FirebaseCollections.PUBLICIDAD_BANNER)
+        database.reference.child("CONFIGURACION_OVERLAYWEB").child("CONFIGURACION_MEDIA").child("PUBLICIDAD_BANNER")
 
     fun observeBanners(): Flow<List<BannerResource>> = callbackFlow {
         val ref = bannersReference()
@@ -916,7 +872,7 @@ class FirebaseCatalogRepository(
     // ─────────────────────────────────────────────────────────────────────────────
 
     fun overlayConfigReference(): DatabaseReference =
-        rootReference.child("CONFIGURACION_OVERLAYWEB")
+        database.reference.child("CONFIGURACION_OVERLAYWEB").child("CONFIGURACION_MEDIA")
 
     suspend fun publicarBannerEnOverlay(banner: BannerResource?) {
         val ref = overlayConfigReference().child("BANNER_ACTIVO")
@@ -936,5 +892,24 @@ class FirebaseCatalogRepository(
             data["timestamp"] = ServerValue.TIMESTAMP
             ref.setValue(data).await()
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // NUEVO: CONTROL DE PUBLICIDAD (ARKI_DEPORTES/PUBLICIDAD)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    fun publicidadReference(): DatabaseReference = rootReference.child("PUBLICIDAD")
+
+    suspend fun enviarAnuncioUnico(anuncio: AnuncioPublicidad) {
+        publicidadReference().setValue(anuncio).await()
+    }
+
+    suspend fun enviarListaAnuncios(anuncios: List<AnuncioPublicidad>) {
+        publicidadReference().setValue(anuncios).await()
+    }
+
+    suspend fun ocultarPublicidad() {
+        val ordenApagado = mapOf("mostrar" to false)
+        publicidadReference().setValue(ordenApagado).await()
     }
 }

@@ -101,7 +101,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalFocusManager
 import com.example.arki_deportes.utils.SportType
 import androidx.compose.runtime.saveable.rememberSaveable
-
+import androidx.compose.ui.platform.LocalContext
 // ────────────────────────────────────────────────────────────────────────────
 // Accompanist (SwipeRefresh)
 // ────────────────────────────────────────────────────────────────────────────
@@ -340,7 +340,7 @@ class MainActivity : ComponentActivity() {
             FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
         }
         val viewModel: GestionAudioViewModel = viewModel(
-            factory = GestionAudioViewModelFactory(catalogRepo)
+            factory = GestionAudioViewModelFactory(catalogRepo, LocalContext.current)
         )
         GestionAudioScreen(
             viewModel = viewModel,
@@ -355,7 +355,7 @@ class MainActivity : ComponentActivity() {
             FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
         }
         val viewModel: GestionBannerViewModel = viewModel(
-            factory = GestionBannerViewModelFactory(catalogRepo)
+            factory = GestionBannerViewModelFactory(catalogRepo, LocalContext.current)
         )
         GestionBannerScreen(
             viewModel = viewModel,
