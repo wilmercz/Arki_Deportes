@@ -88,7 +88,10 @@ data class TiempoRealUiState(
      * [1, 1, 0...] donde 1=gol, 0=fallo
      * Corresponde a PENALES_SERIE2 en Firebase
      */
-    val historiaPenales2: List<Int> = emptyList()
+    val historiaPenales2: List<Int> = emptyList(),
+    val banners: List<BannerResource> = emptyList(),
+    val selectedBannerIds: Set<String> = emptySet()
+
 )
 
 class TiempoRealViewModel(
@@ -113,6 +116,7 @@ class TiempoRealViewModel(
 
         observarPartido()
         observarPenales()
+        observarBanners()
         iniciarActualizadorDeTiempo()
     }
 
@@ -1753,4 +1757,92 @@ class TiempoRealViewModel(
             }
         }
     }
+
+
+    /**
+     * Observa la lista de banners publicitarios disponibles
+     */
+    private fun observarBanners() {
+        viewModelScope.launch {
+            repository.observeBanners()
+                .catch { Log.e(TAG, "❌ Error observando banners: ${it.message}") }
+                .collect { banners ->
+                    _uiState.update { it.copy(banners = banners) }
+                }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GESTIÓN DE PUBLICIDAD
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Alterna la selección de un banner para envío secuencial
+     */
+    fun toggleBannerSelection(bannerId: String) {
+        _uiState.update { state ->
+            val newList = if (state.selectedBannerIds.contains(bannerId)) {
+                state.selectedBannerIds - bannerId
+            } else {
+                state.selectedBannerIds + bannerId
+            }
+            state.copy(selectedBannerIds = newList)
+        }
+    }
+
+    /**
+     * Envía un único anuncio al overlay
+     */
+    fun enviarPublicidadUnica(banner: BannerResource) {
+        viewModelScope.launch {
+            val anuncio = AnuncioPublicidad(
+                tipo = banner.tipo.lowercase(),
+                contenido = when (banner.tipo.uppercase()) {
+                    "VIDEO" -> banner.urlVideo
+                    "HTML" -> banner.codigoHtml
+                    else -> banner.urlImagen
+                },
+                duracion = 10
+            )
+            repository.enviarAnuncioUnico(anuncio)
+        }
+    }
+
+    /**
+     * Envía la lista de anuncios seleccionados en secuencia
+     */
+    fun enviarListaSecuencial() {
+        val selectedIds = _uiState.value.selectedBannerIds
+        if (selectedIds.isEmpty()) return
+
+        viewModelScope.launch {
+            val anuncios = _uiState.value.banners
+                .filter { it.id in selectedIds }
+                .sortedBy { selectedIds.indexOf(it.id) }
+                .map { banner ->
+                    AnuncioPublicidad(
+                        tipo = banner.tipo.lowercase(),
+                        contenido = when (banner.tipo.uppercase()) {
+                            "VIDEO" -> banner.urlVideo
+                            "HTML" -> banner.codigoHtml
+                            else -> banner.urlImagen
+                        },
+                        duracion = 10
+                    )
+                }
+            repository.enviarListaAnuncios(anuncios)
+            // Limpiar selección después de enviar
+            _uiState.update { it.copy(selectedBannerIds = emptySet()) }
+        }
+    }
+
+    /**
+     * Oculta la publicidad inmediatamente en el overlay
+     */
+    fun ocultarPublicidad() {
+        viewModelScope.launch {
+            repository.ocultarPublicidad()
+        }
+    }
+
 }

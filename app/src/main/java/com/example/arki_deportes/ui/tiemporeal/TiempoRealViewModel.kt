@@ -184,64 +184,7 @@ class TiempoRealViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    // --- Gestión de Publicidad ---
 
-    fun toggleBannerSelection(bannerId: String) {
-        _uiState.update { state ->
-            val newList = if (state.selectedBannerIds.contains(bannerId)) {
-                state.selectedBannerIds - bannerId
-            } else {
-                state.selectedBannerIds + bannerId
-            }
-            state.copy(selectedBannerIds = newList)
-        }
-    }
-
-    fun enviarPublicidadUnica(banner: BannerResource) {
-        viewModelScope.launch {
-            val anuncio = AnuncioPublicidad(
-                tipo = banner.tipo.lowercase(),
-                contenido = when (banner.tipo.uppercase()) {
-                    "VIDEO" -> banner.urlVideo
-                    "HTML" -> banner.codigoHtml
-                    else -> banner.urlImagen
-                },
-                duracion = 10
-            )
-            repository.enviarAnuncioUnico(anuncio)
-        }
-    }
-
-    fun enviarListaSecuencial() {
-        val selectedIds = _uiState.value.selectedBannerIds
-        if (selectedIds.isEmpty()) return
-
-        viewModelScope.launch {
-            val anuncios = _uiState.value.banners
-                .filter { it.id in selectedIds }
-                .sortedBy { selectedIds.indexOf(it.id) }
-                .map { banner ->
-                    AnuncioPublicidad(
-                        tipo = banner.tipo.lowercase(),
-                        contenido = when (banner.tipo.uppercase()) {
-                            "VIDEO" -> banner.urlVideo
-                            "HTML" -> banner.codigoHtml
-                            else -> banner.urlImagen
-                        },
-                        duracion = 10
-                    )
-                }
-            repository.enviarListaAnuncios(anuncios)
-            // Limpiar selección después de enviar
-            _uiState.update { it.copy(selectedBannerIds = emptySet()) }
-        }
-    }
-
-    fun ocultarPublicidad() {
-        viewModelScope.launch {
-            repository.ocultarPublicidad()
-        }
-    }
 
     override fun onCleared() {
         super.onCleared()

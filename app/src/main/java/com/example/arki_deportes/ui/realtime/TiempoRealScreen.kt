@@ -217,6 +217,12 @@ fun TiempoRealScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                         4 -> PublicidadTab(
+                            banners = state.banners,
+                            selectedIds = state.selectedBannerIds,
+                            onToggle = viewModel::toggleBannerSelection,
+                            onSendSingle = viewModel::enviarPublicidadUnica,
+                            onSendSequential = viewModel::enviarListaSecuencial,
+                            onHide = viewModel::ocultarPublicidad,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
