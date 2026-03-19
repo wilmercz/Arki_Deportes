@@ -3,16 +3,28 @@
 package com.example.arki_deportes.ui.realtime.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.arki_deportes.data.model.AudioResource
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.foundation.lazy.items // Para el LazyRow (Música)
+import androidx.compose.foundation.lazy.grid.items // Para el LazyVerticalGrid (FX) - ESTE ES EL QUE TE FALTA
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -33,79 +45,118 @@ import androidx.compose.ui.unit.dp
  * NOTA: Las funciones de reproducción están vacías por ahora.
  * En el futuro leerán desde Firebase Storage.
  */
+
 @Composable
 fun BotoneraTab(
+    audios: List<AudioResource>,
+    volumen: Int,
+    estado: String,
+    onPlay: (AudioResource) -> Unit,
+    onPause: () -> Unit,
+    onStop: () -> Unit,
+    onVolumeChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.padding(8.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+    val fxAudios = audios.filter { it.tipo == "FX" }
+    val musicaAudios = audios.filter { it.tipo == "MUSICA" }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(8.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+        // --- SECCIÓN MÚSICA (Controlador) ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            Text(
-                text = "Botonera de Audios",
-                style = MaterialTheme.typography.titleMedium
-            )
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "Control de Música",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    IconButton(onClick = onStop) {
+                        Icon(Icons.Default.Stop, "Stop", tint = Color.Red)
+                    }
 
-            Text(
-                text = "6 columnas x N filas (escalable)",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                    IconButton(onClick = {
+                        if (estado == "PLAY") onPause()
+                        else if (musicaAudios.isNotEmpty()) onPlay(musicaAudios.first())
+                    }) {
+                        Icon(
+                            imageVector = if (estado == "PLAY") Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = "Play/Pause"
+                        )
+                    }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                    // Slider de Volumen
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.VolumeUp, null, modifier = Modifier.size(16.dp))
+                        Slider(
+                            value = volumen.toFloat(),
+                            onValueChange = { onVolumeChange(it.toInt()) },
+                            valueRange = 0f..100f,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                        Text("${volumen}%", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
 
-            Divider()
+                // Lista de canciones
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(top = 8.dp)
+                ) {
+                    items(musicaAudios) { musica ->
+                        AssistChip(
+                            onClick = { onPlay(musica) },
+                            label = { Text(musica.nombre) },
+                            leadingIcon = { Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(16.dp)) }
+                        )
+                    }
+                }
+            }
+        }
 
-            Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-            // ═══════════════════════════════════════════════════════════
-            // GRID DE BOTONES - 6 COLUMNAS
-            // ═══════════════════════════════════════════════════════════
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(6),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // ═══════════════════════════════════════════════════════
-                // FILA 1: AUDIOS PRINCIPALES
-                // ═══════════════════════════════════════════════════════
-                item { BotonAudio("Presentación", ::reproducirPresentacion) }
-                item { BotonAudio("Cortina", ::reproducirCortina) }
-                item { BotonAudio("T. Esquina", ::reproducirTiroEsquina) }
-                item { BotonAudio("T. Juego", ::reproducirTiempoJuego) }
-                item { BotonAudio("Marcador", ::reproducirMarcador) }
-                item { BotonAudio("Extra 1", ::reproducirExtra1) }
-
-                // ═══════════════════════════════════════════════════════
-                // FILA 2: AVANCES 1-6
-                // ═══════════════════════════════════════════════════════
-                item { BotonAudio("Avance 1", ::reproducirAvance1) }
-                item { BotonAudio("Avance 2", ::reproducirAvance2) }
-                item { BotonAudio("Avance 3", ::reproducirAvance3) }
-                item { BotonAudio("Avance 4", ::reproducirAvance4) }
-                item { BotonAudio("Avance 5", ::reproducirAvance5) }
-                item { BotonAudio("Avance 6", ::reproducirAvance6) }
-
-                // ═══════════════════════════════════════════════════════
-                // FILA 3: BOTONES LIBRES (Escalable para futuro)
-                // ═══════════════════════════════════════════════════════
-                item { BotonAudio("Libre 1", ::botonLibre) }
-                item { BotonAudio("Libre 2", ::botonLibre) }
-                item { BotonAudio("Libre 3", ::botonLibre) }
-                item { BotonAudio("Libre 4", ::botonLibre) }
-                item { BotonAudio("Libre 5", ::botonLibre) }
-                item { BotonAudio("Libre 6", ::botonLibre) }
-
-                // ═══════════════════════════════════════════════════════
-                // FILA 4+: Más botones escalables
-                // ═══════════════════════════════════════════════════════
-                // Agregar más items aquí cuando sea necesario
+        // --- SECCIÓN FX (Grid de Botones) ---
+        Text(
+            text = "Efectos de Sonido (FX)",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 8.dp)
+        ) {
+            items(items = fxAudios) { fx: AudioResource ->
+                Button(
+                    onClick = { onPlay(fx) },
+                    modifier = Modifier.height(60.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    contentPadding = PaddingValues(4.dp)
+                ) {
+                    Text(
+                        text = fx.nombre,
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 2
+                    )
+                }
             }
         }
     }

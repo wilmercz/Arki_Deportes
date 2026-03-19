@@ -214,6 +214,13 @@ fun TiempoRealScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                         3 -> BotoneraTab(
+                            audios = state.audios,
+                            volumen = state.volumenAudio,
+                            estado = state.audioEstado,
+                            onPlay = viewModel::reproducirAudio,
+                            onPause = viewModel::pausarAudio,
+                            onStop = viewModel::detenerAudio,
+                            onVolumeChange = viewModel::cambiarVolumen,
                             modifier = Modifier.fillMaxSize()
                         )
                         4 -> PublicidadTab(

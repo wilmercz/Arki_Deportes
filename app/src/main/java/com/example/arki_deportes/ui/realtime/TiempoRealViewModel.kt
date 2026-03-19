@@ -90,8 +90,11 @@ data class TiempoRealUiState(
      */
     val historiaPenales2: List<Int> = emptyList(),
     val banners: List<BannerResource> = emptyList(),
-    val selectedBannerIds: Set<String> = emptySet()
-
+    val selectedBannerIds: Set<String> = emptySet(),
+    // --- GESTIÓN DE AUDIO ---
+    val audios: List<AudioResource> = emptyList(),
+    val volumenAudio: Int = 50,
+    val audioEstado: String = "STOP" // "PLAY", "STOP", "PAUSE"
 )
 
 class TiempoRealViewModel(
@@ -1843,6 +1846,54 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             repository.ocultarPublicidad()
         }
+    }
+
+    /**
+     * Observa el catálogo de audios
+     */
+    private fun observarAudios() {
+        viewModelScope.launch {
+            repository.observeAudios()
+                .catch { Log.e(TAG, "Error audios: ${it.message}") }
+                .collect { lista ->
+                    _uiState.update { it.copy(audios = lista) }
+                }
+        }
+    }
+
+    // --- COMANDOS DE AUDIO PARA FIREBASE ---
+
+    private val audioControlRef = com.google.firebase.database.FirebaseDatabase.getInstance()
+        .getReference("/ARKI_DEPORTES/CONTROL_AUDIO")
+
+    fun reproducirAudio(audio: AudioResource) {
+        viewModelScope.launch {
+            // Si es música, actualizamos la URL y ponemos PLAY
+            if (audio.tipo == "MUSICA") {
+                audioControlRef.child("URL").setValue(audio.url)
+                audioControlRef.child("ESTADO").setValue("PLAY")
+                _uiState.update { it.copy(audioEstado = "PLAY") }
+            } else {
+                // Si es FX, enviamos un disparo único (puedes usar el repositorio)
+                repository.reproducirAudioEnOverlay(audio)
+            }
+        }
+    }
+
+    fun pausarAudio() {
+        audioControlRef.child("ESTADO").setValue("PAUSE")
+        _uiState.update { it.copy(audioEstado = "PAUSE") }
+    }
+
+    fun detenerAudio() {
+        audioControlRef.child("ESTADO").setValue("STOP")
+        _uiState.update { it.copy(audioEstado = "STOP") }
+    }
+
+    fun cambiarVolumen(nuevoVolumen: Int) {
+        val vol = nuevoVolumen.coerceIn(0, 100)
+        audioControlRef.child("VOLUMEN").setValue(vol)
+        _uiState.update { it.copy(volumenAudio = vol) }
     }
 
 }

@@ -39,6 +39,7 @@ fun InformacionTab(
         Divider()
 
         // INFORMACIÓN BÁSICA
+        InfoRow("Campeonato", partido.ESTADIO ?: "No especificado")
         InfoRow("Estadio", partido.ESTADIO ?: "No especificado")
         InfoRow("Lugar", partido.LUGAR ?: "No especificado")
         InfoRow("Fecha", partido.FECHA_PARTIDO ?: "No especificada")

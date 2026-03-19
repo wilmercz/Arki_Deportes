@@ -23,7 +23,7 @@ data class BannerUiState(
 
 class GestionBannerViewModel(
     private val repository: FirebaseCatalogRepository,
-    private val cloudinaryUploader: CloudinaryUploader   // ← nuevo
+    private val cloudinaryUploader: CloudinaryUploader
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BannerUiState())
@@ -48,22 +48,22 @@ class GestionBannerViewModel(
             try {
                 var finalBanner = banner
 
-                // ── Subida imagen a Cloudinary (reemplaza uploadBannerMedia_Storage) ──
+                // ── Subida imagen ──
                 if (imageUri != null) {
                     val imageUrl = cloudinaryUploader.uploadBannerMedia(
                         fileUri = imageUri,
                         folder = "IMAGENES",
-                        fileName = "${banner.nombre}_img"
+                        fileName = "${banner.nombre.lowercase().replace(" ", "_")}_img"
                     )
                     finalBanner = finalBanner.copy(urlImagen = imageUrl)
                 }
 
-                // ── Subida video a Cloudinary (reemplaza uploadBannerMedia_Storage) ──
+                // ── Subida video (Ruta corregida a BANNER_VIDEOS) ──
                 if (videoUri != null) {
                     val videoUrl = cloudinaryUploader.uploadBannerMedia(
                         fileUri = videoUri,
-                        folder = "VIDEOS",
-                        fileName = "${banner.nombre}_vid"
+                        folder = "BANNER_VIDEOS",
+                        fileName = "${banner.nombre.lowercase().replace(" ", "_")}_vid"
                     )
                     finalBanner = finalBanner.copy(urlVideo = videoUrl)
                 }
@@ -103,7 +103,7 @@ class GestionBannerViewModel(
 
 class GestionBannerViewModelFactory(
     private val repository: FirebaseCatalogRepository,
-    private val context: Context                         // ← nuevo (para CloudinaryUploader)
+    private val context: Context
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(GestionBannerViewModel::class.java)) {
