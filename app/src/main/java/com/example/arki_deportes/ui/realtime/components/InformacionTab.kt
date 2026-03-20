@@ -5,13 +5,14 @@ package com.example.arki_deportes.ui.realtime.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.arki_deportes.data.model.Partido
-
+import androidx.compose.material.icons.filled.*
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * INFORMACIÓN TAB - SOLO INFO DEL PARTIDO
@@ -20,8 +21,10 @@ import com.example.arki_deportes.data.model.Partido
 @Composable
 fun InformacionTab(
     partido: Partido,
+    nombreCampeonato: String,
     modoTransmision: Boolean,
     onToggleTransmision: () -> Unit,
+    onSendInfo: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -37,11 +40,16 @@ fun InformacionTab(
         )
 
         Divider()
-
-        // INFORMACIÓN BÁSICA
-        InfoRow("Campeonato", partido.ESTADIO ?: "No especificado")
-        InfoRow("Estadio", partido.ESTADIO ?: "No especificado")
-        InfoRow("Lugar", partido.LUGAR ?: "No especificado")
+// Usamos nombreCampeonato que viene directo del ViewModel (leído de Firebase)
+        InfoRow("Campeonato", nombreCampeonato.ifBlank { "No especificado" }) {
+            onSendInfo(nombreCampeonato)
+        }
+        InfoRow("Estadio", partido.ESTADIO.ifBlank { "No especificado" }) {
+            onSendInfo(partido.ESTADIO)
+        }
+        InfoRow("Lugar", partido.LUGAR.ifBlank { "No especificado" }) {
+            onSendInfo(partido.LUGAR)
+        }
         InfoRow("Fecha", partido.FECHA_PARTIDO ?: "No especificada")
         InfoRow("Hora", partido.HORA_PARTIDO ?: "No especificada")
         InfoRow("Etapa", getEtapaTexto(partido.ETAPA))
@@ -96,21 +104,43 @@ fun InformacionTab(
 }
 
 @Composable
-private fun InfoRow(label: String, valor: String) {
+private fun InfoRow(
+    label: String,
+    valor: String,
+    onSend: (() -> Unit)? = null // ← Agregar parámetro
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically // Alinear con el botón
     ) {
-        Text(
-            text = "$label:",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = valor,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = "$label:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = valor,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
+        }
+
+        // BOTÓN DE ENVÍO (Solo si hay valor y función)
+        if (onSend != null && valor != "No especificado") {
+            IconButton(onClick = onSend, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Tv,
+                    contentDescription = "Enviar a Overlay",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 

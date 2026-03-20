@@ -24,11 +24,15 @@ fun MarcadorPanel(
     equipo2: String,
     goles1: Int,
     goles2: Int,
+    deporte: String = "FUTBOL",
     modifier: Modifier = Modifier
 ) {
     // ✅ Fallback si los nombres están vacíos
     val nombreEquipo1 = equipo1.ifBlank { "Equipo 1" }
     val nombreEquipo2 = equipo2.ifBlank { "Equipo 2" }
+
+    val icono = if (deporte == "BASQUET") "🏀" else "⚽"
+    val etiqueta = if (deporte == "BASQUET") "Puntos" else "Goles"
 
     Card(
         modifier = modifier,
@@ -58,7 +62,7 @@ fun MarcadorPanel(
                     color = MaterialTheme.colorScheme.onSurface // ← CAMBIADO
                 )
                 Text(
-                    text = "⚽ $goles1",
+                    text = "$icono $goles1",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -93,7 +97,7 @@ fun MarcadorPanel(
                     color = MaterialTheme.colorScheme.onSurface // ← CAMBIADO
                 )
                 Text(
-                    text = "⚽ $goles2",
+                    text = "$icono $goles2",
                     fontSize = 11.sp,
                     textAlign = TextAlign.End,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

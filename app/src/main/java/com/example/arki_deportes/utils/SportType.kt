@@ -25,8 +25,8 @@ enum class SportType(
         showDisciplinaryStats = true
     ),
     BALONCESTO(
-        id = "BALONCESTO",
-        displayName = "Baloncesto",
+        id = "BASQUET",
+        displayName = "Basquet",
         teamScoreLabel = "Puntos",
         scoreboardLabel = "Puntuación",
         scheduleDurationLabel = "Número de cuartos",

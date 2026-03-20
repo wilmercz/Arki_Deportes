@@ -15,7 +15,9 @@ data class CampeonatoListUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val selectedSportId: String? = null // null significa "Todos"
+
 )
 
 class CampeonatoListViewModel(
@@ -79,29 +81,6 @@ class CampeonatoListViewModel(
         startObserving()
     }
 
-    fun refresh_Antiguo() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
-            try {
-                val campeonatos = repository.getAllCampeonatos()
-                    .sortedByDescending { it.FECHAINICIO }
-                _uiState.update {
-                    it.copy(
-                        campeonatos = campeonatos,
-                        isRefreshing = false
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isRefreshing = false,
-                        errorMessage = e.message ?: Constants.Mensajes.ERROR_DESCONOCIDO
-                    )
-                }
-            }
-        }
-    }
-
     fun deleteCampeonato(codigo: String) {
         viewModelScope.launch {
             try {
@@ -119,14 +98,26 @@ class CampeonatoListViewModel(
         _uiState.update { it.copy(searchQuery = query) }
     }
 
-    fun getFilteredCampeonatos(): List<Campeonato> {
-        val query = _uiState.value.searchQuery.lowercase()
-        if (query.isBlank()) return _uiState.value.campeonatos
+    fun onDeporteFilterChange(sportId: String?) {
+        _uiState.update { it.copy(selectedSportId = sportId) }
+    }
 
-        return _uiState.value.campeonatos.filter { campeonato ->
-            campeonato.CAMPEONATO.lowercase().contains(query) ||
+    fun getFilteredCampeonatos(): List<Campeonato> {
+        val state = _uiState.value
+        val query = state.searchQuery.lowercase()
+        val sportId = state.selectedSportId
+
+        return state.campeonatos.filter { campeonato ->
+            // Filtro por deporte (si hay uno seleccionado)
+            val matchesSport = sportId == null || campeonato.DEPORTE.equals(sportId, ignoreCase = true)
+
+            // Filtro por texto
+            val matchesQuery = query.isBlank() ||
+                    campeonato.CAMPEONATO.lowercase().contains(query) ||
                     campeonato.PROVINCIA.lowercase().contains(query) ||
                     campeonato.ANIO.toString().contains(query)
+
+            matchesSport && matchesQuery
         }
     }
 }

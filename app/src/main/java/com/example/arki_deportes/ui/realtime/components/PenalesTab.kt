@@ -196,6 +196,7 @@ fun PenalesTab(
         )
     }
 
+
     // Dialog: Desactivar penales
     if (mostrarDialogDesactivar) {
         AlertDialog(
@@ -238,6 +239,7 @@ fun PenalesTab(
             }
         )
     }
+
 
     // Dialog: Nueva tanda (muerte súbita)
     if (mostrarDialogNuevaTanda) {
@@ -440,13 +442,13 @@ fun PenalesTab(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error
                 )
-
+/*
                 Text(
                     text = "Resetea completamente los contadores, configuración e historial de penales.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
-
+*/
                 Button(
                     onClick = { mostrarDialogFinalizarPenales = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -478,19 +480,9 @@ fun PenalesTab(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ═══════════════════════════════════════════════════════════
-        // HEADER
-        // ═══════════════════════════════════════════════════════════
-        Text(
-            text = "🎯 TANDA DE PENALES",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-
-        Divider()
-
-        // ═══════════════════════════════════════════════════════════
         // ACTIVACIÓN DE MODO PENALES
         // ═══════════════════════════════════════════════════════════
+
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = if (penalesActivos)
@@ -506,6 +498,7 @@ fun PenalesTab(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -541,6 +534,8 @@ fun PenalesTab(
                     )
                 }
 
+
+
                 if (penalesActivos && tandaActual > 1) {
                     Divider()
                     Row(
@@ -570,6 +565,8 @@ fun PenalesTab(
                 }
             }
         }
+
+
 
         // ═══════════════════════════════════════════════════════════
         // CONTROLES SOLO VISIBLES SI PENALES ESTÁN ACTIVOS

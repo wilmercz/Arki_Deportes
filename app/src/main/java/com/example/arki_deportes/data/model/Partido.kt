@@ -289,7 +289,7 @@ data class Partido(
      * VB.NET: Public Property Etapa() As Integer = 0
      */
     val ETAPA: Int = 0,
-
+    val DEPORTE: String = "FUTBOL",
     // ═══════════════════════════════════════════════════════════════════════
     // OTROS DATOS (Desde BD, no en clase VB pero sí en Firebase)
     // ═══════════════════════════════════════════════════════════════════════
@@ -391,20 +391,36 @@ data class Partido(
      * Verifica si el partido está finalizado
      * VB.NET: NumeroDeTiempo = "4T"
      */
-    fun estaFinalizado(): Boolean = NumeroDeTiempo == "4T" || ESTADO == 1
+    fun estaFinalizado(): Boolean {
+        return if (DEPORTE == "BASQUET") {
+            listOf("8T", "10T", "12T", "14T").contains(NumeroDeTiempo) || ESTADO == 1
+        } else {
+            NumeroDeTiempo == "4T" || ESTADO == 1
+        }
+    }
 
     /**
      * Verifica si el partido está en curso
      * VB.NET: NumeroDeTiempo = "1T" Or "3T"
      */
-    fun estaEnCurso(): Boolean = NumeroDeTiempo == "1T" || NumeroDeTiempo == "3T"
-
+    fun estaEnCurso(): Boolean {
+        return if (DEPORTE == "BASQUET") {
+            listOf("1T", "3T", "5T", "7T", "9T", "11T", "13T").contains(NumeroDeTiempo)
+        } else {
+            NumeroDeTiempo == "1T" || NumeroDeTiempo == "3T"
+        }
+    }
     /**
      * Verifica si está en descanso
      * VB.NET: NumeroDeTiempo = "2T"
      */
-    fun estaEnDescanso(): Boolean = NumeroDeTiempo == "2T"
-
+    fun estaEnDescanso(): Boolean {
+        return if (DEPORTE == "BASQUET") {
+            listOf("2T", "4T", "6T", "8T", "10T", "12T").contains(NumeroDeTiempo)
+        } else {
+            NumeroDeTiempo == "2T"
+        }
+    }
     /**
      * Verifica si no ha iniciado
      * VB.NET: NumeroDeTiempo = "0T"
@@ -415,6 +431,21 @@ data class Partido(
      * Obtiene el texto del estado actual
      */
     fun getEstadoTexto(): String {
+        if (DEPORTE == "BASQUET") {
+            return when (NumeroDeTiempo) {
+                "0T" -> "No iniciado"
+                "1T" -> "1er Periodo"
+                "2T" -> "Descanso 1"
+                "3T" -> "2do Periodo"
+                "4T" -> "Descanso Largo"
+                "5T" -> "3er Periodo"
+                "6T" -> "Descanso 2"
+                "7T" -> "4to Periodo"
+                "8T" -> "Finalizado"
+                "9T", "11T", "13T" -> "Tiempo Extra"
+                else -> "Finalizado"
+            }
+        }
         return when (NumeroDeTiempo) {
             "0T" -> "No iniciado"
             "1T" -> "Primer Tiempo"
@@ -425,24 +456,28 @@ data class Partido(
         }
     }
 
+
     /**
      * Calcula el tiempo transcurrido en segundos
      * Basado en: (Now - Cronometro)
      */
     fun calcularTiempoActualSegundos(): Int {
-        // ✅ Elegir FECHA_PLAY solo si tiene valor real; si no, usar Cronometro
         val fechaInicioStr = when {
             FECHA_PLAY.isNotBlank() -> FECHA_PLAY.trim()
             Cronometro.isNotBlank() -> Cronometro.trim()
-            else -> return 0
+            else -> return if (DEPORTE == "BASQUET") (TIEMPOJUEGO.toIntOrNull() ?: 10) * 60 else 0
         }
 
         val inicioMillis = parseFechaInicioMillis(fechaInicioStr) ?: return 0
-
         val diff = System.currentTimeMillis() - inicioMillis
-        if (diff <= 0) return 0
 
-        return (diff / 1000L).toInt()
+        if (DEPORTE == "BASQUET") {
+            val totalSegundos = (TIEMPOJUEGO.toIntOrNull() ?: 10) * 60
+            val transcurrido = (diff / 1000L).toInt()
+            return if (diff <= 0) totalSegundos else (totalSegundos - transcurrido).coerceAtLeast(0)
+        }
+
+        return if (diff <= 0) 0 else (diff / 1000L).toInt()
     }
 
     private fun parseFechaInicioMillis(texto: String): Long? {
@@ -617,7 +652,8 @@ data class Partido(
             "FECHA_PARTIDO" to FECHA_PARTIDO,
             "HORA_PARTIDO" to HORA_PARTIDO,
             "OPERADOR" to OPERADOR,
-            "timestampAsignacion" to timestampAsignacion
+            "timestampAsignacion" to timestampAsignacion,
+            "DEPORTE" to DEPORTE,
         )
     }
 }

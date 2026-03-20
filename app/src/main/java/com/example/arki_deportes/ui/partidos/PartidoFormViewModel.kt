@@ -2,7 +2,6 @@ package com.example.arki_deportes.ui.partidos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.await
 import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.model.Grupo
@@ -10,7 +9,6 @@ import com.example.arki_deportes.data.model.Partido
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import com.example.arki_deportes.ui.common.FormMessage
 import com.example.arki_deportes.utils.Constants
-import com.example.arki_deportes.utils.Validations
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -50,7 +48,8 @@ data class PartidoFormData(
     val serieCodigo: String = "",
     val grupoNombre: String = "",
     val serieNombre: String = "",
-    val tiempoJuego: String = "45"
+    val tiempoJuego: String = "45",
+    val deporte: String = "FUTBOL"
 )
 
 data class PartidoFormUiState(
@@ -117,11 +116,11 @@ class PartidoFormViewModel(
     fun onSerieSelected(codigo: String) {
         val serie = _uiState.value.series.firstOrNull { it.CODIGOSERIE == codigo }
         val campId = _uiState.value.formData.campeonatoCodigo
-        subscribeToGrupos(campId) // Aquí podrías filtrar grupos por serie si tu repo lo soporta
+        subscribeToGrupos(campId) 
         updateForm { copy(serieCodigo = codigo, serieNombre = serie?.NOMBRESERIE ?: "") }
     }
 
-    // Asignación rápida (como en VB.NET)
+    // Asignación rápida
     fun asignarEquipo(equipo: Equipo, numero: Int) {
         updateForm {
             if (numero == 1) copy(equipo1Codigo = equipo.CODIGOEQUIPO)
@@ -141,7 +140,6 @@ class PartidoFormViewModel(
         val lugar = form.lugar
         val provincia = form.provincia
 
-        // Generamos hashtags limpios (sin espacios)
         val hashtagCamp = "#${campNombre.replace(" ", "")}"
         val hashtagE1 = "#${e1.replace(" ", "")}"
         val hashtagE2 = "#${e2.replace(" ", "")}"
@@ -178,14 +176,12 @@ class PartidoFormViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             try {
-                // 🔹 Toma el campeonato del form o del selector global del menú lateral
                 val campeonatoCodigo =
                     _uiState.value.formData.campeonatoCodigo.ifBlank {
                         com.example.arki_deportes.data.context.CampeonatoContext
                             .campeonatoActivo.value?.CODIGO.orEmpty()
                     }
 
-                // ⬇️ LÍNEA CORREGIDA (ahora con 2 parámetros)
                 val partido = repository.getPartido(campeonatoCodigo, codigoPartido)
 
                 if (partido != null) {
@@ -210,6 +206,7 @@ class PartidoFormViewModel(
                                 goles2 = partido.GOLES2,
                                 textoFacebook = partido.TEXTOFACEBOOK,
                                 lugar = partido.LUGAR,
+                                deporte = partido.DEPORTE,
                                 tiempoJuego = partido.TIEMPOJUEGO
                             ),
                             isEditMode = true,
@@ -246,6 +243,21 @@ class PartidoFormViewModel(
                 }
                 .collect { campeonatos ->
                     _uiState.update { it.copy(campeonatos = campeonatos) }
+                    
+                    // 💡 REVALIDAR DEPORTE CUANDO LLEGAN LOS DATOS
+                    val currentId = _uiState.value.formData.campeonatoCodigo
+                    if (currentId.isNotBlank()) {
+                        campeonatos.firstOrNull { it.CODIGO == currentId }?.let { camp ->
+                            updateForm {
+                                copy(
+                                    campeonatoNombre = camp.CAMPEONATO,
+                                    provincia = camp.PROVINCIA,
+                                    deporte = camp.DEPORTE.uppercase(),
+                                    tiempoJuego = camp.getTiempoJuegoStr()
+                                )
+                            }
+                        }
+                    }
                 }
         }
     }
@@ -303,7 +315,6 @@ class PartidoFormViewModel(
             }
         }
 
-        // 💡 IMPORTANTE: Ahora también nos suscribimos a las series
         subscribeToSeries(codigo)
         subscribeToGrupos(codigo)
         subscribeToEquipos(codigo, null)
@@ -313,6 +324,7 @@ class PartidoFormViewModel(
                 campeonatoCodigo = codigo,
                 campeonatoNombre = campeonato?.CAMPEONATO ?: "",
                 provincia = campeonato?.PROVINCIA ?: provincia,
+                deporte = campeonato?.DEPORTE?.uppercase() ?: "FUTBOL",
                 tiempoJuego = campeonato?.getTiempoJuegoStr() ?: "45",
                 grupoCodigo = "",
                 equipo1Codigo = "",
@@ -381,85 +393,6 @@ class PartidoFormViewModel(
         _uiState.update { it.copy(shouldClose = false) }
     }
 
-
-/*DESACTIVADO TEMPORALMENTE
-    fun savePartido() {
-        val form = _uiState.value.formData
-        val timestamp = System.currentTimeMillis()
-        val equipo1 = _uiState.value.equipos.firstOrNull { it.CODIGOEQUIPO == form.equipo1Codigo }
-        val equipo2 = _uiState.value.equipos.firstOrNull { it.CODIGOEQUIPO == form.equipo2Codigo }
-        val campeonato = _uiState.value.campeonatos.firstOrNull { it.CODIGO == form.campeonatoCodigo }
-
-        val codigo = if (form.codigoPartido.isNotBlank()) {
-            form.codigoPartido
-        } else {
-            generateCodigo(equipo1?.EQUIPO ?: "EQUIPO1", equipo2?.EQUIPO ?: "EQUIPO2", timestamp)
-        }
-
-        val anio = deriveYear(form.fechaPartido)
-
-        val partido = Partido(
-            CODIGOPARTIDO = codigo,
-            EQUIPO1 = equipo1?.EQUIPO ?: "",
-            EQUIPO2 = equipo2?.EQUIPO ?: "",
-            CAMPEONATOCODIGO = form.campeonatoCodigo,
-            CAMPEONATOTXT = campeonato?.CAMPEONATO ?: form.campeonatoNombre,
-            FECHAALTA = originalPartido?.FECHAALTA ?: currentDate(),
-            FECHA_PARTIDO = form.fechaPartido,
-            HORA_PARTIDO = form.horaPartido,
-            TEXTOFACEBOOK = form.textoFacebook,
-            ESTADIO = form.estadio,
-            PROVINCIA = form.provincia,
-            TIEMPOJUEGO = originalPartido?.TIEMPOJUEGO ?: "90",
-            GOLES1 = form.goles1.ifBlank { originalPartido?.GOLES1 ?: "0" },
-            GOLES2 = form.goles2.ifBlank { originalPartido?.GOLES2 ?: "0" },
-            ANIO = anio,
-            CODIGOEQUIPO1 = equipo1?.CODIGOEQUIPO ?: "",
-            CODIGOEQUIPO2 = equipo2?.CODIGOEQUIPO ?: "",
-            TRANSMISION = form.transmision,
-            ETAPA = form.etapa,
-            LUGAR = form.lugar,
-            TIMESTAMP_CREACION = originalPartido?.TIMESTAMP_CREACION ?: timestamp,
-            TIMESTAMP_MODIFICACION = timestamp,
-            ORIGEN = Constants.ORIGEN_MOBILE
-        )
-
-        val validationError = Validations.validarPartido(partido)
-        if (validationError != null) {
-            _uiState.update {
-                it.copy(
-                    showValidationErrors = true,
-                    message = FormMessage(validationError, isError = true)
-                )
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true) }
-            try {
-                repository.savePartido(partido)
-                originalPartido = partido
-                _uiState.update {
-                    it.copy(
-                        isSaving = false,
-                        isEditMode = true,
-                        shouldClose = true,
-                        message = FormMessage(Constants.Mensajes.EXITO_GUARDAR)
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isSaving = false,
-                        message = FormMessage(e.message ?: Constants.Mensajes.ERROR_DESCONOCIDO, isError = true)
-                    )
-                }
-            }
-        }
-    }
-*/
-
     fun savePartido() {
         val form = _uiState.value.formData
         val timestamp = System.currentTimeMillis()
@@ -486,8 +419,9 @@ class PartidoFormViewModel(
             ESTADIO = form.estadio,
             PROVINCIA = form.provincia,
             TIEMPOJUEGO = form.tiempoJuego,
-            GOLES1 = form.goles1, // 👈 Corregido: Quitamos .ifBlank porque es Int
-            GOLES2 = form.goles2, // 👈 Corregido
+            GOLES1 = form.goles1, 
+            GOLES2 = form.goles2, 
+            DEPORTE = form.deporte,
             ANIO = deriveYear(form.fechaPartido),
             CODIGOEQUIPO1 = form.equipo1Codigo,
             CODIGOEQUIPO2 = form.equipo2Codigo,
@@ -502,7 +436,6 @@ class PartidoFormViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             try {
-                // El Repositorio ya tiene la lógica de dónde guardar.
                 repository.savePartido(partido)
                 _uiState.update {
                     it.copy(
@@ -568,6 +501,10 @@ class PartidoFormViewModel(
 
     private fun currentDate(): String = LocalDate.now().format(DATE_FORMATTER)
 
-
+    fun onDeporteChange(value: String) {
+        val normalized = if (value.uppercase() == "BALONCESTO") "BASQUET" else value.uppercase()
+        updateForm { copy(deporte = normalized) }
+        generarTextoSocial()
+    }
 
 }

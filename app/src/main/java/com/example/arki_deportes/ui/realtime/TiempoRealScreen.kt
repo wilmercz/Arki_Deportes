@@ -2,6 +2,10 @@
 
 package com.example.arki_deportes.ui.realtime
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,7 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +32,19 @@ fun TiempoRealScreen(
 // 💡 Estado para controlar el diálogo de confirmación de desincronización
     var showConfirmDesync by remember { mutableStateOf(false) }
     var showConfirmFinalizar by remember { mutableStateOf(false) }
+
+    // 🎯 Estado para el acordeón del Cronómetro
+    var isCronometroExpanded by remember { mutableStateOf(true) }
+
+    // 🔄 Efecto: Colapsar cronómetro y cambiar tab al activar penales
+    LaunchedEffect(state.penalesActivos) {
+        if (state.penalesActivos) {
+            isCronometroExpanded = false
+        } else {
+            isCronometroExpanded = true
+        }
+    }
+
 
     Scaffold(
         modifier = modifier,
@@ -82,15 +101,52 @@ fun TiempoRealScreen(
                 // ═══════════════════════════════════════════════════════
                 // PANEL 1: CRONÓMETRO (Compacto con Tabs)
                 // ═══════════════════════════════════════════════════════
-                CronometroPanel(
-                    tiempoActual = state.tiempoActual,
-                    partido = partido,
-                    onIniciar = viewModel::iniciarPartido,
-                    onDetener = viewModel::detenerCronometro,
-                    onReiniciar = viewModel::reiniciarPartido,
-                    onAjustar = viewModel::ajustarTiempo,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Column {
+                        // Cabecera del Acordeón
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isCronometroExpanded = !isCronometroExpanded }
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(8.dp))
+                                Text("CONTROL DE TIEMPO", fontWeight = FontWeight.Bold)
+                            }
+                            Icon(
+                                imageVector = if (isCronometroExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null
+                            )
+                        }
+
+                        // Contenido del Panel (Animado)
+                        AnimatedVisibility(
+                            visible = isCronometroExpanded,
+                            enter = expandVertically(),
+                            exit = shrinkVertically()
+                        ) {
+                            CronometroPanel(
+                                tiempoActual = state.tiempoActual,
+                                partido = partido,
+                                onIniciar = viewModel::iniciarPartido,
+                                onDetener = viewModel::detenerCronometro,
+                                onReiniciar = viewModel::reiniciarPartido,
+                                onAjustar = viewModel::ajustarTiempo,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+
 
                 // ═══════════════════════════════════════════════════════
                 // PANEL 2: MARCADOR (Siempre visible, minimalista)
@@ -100,6 +156,7 @@ fun TiempoRealScreen(
                     equipo2 = partido.EQUIPO2,
                     goles1 = partido.getGoles1Int(),
                     goles2 = partido.getGoles2Int(),
+                    deporte = partido.DEPORTE,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -117,7 +174,11 @@ fun TiempoRealScreen(
                         Tab(
                             selected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
-                            text = { Text("⚽ Controles") }
+                            text = {
+                                val icon = if (partido.DEPORTE == "BASQUET") "🏀" else "⚽"
+                                val label = if (partido.DEPORTE == "BASQUET") "Puntos" else "Controles"
+                                Text("$icon $label")
+                            }
                         )
                         Tab(
                             selected = selectedTab == 1,
@@ -146,6 +207,7 @@ fun TiempoRealScreen(
                         0 -> ControlPartidoTab(
                             equipo1 = partido.EQUIPO1,
                             equipo2 = partido.EQUIPO2,
+                            deporte = partido.DEPORTE,
                             goles1 = partido.getGoles1Int(),
                             goles2 = partido.getGoles2Int(),
                             amarillas1 = partido.getAmarillas1Int(),
@@ -154,6 +216,8 @@ fun TiempoRealScreen(
                             rojas2 = partido.getRojas2Int(),
                             esquinas1 = partido.getEsquinas1Int(),
                             esquinas2 = partido.getEsquinas2Int(),
+                            marcadorFutbolVisible = state.marcadorFutbolVisible,
+                            onToggleMarcador = viewModel::toggleMarcadorFutbol_Basquet,
                             onAgregarGol1 = viewModel::agregarGolEquipo1,
                             onRestarGol1 = viewModel::restarGolEquipo1,
                             onAgregarGol2 = viewModel::agregarGolEquipo2,
@@ -206,11 +270,12 @@ fun TiempoRealScreen(
                             onFinalizarPenales = viewModel::finalizarYResetearPenales,
                             modifier = Modifier.fillMaxSize()
                         )
-
                         2 -> InformacionTab(
                             partido = partido,
+                            nombreCampeonato = state.nombreCampeonatoReal,
                             modoTransmision = state.modoTransmision,
                             onToggleTransmision = viewModel::toggleModoTransmision,
+                            onSendInfo = { texto -> viewModel.enviarInfoAlOverlay(texto) },
                             modifier = Modifier.fillMaxSize()
                         )
                         3 -> BotoneraTab(

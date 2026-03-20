@@ -147,4 +147,6 @@ class PartidoListViewModel(
                     partido.FECHA_PARTIDO.contains(query)
         }
     }
+
+
 }

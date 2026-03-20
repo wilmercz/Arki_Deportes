@@ -600,6 +600,7 @@ class FirebaseCatalogRepository(
             "PENALES_TANDA" to partido.PENALES_TANDA,
             "PENALES_SERIE1" to partido.PENALES_SERIE1,
             "PENALES_SERIE2" to partido.PENALES_SERIE2,
+            "DEPORTE" to partido.DEPORTE,
             // Debug
             "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP
         )
@@ -775,7 +776,8 @@ class FirebaseCatalogRepository(
             "ESTADO" to partido.ESTADO, // 0 = Jugándose, 1 = Finalizado
             "FECHA_PLAY" to partido.FECHA_PLAY,
             "HORA_PLAY" to partido.HORA_PLAY,
-            "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP
+            "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP,
+            "DEPORTE" to partido.DEPORTE,
         )
 
         reference.setValue(data).await()

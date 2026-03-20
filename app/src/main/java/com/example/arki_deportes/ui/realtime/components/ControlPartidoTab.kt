@@ -15,6 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -25,6 +28,7 @@ import androidx.compose.ui.unit.sp
 fun ControlPartidoTab(
     equipo1: String,
     equipo2: String,
+    deporte: String = "FUTBOL",
     goles1: Int,
     goles2: Int,
     amarillas1: Int,
@@ -33,6 +37,8 @@ fun ControlPartidoTab(
     rojas2: Int,
     esquinas1: Int,
     esquinas2: Int,
+    marcadorFutbolVisible: Boolean = true,
+    onToggleMarcador: (Boolean) -> Unit = {},
     onAgregarGol1: () -> Unit,
     onRestarGol1: () -> Unit,
     onAgregarGol2: () -> Unit,
@@ -86,8 +92,8 @@ fun ControlPartidoTab(
         // ⚽ GOLES
         // ═══════════════════════════════════════════════════════════
         ControlRow(
-            icono = "⚽",
-            label = "GOLES",
+            icono = if (deporte == "BASQUET") "🏀" else "⚽",
+            label = if (deporte == "BASQUET") "PUNTOS" else "GOLES",
             valor1 = goles1,
             valor2 = goles2,
             onMenos1 = onRestarGol1,
@@ -98,11 +104,26 @@ fun ControlPartidoTab(
         )
 
         // ═══════════════════════════════════════════════════════════
+        // 📐 ESQUINAS (CORNERS)
+        // ═══════════════════════════════════════════════════════════
+        ControlRow(
+            icono = if (deporte == "BASQUET") "🚫" else "📐",
+            label = if (deporte == "BASQUET") "FALTAS" else "ESQUINAS",
+            valor1 = esquinas1,
+            valor2 = esquinas2,
+            onMenos1 = onRestarEsquina1,
+            onMas1 = onAgregarEsquina1,
+            onMenos2 = onRestarEsquina2,
+            onMas2 = onAgregarEsquina2,
+            colorFondo = MaterialTheme.colorScheme.secondaryContainer
+        )
+
+        // ═══════════════════════════════════════════════════════════
         // 🟨 TARJETAS AMARILLAS
         // ═══════════════════════════════════════════════════════════
         ControlRow(
             icono = "🟨",
-            label = "AMARILLAS",
+            label = if (deporte == "BASQUET") "TÉCNICAS" else "AMARILLAS",
             valor1 = amarillas1,
             valor2 = amarillas2,
             onMenos1 = onRestarAmarilla1,
@@ -127,20 +148,52 @@ fun ControlPartidoTab(
             colorFondo = MaterialTheme.colorScheme.errorContainer
         )
 
+// ═══════════════════════════════════════════════════════════
+        // 🖥️ VISIBILIDAD MARCADOR WEB (NUEVO)
         // ═══════════════════════════════════════════════════════════
-        // 📐 ESQUINAS (CORNERS)
-        // ═══════════════════════════════════════════════════════════
-        ControlRow(
-            icono = "📐",
-            label = "ESQUINAS",
-            valor1 = esquinas1,
-            valor2 = esquinas2,
-            onMenos1 = onRestarEsquina1,
-            onMas1 = onAgregarEsquina1,
-            onMenos2 = onRestarEsquina2,
-            onMas2 = onAgregarEsquina2,
-            colorFondo = MaterialTheme.colorScheme.secondaryContainer
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (marcadorFutbolVisible)
+                    MaterialTheme.colorScheme.surfaceVariant
+                else
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (marcadorFutbolVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = null,
+                        tint = if (marcadorFutbolVisible) MaterialTheme.colorScheme.primary else Color.Gray
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "MARCADOR WEB",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (marcadorFutbolVisible) "Visible en Overlay" else "Oculto en Overlay",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                Switch(
+                    checked = marcadorFutbolVisible,
+                    onCheckedChange = { onToggleMarcador(it) }
+                )
+            }
+        }
     }
 }
 

@@ -63,6 +63,9 @@ import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.foundation.lazy.LazyRow
+import com.example.arki_deportes.utils.SportType
+import androidx.compose.material3.FilterChip
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -93,6 +96,7 @@ fun CampeonatoListRoute(
         uiState = uiState,
         onRefresh = { viewModel.refresh() },
         onSearchQueryChange = viewModel::onSearchQueryChange,
+        onDeporteFilterChange = viewModel::onDeporteFilterChange,
         onDeleteCampeonato = viewModel::deleteCampeonato,
         getFilteredCampeonatos = viewModel::getFilteredCampeonatos,
         onNavigateBack = onNavigateBack,
@@ -109,6 +113,7 @@ fun CampeonatoListScreen(
     uiState: CampeonatoListUiState,
     onRefresh: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
+    onDeporteFilterChange: (String?) -> Unit,
     onDeleteCampeonato: (String) -> Unit,
     getFilteredCampeonatos: () -> List<Campeonato>,
     onNavigateBack: (() -> Unit)?,
@@ -178,6 +183,13 @@ fun CampeonatoListScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
+                // Selector de Deporte (Filtro)
+                SportFilterRow(
+                    selectedSportId = uiState.selectedSportId,
+                    onSportSelected = onDeporteFilterChange,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
                 // Barra de búsqueda
                 SearchBar(
                     searchQuery = uiState.searchQuery,
@@ -213,6 +225,38 @@ fun CampeonatoListScreen(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SportFilterRow(
+    selectedSportId: String?,
+    onSportSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val sports = remember {
+        listOf(null) + SportType.options().map { it.id }
+    }
+
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(sports) { sportId ->
+            val isSelected = selectedSportId == sportId
+            val label = if (sportId == null) "Todos" else {
+                SportType.fromId(sportId).displayName
+            }
+
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSportSelected(sportId) },
+                label = { Text(label) }
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun SearchBar(

@@ -159,6 +159,7 @@ class CampeonatoFormViewModel(
         if (currentState.isSaving) return
 
         val form = currentState.formData
+
         val timestamp = System.currentTimeMillis()
         val anio = deriveYear(form.fechaInicio)
         val codigo = if (form.codigo.isNotBlank()) {

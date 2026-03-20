@@ -6,29 +6,63 @@ import com.google.firebase.database.PropertyName
 
 @IgnoreExtraProperties
 data class Campeonato(
-    val CODIGO: String = "",
-    val CAMPEONATO: String = "",
-    val FECHAALTA: String = "",
-    val FECHAINICIO: String = "",
-    val FECHAFINAL: String = "",
-    val PROVINCIA: String = "",
-    val ANIO: Int = 0,
-    val HASTAGEXTRAS: String = "",
-    val TIMESTAMP_CREACION: Long = 0,
-    val TIMESTAMP_MODIFICACION: Long = 0,
-    val ORIGEN: String = "MOBILE",
-    val DEPORTE: String = SportType.FUTBOL.id,
-    val ALIAS: String = "",
+    @get:PropertyName("CODIGO") @set:PropertyName("CODIGO")
+    var CODIGO: String = "",
+    
+    @get:PropertyName("CAMPEONATO") @set:PropertyName("CAMPEONATO")
+    var CAMPEONATO: String = "",
+    
+    @get:PropertyName("FECHAALTA") @set:PropertyName("FECHAALTA")
+    var FECHAALTA: String = "",
+    
+    @get:PropertyName("FECHAINICIO") @set:PropertyName("FECHAINICIO")
+    var FECHAINICIO: String = "",
+    
+    @get:PropertyName("FECHAFINAL") @set:PropertyName("FECHAFINAL")
+    var FECHAFINAL: String = "",
+    
+    @get:PropertyName("PROVINCIA") @set:PropertyName("PROVINCIA")
+    var PROVINCIA: String = "",
+    
+    @get:PropertyName("ANIO") @set:PropertyName("ANIO")
+    var ANIO: Int = 0,
+    
+    @get:PropertyName("HASTAGEXTRAS") @set:PropertyName("HASTAGEXTRAS")
+    var HASTAGEXTRAS: String = "",
+    
+    @get:PropertyName("TIMESTAMP_CREACION") @set:PropertyName("TIMESTAMP_CREACION")
+    var TIMESTAMP_CREACION: Long = 0,
+    
+    @get:PropertyName("TIMESTAMP_MODIFICACION") @set:PropertyName("TIMESTAMP_MODIFICACION")
+    var TIMESTAMP_MODIFICACION: Long = 0,
+    
+    @get:PropertyName("ORIGEN") @set:PropertyName("ORIGEN")
+    var ORIGEN: String = "MOBILE",
+    
+    @get:PropertyName("DEPORTE") @set:PropertyName("DEPORTE")
+    var DEPORTE: String = SportType.FUTBOL.id,
+    
+    @get:PropertyName("ALIAS") @set:PropertyName("ALIAS")
+    var ALIAS: String = "",
     
     // Usamos Any para evitar errores de conversión si en Firebase es número o string
-    // Firebase intentará convertirlo automáticamente si usamos los tipos correctos
-    val TIEMPOJUEGO: Any? = "45",
-    val DURACION: Any? = "0",
-    val MANGAS: Any? = "0",
-    val VUELTAS: Any? = "0",
+    @get:PropertyName("TIEMPOJUEGO") @set:PropertyName("TIEMPOJUEGO")
+    var TIEMPOJUEGO: Any? = "45",
     
-    val CIRCUITO: String = "",
-    val LUGAR: String = ""
+    @get:PropertyName("DURACION") @set:PropertyName("DURACION")
+    var DURACION: Any? = "0",
+    
+    @get:PropertyName("MANGAS") @set:PropertyName("MANGAS")
+    var MANGAS: Any? = "0",
+    
+    @get:PropertyName("VUELTAS") @set:PropertyName("VUELTAS")
+    var VUELTAS: Any? = "0",
+    
+    @get:PropertyName("CIRCUITO") @set:PropertyName("CIRCUITO")
+    var CIRCUITO: String = "",
+    
+    @get:PropertyName("LUGAR") @set:PropertyName("LUGAR")
+    var LUGAR: String = ""
 ) {
     // Funciones auxiliares para obtener los valores como String de forma segura
     fun getTiempoJuegoStr(): String = TIEMPOJUEGO?.toString() ?: "45"

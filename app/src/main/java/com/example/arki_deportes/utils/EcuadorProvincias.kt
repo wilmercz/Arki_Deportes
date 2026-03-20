@@ -15,7 +15,7 @@ object EcuadorProvincias {
     val LISTA = listOf(
         ProvinciaData("AZUAY", "CUENCA"),
         ProvinciaData("BOLIVAR", "GUARANDA"),
-        ProvinciaData("CANAR", "AZOGUES"),
+        ProvinciaData("CAÑAR", "AZOGUES"),
         ProvinciaData("CARCHI", "TULCAN"),
         ProvinciaData("CHIMBORAZO", "RIOBAMBA"),
         ProvinciaData("COTOPAXI", "LATACUNGA"),

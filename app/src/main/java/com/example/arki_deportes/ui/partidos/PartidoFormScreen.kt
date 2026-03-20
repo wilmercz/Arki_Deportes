@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -66,6 +67,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.SportsBasketball
+import com.example.arki_deportes.utils.SportType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,6 +164,25 @@ fun PartidoFormScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
+
+                            // 💡 DATO INFORMATIVO: Deporte heredado
+                            val deporteFirebase = uiState.formData.deporte.uppercase()
+                            val isBasquet = deporteFirebase == "BASQUET" || deporteFirebase == "BALONCESTO"
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isBasquet) Icons.Default.SportsBasketball else Icons.Default.SportsFootball,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Deporte: ${if (isBasquet) "Basquet" else "Fútbolw"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
                         }
                         // Permitimos cambiar el campeonato solo si es un partido NUEVO.
                         // En modo EDICIÓN no se debería cambiar el campeonato.
