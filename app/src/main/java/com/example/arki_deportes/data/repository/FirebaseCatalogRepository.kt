@@ -562,6 +562,11 @@ class FirebaseCatalogRepository(
             .child(rootNode)
             .child("PARTIDOACTUAL")
 
+        val esBasquet = partido.DEPORTE == "BASQUET"
+        val esPenales = partido.MARCADOR_PENALES && !esBasquet
+        val esFutbol = !esBasquet && !esPenales
+
+
         val data = mapOf(
             // Equipos / marcador
             "EQUIPO1" to partido.EQUIPO1,
@@ -601,6 +606,9 @@ class FirebaseCatalogRepository(
             "PENALES_SERIE1" to partido.PENALES_SERIE1,
             "PENALES_SERIE2" to partido.PENALES_SERIE2,
             "DEPORTE" to partido.DEPORTE,
+            "MARCADOR_FUTBOL" to esFutbol,
+            "MARCADOR_PENALES" to esPenales,
+            "MARCADOR_BASQUET" to esBasquet,
             // Debug
             "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP
         )

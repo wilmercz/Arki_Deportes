@@ -100,7 +100,7 @@ fun ControlPartidoTab(
             onMas1 = onAgregarGol1,
             onMenos2 = onRestarGol2,
             onMas2 = onAgregarGol2,
-            colorFondo = MaterialTheme.colorScheme.primaryContainer
+            colorFondo = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
         )
 
         // ═══════════════════════════════════════════════════════════
@@ -115,7 +115,7 @@ fun ControlPartidoTab(
             onMas1 = onAgregarEsquina1,
             onMenos2 = onRestarEsquina2,
             onMas2 = onAgregarEsquina2,
-            colorFondo = MaterialTheme.colorScheme.secondaryContainer
+            colorFondo = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
         )
 
         // ═══════════════════════════════════════════════════════════
@@ -130,7 +130,7 @@ fun ControlPartidoTab(
             onMas1 = onAgregarAmarilla1,
             onMenos2 = onRestarAmarilla2,
             onMas2 = onAgregarAmarilla2,
-            colorFondo = MaterialTheme.colorScheme.tertiaryContainer
+            colorFondo = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
         )
 
         // ═══════════════════════════════════════════════════════════
@@ -145,7 +145,7 @@ fun ControlPartidoTab(
             onMas1 = onAgregarRoja1,
             onMenos2 = onRestarRoja2,
             onMas2 = onAgregarRoja2,
-            colorFondo = MaterialTheme.colorScheme.errorContainer
+            colorFondo = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
         )
 
 // ═══════════════════════════════════════════════════════════
@@ -157,7 +157,7 @@ fun ControlPartidoTab(
                 containerColor = if (marcadorFutbolVisible)
                     MaterialTheme.colorScheme.surfaceVariant
                 else
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
             )
         ) {
             Row(

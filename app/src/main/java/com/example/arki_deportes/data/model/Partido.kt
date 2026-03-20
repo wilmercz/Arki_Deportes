@@ -391,11 +391,24 @@ data class Partido(
      * Verifica si el partido está finalizado
      * VB.NET: NumeroDeTiempo = "4T"
      */
-    fun estaFinalizado(): Boolean {
-        return if (DEPORTE == "BASQUET") {
+    /*fun estaFinalizado(): Boolean {
+        val esBasquet = DEPORTE.equals("BASQUET", ignoreCase = true)
+        return if (esBasquet) {
+            // En básquet solo finaliza en periodos pares a partir del 8T (4to periodo normal)
             listOf("8T", "10T", "12T", "14T").contains(NumeroDeTiempo) || ESTADO == 1
         } else {
             NumeroDeTiempo == "4T" || ESTADO == 1
+        }
+    }*/
+
+    fun estaFinalizado(): Boolean {
+        if (ESTADO == 1) return true
+        val esBasquet = DEPORTE.equals("BASQUET", ignoreCase = true)
+        // En fútbol, 4T es el final. En básquet, permitimos seguir hasta 14T (extras).
+        return if (esBasquet) {
+            NumeroDeTiempo == "14T"
+        } else {
+            NumeroDeTiempo == "4T"
         }
     }
 
@@ -404,7 +417,8 @@ data class Partido(
      * VB.NET: NumeroDeTiempo = "1T" Or "3T"
      */
     fun estaEnCurso(): Boolean {
-        return if (DEPORTE == "BASQUET") {
+        val esBasquet = DEPORTE.equals("BASQUET", ignoreCase = true)
+        return if (esBasquet) {
             listOf("1T", "3T", "5T", "7T", "9T", "11T", "13T").contains(NumeroDeTiempo)
         } else {
             NumeroDeTiempo == "1T" || NumeroDeTiempo == "3T"
@@ -442,7 +456,11 @@ data class Partido(
                 "6T" -> "Descanso 2"
                 "7T" -> "4to Periodo"
                 "8T" -> "Finalizado"
-                "9T", "11T", "13T" -> "Tiempo Extra"
+                "9T" -> "1er Tiempo Extra"
+                "10T" -> "Fin 1er T.E."
+                "11T" -> "2do Tiempo Extra"
+                "12T" -> "Fin 2do T.E."
+                "13T" -> "3er Tiempo Extra"
                 else -> "Finalizado"
             }
         }
@@ -466,6 +484,8 @@ data class Partido(
             FECHA_PLAY.isNotBlank() -> FECHA_PLAY.trim()
             Cronometro.isNotBlank() -> Cronometro.trim()
             else -> return if (DEPORTE == "BASQUET") (TIEMPOJUEGO.toIntOrNull() ?: 10) * 60 else 0
+            //else -> return if (DEPORTE.equals("BASQUET", ignoreCase = true)) (TIEMPOJUEGO.toIntOrNull() ?: 10) * 60 else 0
+
         }
 
         val inicioMillis = parseFechaInicioMillis(fechaInicioStr) ?: return 0

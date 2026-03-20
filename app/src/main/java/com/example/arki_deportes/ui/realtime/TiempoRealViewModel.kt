@@ -112,6 +112,9 @@ class TiempoRealViewModel(
 
     private var timerJob: Job? = null
 
+    // 🚩 Bandera para asegurar que la sincronización inicial solo ocurra una vez
+    private var isInitialSyncDone = false
+
     init {
 
         observarPartido()
@@ -170,11 +173,28 @@ class TiempoRealViewModel(
 
                         _uiState.update {
                             it.copy(
-                                partido = partido,
+                                partido = partidoConNombre,
                                 isLoading = false,
                                 error = null
                             )
                         }
+
+                        // 🚀 3. SINCRONIZACIÓN INICIAL AUTOMÁTICA
+                        // Si el modo está activo por defecto (true) y es la primera vez que detectamos datos
+                        if (_uiState.value.modoTransmision && !isInitialSyncDone) {
+                            isInitialSyncDone = true
+                            Log.d(TAG, "📡 Ejecutando sincronización inicial automática para Overlay...")
+
+                            // Aseguramos que el flag de transmisión en Firebase esté activo
+                            repository.actualizarTransmision(campeonatoId, partidoId, true)
+
+                            // Disparamos la publicación y sincronización
+                            viewModelScope.launch {
+                                repository.publicarEnPartidosJugandose(partidoConNombre)
+                                sincronizarConOverlay(partidoConNombre)
+                            }
+                        }
+
                     } else {
                         // Si el partido es nulo (ej: fue eliminado)
                         _uiState.update { it.copy(isLoading = false) }
@@ -351,6 +371,7 @@ class TiempoRealViewModel(
             val cal = Calendar.getInstance().apply { time = ahora }
             val horaPlay = String.format("%02d-%02d-%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND))
 
+            val esBasquet = partido.DEPORTE.equals("BASQUET", ignoreCase = true)
             // Determinar periodo según Deporte
             val (nuevoNT, tiemposJ) = if (partido.DEPORTE == "BASQUET") {
                 when (partido.NumeroDeTiempo) {
@@ -383,6 +404,8 @@ class TiempoRealViewModel(
      * - Si "1T" → cambia a "2T" (descanso)
      * - Si "3T" → cambia a "4T" (finalizado)
      */
+
+    /*
     fun detenerCronometro() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -413,6 +436,37 @@ class TiempoRealViewModel(
             _uiState.update { it.copy(actualizandoFirebase = false) }
         }
     }
+    */
+
+    fun detenerCronometro() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            _uiState.update { it.copy(actualizandoFirebase = true) }
+
+            val esBasquet = partido.DEPORTE.equals("BASQUET", ignoreCase = true)
+            val nuevoEstado = if (esBasquet) {
+                when (partido.NumeroDeTiempo) {
+                    "1T" -> "2T"; "3T" -> "4T"; "5T" -> "6T"; "7T" -> "8T"
+                    "9T" -> "10T"; "11T" -> "12T"; "13T" -> "14T"
+                    else -> partido.NumeroDeTiempo
+                }
+            } else {
+                if (partido.NumeroDeTiempo == "1T") "2T" else "4T"
+            }
+
+            // Solo finaliza automáticamente en Fútbol (4T) o al llegar al límite de extras en Básquet (14T)
+            val estaFinalizado = if (esBasquet) nuevoEstado == "14T" else nuevoEstado == "4T"
+
+            val updates = mapOf("NumeroDeTiempo" to nuevoEstado, "ESTADO" to if (estaFinalizado) 1 else 0)
+            repository.updatePartidoFields(campeonatoId, partidoId, updates).onSuccess {
+                val pUpd = partido.copy(NumeroDeTiempo = nuevoEstado, ESTADO = if (estaFinalizado) 1 else 0)
+                repository.publicarEnPartidosJugandose(pUpd)
+                if (_uiState.value.modoTransmision) sincronizarConOverlay(pUpd)
+            }
+            _uiState.update { it.copy(actualizandoFirebase = false) }
+        }
+    }
+
 
     fun reiniciarPartido() {
         viewModelScope.launch {
@@ -1595,15 +1649,34 @@ class TiempoRealViewModel(
      */
     private fun enviarAccionJugada(texto: String, rutaAudio: String = "") {
         viewModelScope.launch {
+
+            val esFutbol = _uiState.value.partido?.DEPORTE?.equals("FUTBOL", ignoreCase = true) == true
+            /*
             val updates = mapOf(
                 "ACCION_JUGADA_MINUTO" to texto,
                 "ACCION_AUDIO_URL" to rutaAudio,
                 "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
             )
+            */
+
+            val updates = mutableMapOf<String, Any>(
+                "ACCION_AUDIO_URL" to rutaAudio,
+                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            )
+
+
+            // ✅ Solo enviamos el texto de la jugada si el deporte es FUTBOL
+            if (esFutbol) {
+                updates["ACCION_JUGADA_MINUTO"] = texto
+            }
+
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
 
             // 2. 🚀 ACTUALIZAR EN PARTIDOACTUAL (Para la Web)
-            actualizarPartidoActualAccion(texto, rutaAudio)
+            //actualizarPartidoActualAccion(texto, rutaAudio)
+
+            // Si es Fútbol enviamos el texto, si es Básquet mandamos vacío para limpiar el overlay
+            actualizarPartidoActualAccion(if (esFutbol) texto else "", rutaAudio)
 
 
             // 🎵 REPRODUCCIÓN DE AUDIO (Futura implementación)

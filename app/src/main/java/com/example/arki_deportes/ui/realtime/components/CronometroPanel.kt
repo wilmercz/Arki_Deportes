@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import com.example.arki_deportes.data.model.Partido
 /**
@@ -70,7 +72,7 @@ fun CronometroPanel(
             Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 when (selectedTab) {
                     0 -> TabCronometro(tiempoActual, numeroTiempo, partido.TRANSMISION)
-                    1 -> TabControles(numeroTiempo, onIniciar, onDetener, onReiniciar)
+                    1 -> TabControles(numeroTiempo, onIniciar, onDetener, onReiniciar, partido)
                     2 -> TabAjustes(onAjustar)
                 }
             }
@@ -220,17 +222,32 @@ private fun TabControles(
     numeroTiempo: String,
     onIniciar: () -> Unit,
     onDetener: () -> Unit,
-    onReiniciar: () -> Unit
+    onReiniciar: () -> Unit,
+    partido: Partido
 ) {
+    val esBasquet = partido.DEPORTE.equals("BASQUET", ignoreCase = true)
+
+    // Tiempos donde el cronómetro está DETENIDO (Esperando para INICIAR)
+    val tiemposParaIniciar = if (esBasquet) {
+        listOf("0T", "2T", "4T", "6T", "8T", "10T", "12T")
+    } else {
+        listOf("0T", "2T")
+    }
+
+    // Tiempos donde el cronómetro está CORRIENDO (Esperando para DETENER/FINALIZAR)
+    val tiemposParaDetener = if (esBasquet) {
+        listOf("1T", "3T", "5T", "7T", "9T", "11T", "13T")
+    } else {
+        listOf("1T", "3T")
+    }
+
     var showConfirm by remember { mutableStateOf(false) }
 
     if (showConfirm) {
         AlertDialog(
             onDismissRequest = { showConfirm = false },
             title = { Text("¿Reiniciar partido?") },
-            text = {
-                Text("Esto dejará el partido como NO INICIADO y borrará FECHA_PLAY/Cronometro. ¿Seguro?")
-            },
+            text = { Text("Esto dejará el partido como NO INICIADO y borrará FECHA_PLAY/Cronometro. ¿Seguro?") },
             confirmButton = {
                 TextButton(onClick = {
                     showConfirm = false
@@ -248,103 +265,85 @@ private fun TabControles(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-
-        // ✅ Botón pequeño visible cuando NO es 0T y NO es 4T
-        //if (numeroTiempo != "0T" && numeroTiempo != "4T") {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = { showConfirm = true }) {
-                    Text("🔄 Reiniciar", fontSize = 12.sp)
-                }
+        // Botón Reiniciar
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { showConfirm = true }) {
+                Text("🔄 Reiniciar", fontSize = 12.sp)
             }
-        //}
+        }
 
-        when (numeroTiempo) {
-            "0T" -> {
-                // No iniciado
-                Text(
-                    text = "Partido listo para iniciar",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Button(
-                    onClick = onIniciar,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Text("▶️ INICIAR PRIMER TIEMPO", fontSize = 16.sp)
-                }
-            }
-
-            "1T" -> {
-                // Primer tiempo jugando
-                Text(
-                    text = "Primer tiempo en curso",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Button(
-                    onClick = onDetener,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("⏸️ FINALIZAR PRIMER TIEMPO", fontSize = 16.sp)
-                }
-            }
-
-            "2T" -> {
-                // Descanso
-                Text(
-                    text = "Medio tiempo - Descanso",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-
-                Button(
-                    onClick = onIniciar,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Text("▶️ INICIAR SEGUNDO TIEMPO", fontSize = 16.sp)
-                }
-            }
-
-            "3T" -> {
-                // Segundo tiempo jugando
-                Text(
-                    text = "Segundo tiempo en curso",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Button(
-                    onClick = onDetener,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("🏁 FINALIZAR PARTIDO", fontSize = 16.sp)
-                }
-            }
-
-            "4T" -> {
-                // Finalizado
+        // LÓGICA DINÁMICA DE BOTONES
+        when {
+            // CASO 1: PARTIDO FINALIZADO (Fútbol 4T o Estado 1)
+            partido.estaFinalizado() -> {
                 Text(
                     text = "✅ Partido finalizado",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.secondary
                 )
+            }
+
+            // CASO 2: EL CRONÓMETRO ESTÁ DETENIDO (Mostrar botón INICIAR)
+            numeroTiempo in tiemposParaIniciar -> {
+                val textoBoton = when (numeroTiempo) {
+                    "0T" -> "▶️ INICIAR PARTIDO"
+                    "2T" -> if (esBasquet) "▶️ INICIAR 2DO PERIODO" else "▶️ INICIAR 2DO TIEMPO"
+                    "4T" -> "▶️ INICIAR 3ER PERIODO"
+                    "6T" -> "▶️ INICIAR 4TO PERIODO"
+                    "8T" -> "▶️ INICIAR 1ER TIEMPO EXTRA"
+                    "10T" -> "▶️ INICIAR 2DO TIEMPO EXTRA"
+                    "12T" -> "▶️ INICIAR 3ER TIEMPO EXTRA"
+                    else -> "▶️ CONTINUAR PARTIDO"
+                }
+
+                Text(
+                    text = "Cronómetro detenido",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Button(
+                    onClick = onIniciar,
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    Text(textoBoton, fontSize = 16.sp)
+                }
+            }
+
+            // CASO 3: EL CRONÓMETRO ESTÁ CORRIENDO (Mostrar botón DETENER/FINALIZAR)
+            numeroTiempo in tiemposParaDetener -> {
+                val textoBoton = when (numeroTiempo) {
+                    "1T" -> if (esBasquet) "⏸️ FIN 1ER PERIODO" else "⏸️ FINALIZAR 1ER TIEMPO"
+                    "3T" -> if (esBasquet) "⏸️ FIN 2DO PERIODO" else "🏁 FINALIZAR PARTIDO"
+                    "5T" -> "⏸️ FIN 3ER PERIODO"
+                    "7T" -> "⏸️ FIN 4TO PERIODO"
+                    "9T" -> "⏸️ FIN 1ER EXTRA"
+                    "11T" -> "⏸️ FIN 2DO EXTRA"
+                    "13T" -> "⏸️ FIN 3ER EXTRA"
+                    else -> "⏸️ DETENER TIEMPO"
+                }
+
+                Text(
+                    text = "Tiempo en curso...",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Button(
+                    onClick = onDetener,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(textoBoton, fontSize = 16.sp)
+                }
+            }
+
+            // CASO 4: OTROS ESTADOS
+            else -> {
+                Text("Estado: $numeroTiempo")
             }
         }
     }
