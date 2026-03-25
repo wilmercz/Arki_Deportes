@@ -13,6 +13,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
@@ -27,15 +30,17 @@ import com.example.arki_deportes.data.model.Partido
 @Composable
 fun CronometroPanel(
     tiempoActual: String,
-    partido: Partido,  // ← Recibir el partido completo
+    partido: Partido,
+    estaPausado: Boolean, // 👈 Nuevo parámetro
     onIniciar: () -> Unit,
     onDetener: () -> Unit,
     onReiniciar: () -> Unit,
+    onTogglePausa: () -> Unit, // 👈 Nuevo parámetro
     onAjustar: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // ✅ Log cuando se recompone
-    Log.d("CronometroPanel", "🔄 Recomposición - Tiempo: $tiempoActual")
+    Log.d("CronometroPanel", "🔄 Recomposición - Tiempo: $tiempoActual - Pausado: $estaPausado")
 
     // ✅ Usar el método efectivo
     val numeroTiempo = partido.getNumeroDeTiempoEfectivo()
@@ -59,7 +64,7 @@ fun CronometroPanel(
                     text = { Text("🎮 Controles") }
                 )
 
-                // Solo mostrar tab de ajustes si está jugando
+                // Solo mostrar tab de ajustes si está jugando o pausado
                 if (numeroTiempo == "1T" || numeroTiempo == "3T") {
                     Tab(
                         selected = selectedTab == 2,
@@ -71,8 +76,8 @@ fun CronometroPanel(
 
             Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 when (selectedTab) {
-                    0 -> TabCronometro(tiempoActual, numeroTiempo, partido.TRANSMISION)
-                    1 -> TabControles(numeroTiempo, onIniciar, onDetener, onReiniciar, partido)
+                    0 -> TabCronometro(tiempoActual, numeroTiempo, partido.TRANSMISION, estaPausado)
+                    1 -> TabControles(numeroTiempo, estaPausado, onIniciar, onDetener, onReiniciar, onTogglePausa, partido)
                     2 -> TabAjustes(onAjustar)
                 }
             }
@@ -87,11 +92,13 @@ fun CronometroPanel(
 private fun TabCronometro(
     tiempoActual: String,
     numeroTiempo: String,
-    modoTransmision: Boolean
+    modoTransmision: Boolean,
+    estaPausado: Boolean
 ) {
 
-    // ✅ Determinar si está corriendo
-    val estaCorriendo = numeroTiempo == "1T" || numeroTiempo == "3T"
+    // ✅ Determinar si está corriendo (activo pero no pausado)
+    val estaActivo = numeroTiempo == "1T" || numeroTiempo == "3T"
+    val estaCorriendo = estaActivo && !estaPausado
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -109,6 +116,9 @@ private fun TabCronometro(
             if (estaCorriendo) {
                 IndicadorPulsante()
                 Spacer(Modifier.width(16.dp))
+            } else if (estaPausado) {
+                Icon(Icons.Default.Pause, contentDescription = "Pausado", tint = Color.Yellow, modifier = Modifier.size(32.dp))
+                Spacer(Modifier.width(16.dp))
             }
 
             Text(
@@ -117,13 +127,15 @@ private fun TabCronometro(
                 fontWeight = FontWeight.Bold,
                 color = if (estaCorriendo)
                     MaterialTheme.colorScheme.primary // Verde/Azul cuando corre
+                else if (estaPausado)
+                    Color.Yellow
                 else
                     MaterialTheme.colorScheme.onSurfaceVariant // Gris cuando está detenido
             )
         }
 
         // ═══════════════════════════════════════════════════════════
-        // ESTADO DEL PARTIDO - MINIMALISTA (NO PARECE BOTÓN)
+        // ESTADO DEL PARTIDO - MINIMALISTA
         // ═══════════════════════════════════════════════════════════
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -136,12 +148,13 @@ private fun TabCronometro(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = when (numeroTiempo) {
-                        "0T" -> "⏸️"
-                        "1T" -> "▶️"
-                        "2T" -> "☕"
-                        "3T" -> "▶️"
-                        "4T" -> "✅"
+                    text = when {
+                        estaPausado -> "⏸️"
+                        numeroTiempo == "0T" -> "⏹️"
+                        numeroTiempo == "1T" -> "▶️"
+                        numeroTiempo == "2T" -> "☕"
+                        numeroTiempo == "3T" -> "▶️"
+                        numeroTiempo == "4T" -> "✅"
                         else -> "•"
                     },
                     fontSize = 12.sp
@@ -150,12 +163,13 @@ private fun TabCronometro(
                 Spacer(Modifier.width(6.dp))
 
                 Text(
-                    text = when (numeroTiempo) {
-                        "0T" -> "No iniciado"
-                        "1T" -> "Primer Tiempo"
-                        "2T" -> "Descanso"
-                        "3T" -> "Segundo Tiempo"
-                        "4T" -> "Finalizado"
+                    text = when {
+                        estaPausado -> "Pausado"
+                        numeroTiempo == "0T" -> "No iniciado"
+                        numeroTiempo == "1T" -> "Primer Tiempo"
+                        numeroTiempo == "2T" -> "Descanso"
+                        numeroTiempo == "3T" -> "Segundo Tiempo"
+                        numeroTiempo == "4T" -> "Finalizado"
                         else -> numeroTiempo
                     },
                     fontSize = 10.sp,
@@ -215,14 +229,16 @@ private fun IndicadorPulsante() {
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAB 2: CONTROLES (INICIAR/DETENER)
+// TAB 2: CONTROLES (INICIAR/DETENER/PAUSA)
 // ═══════════════════════════════════════════════════════════════════════════
 @Composable
 private fun TabControles(
     numeroTiempo: String,
+    estaPausado: Boolean,
     onIniciar: () -> Unit,
     onDetener: () -> Unit,
     onReiniciar: () -> Unit,
+    onTogglePausa: () -> Unit,
     partido: Partido
 ) {
     val esBasquet = partido.DEPORTE.equals("BASQUET", ignoreCase = true)
@@ -234,8 +250,8 @@ private fun TabControles(
         listOf("0T", "2T")
     }
 
-    // Tiempos donde el cronómetro está CORRIENDO (Esperando para DETENER/FINALIZAR)
-    val tiemposParaDetener = if (esBasquet) {
+    // Tiempos donde el cronómetro está CORRIENDO o PAUSADO
+    val tiemposActivos = if (esBasquet) {
         listOf("1T", "3T", "5T", "7T", "9T", "11T", "13T")
     } else {
         listOf("1T", "3T")
@@ -311,33 +327,43 @@ private fun TabControles(
                 }
             }
 
-            // CASO 3: EL CRONÓMETRO ESTÁ CORRIENDO (Mostrar botón DETENER/FINALIZAR)
-            numeroTiempo in tiemposParaDetener -> {
-                val textoBoton = when (numeroTiempo) {
-                    "1T" -> if (esBasquet) "⏸️ FIN 1ER PERIODO" else "⏸️ FINALIZAR 1ER TIEMPO"
-                    "3T" -> if (esBasquet) "⏸️ FIN 2DO PERIODO" else "🏁 FINALIZAR PARTIDO"
-                    "5T" -> "⏸️ FIN 3ER PERIODO"
-                    "7T" -> "⏸️ FIN 4TO PERIODO"
-                    "9T" -> "⏸️ FIN 1ER EXTRA"
-                    "11T" -> "⏸️ FIN 2DO EXTRA"
-                    "13T" -> "⏸️ FIN 3ER EXTRA"
-                    else -> "⏸️ DETENER TIEMPO"
-                }
-
-                Text(
-                    text = "Tiempo en curso...",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Button(
-                    onClick = onDetener,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+            // CASO 3: EL CRONÓMETRO ESTÁ ACTIVO (Mostrar PAUSA y DETENER)
+            numeroTiempo in tiemposActivos -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(textoBoton, fontSize = 16.sp)
+                    // Botón PAUSA / REANUDAR
+                    Button(
+                        onClick = onTogglePausa,
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (estaPausado) Color(0xFF4CAF50) else Color(0xFFFFC107)
+                        )
+                    ) {
+                        Icon(if (estaPausado) Icons.Default.PlayArrow else Icons.Default.Pause, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (estaPausado) "REANUDAR" else "PAUSAR")
+                    }
+
+                    // Botón DETENER/FINALIZAR PERIODO
+                    val textoBotonDetener = when (numeroTiempo) {
+                        "1T" -> if (esBasquet) "⏸️ FIN 1ER PER" else "⏸️ FIN 1ER TIEMPO"
+                        "3T" -> if (esBasquet) "⏸️ FIN 2DO PER" else "🏁 FINALIZAR"
+                        "5T" -> "⏸️ FIN 3ER PER"
+                        "7T" -> "⏸️ FIN 4TO PER"
+                        else -> "⏸️ DETENER"
+                    }
+
+                    Button(
+                        onClick = onDetener,
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text(textoBotonDetener, fontSize = 12.sp)
+                    }
                 }
             }
 
@@ -456,4 +482,3 @@ private fun AjusteButton(
         )
     }
 }
-

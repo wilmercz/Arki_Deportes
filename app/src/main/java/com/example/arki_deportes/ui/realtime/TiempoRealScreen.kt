@@ -137,9 +137,11 @@ fun TiempoRealScreen(
                             CronometroPanel(
                                 tiempoActual = state.tiempoActual,
                                 partido = partido,
+                                estaPausado = state.cronoPausado,
                                 onIniciar = viewModel::iniciarPartido,
                                 onDetener = viewModel::detenerCronometro,
                                 onReiniciar = viewModel::reiniciarPartido,
+                                onTogglePausa = viewModel::togglePausa,
                                 onAjustar = viewModel::ajustarTiempo,
                                 modifier = Modifier.fillMaxWidth()
                             )

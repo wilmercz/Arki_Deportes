@@ -141,6 +141,9 @@ import com.example.arki_deportes.ui.produccion.audios.GestionAudioViewModelFacto
 import com.example.arki_deportes.ui.produccion.banners.GestionBannerScreen
 import com.example.arki_deportes.ui.produccion.banners.GestionBannerViewModel
 import com.example.arki_deportes.ui.produccion.banners.GestionBannerViewModelFactory
+import com.example.arki_deportes.ui.produccion.logos.GestionLogoScreen
+import com.example.arki_deportes.ui.produccion.logos.GestionLogoViewModel
+import com.example.arki_deportes.ui.produccion.logos.GestionLogoViewModelFactory
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -254,7 +257,8 @@ class MainActivity : ComponentActivity() {
                         equipoFormRoute = { navigatorParam, codigo -> PantallaEquipoForm(navigatorParam, codigo) },
                         partidoFormRoute = { navigatorParam, codigo -> PantallaPartidoForm(navigatorParam, codigo) },
                         gestionAudioRoute = { n -> PantallaGestionAudio(n, openDrawer = openDrawer) },
-                        gestionBannerRoute = { n -> PantallaGestionBanner(n, openDrawer = openDrawer) }
+                        gestionBannerRoute = { n -> PantallaGestionBanner(n, openDrawer = openDrawer) },
+                        gestionLogoRoute = { n -> PantallaGestionLogo(n, openDrawer = openDrawer) }
                     )
                 }
             }
@@ -360,6 +364,20 @@ class MainActivity : ComponentActivity() {
         GestionBannerScreen(
             viewModel = viewModel,
             onBack = { navigator.navigateBack() },
+            onOpenDrawer = openDrawer
+        )
+    }
+
+    @Composable
+    fun PantallaGestionLogo(navigator: AppNavigator, openDrawer: () -> Unit) {
+        val catalogRepo = remember(database, configManager) {
+            FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
+        }
+        val viewModel: GestionLogoViewModel = viewModel(
+            factory = GestionLogoViewModelFactory(catalogRepo, LocalContext.current)
+        )
+        GestionLogoScreen(
+            viewModel = viewModel,
             onOpenDrawer = openDrawer
         )
     }

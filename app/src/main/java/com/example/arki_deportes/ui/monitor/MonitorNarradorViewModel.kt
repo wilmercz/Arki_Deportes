@@ -102,7 +102,14 @@ class MonitorNarradorViewModel(
 
     private fun actualizarTiempoSync(partido: Partido) {
         val yaEmpezo = partido.TIEMPOSJUGADOS > 0 || partido.estaEnCurso()
-        if (partido.FECHA_PLAY.isNotBlank() && yaEmpezo && !partido.estaEnDescanso() && !partido.estaFinalizado()) {
+        // Manejamos FECHA_PLAY como Any?
+        val tieneFechaPlay = when (val fp = partido.FECHA_PLAY) {
+            is String -> fp.isNotBlank()
+            is Long -> fp > 0L
+            else -> fp != null
+        }
+
+        if (tieneFechaPlay && yaEmpezo && !partido.estaEnDescanso() && !partido.estaFinalizado()) {
             val segundos = partido.calcularTiempoActualSegundos()
             _uiState.update { it.copy(tiempoActual = partido.formatearTiempo(segundos)) }
         } else {

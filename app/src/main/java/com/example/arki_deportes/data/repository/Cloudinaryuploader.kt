@@ -21,7 +21,7 @@ import java.net.URL
  * Sube archivos a Cloudinary usando Upload Presets sin firma (Unsigned).
  *
  * @author ARKI SISTEMAS
- * @version 1.1.0
+ * @version 1.1.1
  */
 class CloudinaryUploader(private val context: Context) {
 
@@ -54,6 +54,16 @@ class CloudinaryUploader(private val context: Context) {
         
         Log.d(TAG, "🖼️ Subiendo a: $cloudinaryFolder con ID: $safePublicId")
         return uploadToCloudinary(fileUri, cloudinaryFolder, resourceType, safePublicId)
+    }
+
+    /**
+     * Sube un logo a Cloudinary en la ruta específica: ARKI_DEPORTES/CONFIGURACION/LOGOS_DEPORTES
+     */
+    suspend fun uploadLogo(fileUri: Uri, fileName: String): String {
+        val safeName = fileName.replace(Regex("[^A-Za-z0-9]"), "_")
+        val folder = "$ROOT_FOLDER/LOGOS_DEPORTES"
+        Log.d(TAG, "🏷️ Subiendo Logo a: $folder con ID: $safeName")
+        return uploadToCloudinary(fileUri, folder, "image", safeName)
     }
 
     /**

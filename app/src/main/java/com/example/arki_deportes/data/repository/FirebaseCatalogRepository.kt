@@ -28,6 +28,7 @@ import com.example.arki_deportes.data.model.Jugador
 import com.example.arki_deportes.data.model.AudioResource
 import com.example.arki_deportes.data.model.BannerResource
 import com.example.arki_deportes.data.model.AnuncioPublicidad
+import com.example.arki_deportes.data.model.LogoResource
 
 /**
  * Repositorio centralizado para operaciones CRUD sobre catálogos en Firebase.
@@ -878,6 +879,63 @@ class FirebaseCatalogRepository(
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
+    // GESTIÓN DE LOGOS (NUEVO)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    fun logosReference(): DatabaseReference =
+        database.reference.child("CONFIGURACION_OVERLAYWEB").child("CONFIGURACION_MEDIA").child("LOGOS_LISTA")
+
+    fun logosOnAirReference(): DatabaseReference =
+        rootReference.child("LOGOS_AI_AIRE")
+
+    fun observeLogos(): Flow<List<LogoResource>> = callbackFlow {
+        val ref = logosReference()
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val logos = snapshot.children.mapNotNull { it.getValue(LogoResource::class.java) }
+                trySend(logos)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    suspend fun saveLogo(logo: LogoResource) {
+        val id = if (logo.id.isBlank()) logosReference().push().key ?: "" else logo.id
+        val finalLogo = logo.copy(id = id)
+        logosReference().child(id).setValue(finalLogo.toMap()).await()
+    }
+
+    suspend fun deleteLogo(logoId: String) {
+        // Eliminar de lista global
+        logosReference().child(logoId).removeValue().await()
+        // Eliminar de Al Aire por si acaso estaba ahí
+        logosOnAirReference().child(logoId).removeValue().await()
+    }
+
+    /**
+     * Alterna el estado Al Aire de un logo.
+     * Actualiza tanto la lista global como la lista de producción.
+     */
+    suspend fun toggleLogoOnAir(logo: LogoResource) {
+        val newStatus = !logo.onAir
+        val logoId = logo.id
+        
+        // 1. Actualizar en lista global
+        logosReference().child(logoId).child("onAir").setValue(newStatus).await()
+        
+        // 2. Gestionar en lista Al Aire
+        if (newStatus) {
+            // Agregar a Al Aire
+            logosOnAirReference().child(logoId).setValue(logo.copy(onAir = true).toMap()).await()
+        } else {
+            // Quitar de Al Aire
+            logosOnAirReference().child(logoId).removeValue().await()
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
     // CONTROL DE OVERLAY (PRODUCCIÓN EN VIVO)
     // ─────────────────────────────────────────────────────────────────────────────
 
@@ -902,6 +960,34 @@ class FirebaseCatalogRepository(
             data["timestamp"] = ServerValue.TIMESTAMP
             ref.setValue(data).await()
         }
+    }
+
+    /**
+     * Sincroniza el estado del cronómetro en dos rutas:
+     * 1. Histórica: /DatosFutbol/Campeonatos/{cId}/Partidos/{pId}
+     * 2. Rápida (Overlay): /PARTIDOACTUAL
+     */
+    suspend fun enviarEstadoCronometro(
+        campeonatoId: String,
+        partidoId: String,
+        datosCrono: Map<String, Any>
+    ): Result<Unit> = try {
+        // 1. Ruta histórica (Partidos)
+        val refPartido = campeonatosReference()
+            .child(campeonatoId)
+            .child("Partidos")
+            .child(partidoId)
+        
+        refPartido.updateChildren(datosCrono).await()
+
+        // 2. Ruta rápida (PARTIDOACTUAL para Overlay)
+        val refActual = rootReference.child("PARTIDOACTUAL")
+        refActual.updateChildren(datosCrono).await()
+
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Log.e("FirebaseCatalogRepo", "❌ Error al enviar estado cronómetro: ${e.message}")
+        Result.failure(e)
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

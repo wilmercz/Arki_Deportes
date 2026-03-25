@@ -74,8 +74,12 @@ data class Partido(
      * Copia del Cronometro en Firebase
      * VB.NET: FirebaseManager.EnqueueSet("FECHA_PLAY", Cronometro)
      */
-    val FECHA_PLAY: String = "",
-
+    //val FECHA_PLAY: String = "",
+    val FECHA_PLAY: Any? = null, // 👈 Cambiado a Any? para soportar Long o String
+    val CRONO_PAUSA_ACUMULADA: Long = 0L, // 👈 Nuevo
+    val CRONO_OFFSET: Long = 0L,          // 👈 Nuevo
+    val CRONO_EN_PAUSA: Boolean = false,  // 👈 Nuevo
+    val CRONO_FINALIZADO: Boolean = false, // 👈 Nuevo
     /**
      * Hora en formato "H-M-S"
      * VB.NET: Hour(Cronometro) & "-" & Minute(Cronometro) & "-" & Second(Cronometro)
@@ -480,15 +484,17 @@ data class Partido(
      * Basado en: (Now - Cronometro)
      */
     fun calcularTiempoActualSegundos(): Int {
-        val fechaInicioStr = when {
-            FECHA_PLAY.isNotBlank() -> FECHA_PLAY.trim()
-            Cronometro.isNotBlank() -> Cronometro.trim()
-            else -> return if (DEPORTE == "BASQUET") (TIEMPOJUEGO.toIntOrNull() ?: 10) * 60 else 0
-            //else -> return if (DEPORTE.equals("BASQUET", ignoreCase = true)) (TIEMPOJUEGO.toIntOrNull() ?: 10) * 60 else 0
+        // Obtenemos los millis iniciales manejando FECHA_PLAY como Any? (Long o String)
+        val inicioMillis = when (val fp = FECHA_PLAY) {
+            is Long -> fp
+            is String -> parseFechaInicioMillis(fp)
+            else -> null
+        } ?: parseFechaInicioMillis(Cronometro)
 
+        if (inicioMillis == null) {
+            return if (DEPORTE == "BASQUET") (TIEMPOJUEGO.toIntOrNull() ?: 10) * 60 else 0
         }
 
-        val inicioMillis = parseFechaInicioMillis(fechaInicioStr) ?: return 0
         val diff = System.currentTimeMillis() - inicioMillis
 
         if (DEPORTE == "BASQUET") {
@@ -769,6 +775,3 @@ fun crearMapaFinalizarConGanador(nombreGanador: String, codigoGanador: String): 
         "CODIGOGANADOR" to codigoGanador
     )
 }
-
-
-

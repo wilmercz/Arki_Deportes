@@ -284,6 +284,16 @@ fun DrawerContent(
                 }
             )
 
+            DrawerMenuItem(
+                icon = Icons.Default.Tv,
+                label = "Gestión Logos",
+                isSelected = currentRoute.matchesRoute(AppDestinations.GESTION_LOGO),
+                onClick = {
+                    navigator.navigateToGestionLogo()
+                    onCloseDrawer()
+                }
+            )
+
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
             // Otras opciones

@@ -49,6 +49,7 @@ interface AppNavigator {
     // GESTIÓN DE PRODUCCIÓN
     fun navigateToGestionAudio()
     fun navigateToGestionBanner()
+    fun navigateToGestionLogo()
 
     // OTRAS PANTALLAS
     fun navigateToMenciones()
@@ -171,6 +172,10 @@ private class DefaultAppNavigator(
         navController.navigate(AppDestinations.GESTION_BANNER) { launchSingleTop = true }
     }
 
+    override fun navigateToGestionLogo() {
+        navController.navigate(AppDestinations.GESTION_LOGO) { launchSingleTop = true }
+    }
+
     override fun navigateToMenciones() {
         navController.navigate(AppDestinations.MENCIONES) { launchSingleTop = true }
     }
@@ -211,7 +216,8 @@ fun AppNavGraph(
     equipoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     partidoFormRoute: @Composable (AppNavigator, String?) -> Unit,
     gestionAudioRoute: @Composable (AppNavigator) -> Unit = {},
-    gestionBannerRoute: @Composable (AppNavigator) -> Unit = {}
+    gestionBannerRoute: @Composable (AppNavigator) -> Unit = {},
+    gestionLogoRoute: @Composable (AppNavigator) -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -260,6 +266,7 @@ fun AppNavGraph(
         // GESTIÓN DE PRODUCCIÓN
         composable(AppDestinations.GESTION_AUDIO) { gestionAudioRoute(navigator) }
         composable(AppDestinations.GESTION_BANNER) { gestionBannerRoute(navigator) }
+        composable(AppDestinations.GESTION_LOGO) { gestionLogoRoute(navigator) }
 
         composable(AppDestinations.CAMPEONATO_FORM) { campeonatoFormRoute(navigator, null) }
         composable(

@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.arki_deportes.ui.realtime.components.MotorCronometro
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * TIEMPO REAL VIEW MODEL
@@ -96,7 +98,8 @@ data class TiempoRealUiState(
     // --- GESTIÓN DE AUDIO ---
     val audios: List<AudioResource> = emptyList(),
     val volumenAudio: Int = 50,
-    val audioEstado: String = "STOP" // "PLAY", "STOP", "PAUSE"
+    val audioEstado: String = "STOP", // "PLAY", "STOP", "PAUSE"
+    val cronoPausado: Boolean = false
 )
 
 class TiempoRealViewModel(
@@ -114,6 +117,9 @@ class TiempoRealViewModel(
 
     // 🚩 Bandera para asegurar que la sincronización inicial solo ocurra una vez
     private var isInitialSyncDone = false
+
+    private val motorCronometro = MotorCronometro()
+
 
     init {
 
@@ -169,6 +175,20 @@ class TiempoRealViewModel(
                             partido.copy(CAMPEONATOTXT = nombreRealCamp)
                         } else {
                             partido
+                        }
+
+                        // 🔥🔥🔥 SINCRONIZACIÓN DEL MOTOR CON FIREBASE 🔥🔥🔥
+                        val fPlay = partido.FECHA_PLAY
+                        if (fPlay is Long && fPlay > 0) {
+                            val dataMotor = mapOf(
+                                "FECHA_PLAY" to fPlay,
+                                "CRONO_PAUSA_ACUMULADA" to partido.CRONO_PAUSA_ACUMULADA,
+                                "CRONO_OFFSET" to partido.CRONO_OFFSET,
+                                "CRONO_EN_PAUSA" to partido.CRONO_EN_PAUSA,
+                                "CRONO_FINALIZADO" to partido.CRONO_FINALIZADO
+                            )
+                            // Solo cargamos si hay cambios reales para no resetear el motor innecesariamente
+                            motorCronometro.cargarDesdeFirebase(dataMotor)
                         }
 
                         _uiState.update {
@@ -360,7 +380,7 @@ class TiempoRealViewModel(
      * - TimerCronometro.Enabled = True
      */
 
-    fun iniciarPartido() {
+    fun iniciarPartido_antiguo() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
             if (partido.estaEnCurso() || partido.estaFinalizado()) return@launch
@@ -392,6 +412,49 @@ class TiempoRealViewModel(
                 val pUpd = partido.copy(NumeroDeTiempo = nuevoNT, TIEMPOSJUGADOS = tiemposJ, ESTADO = 0, FECHA_PLAY = cronoStr)
                 repository.publicarEnPartidosJugandose(pUpd)
                 if (_uiState.value.modoTransmision) sincronizarConOverlay(pUpd)
+            }
+            _uiState.update { it.copy(actualizandoFirebase = false) }
+        }
+    }
+
+    fun iniciarPartido() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            // Evitamos iniciar si ya está finalizado
+            if (partido.estaFinalizado()) return@launch
+
+            _uiState.update { it.copy(actualizandoFirebase = true) }
+
+            // Determinar periodo según Deporte (Mantenemos tu lógica original)
+            val (nuevoNT, tiemposJ) = if (partido.DEPORTE == "BASQUET") {
+                when (partido.NumeroDeTiempo) {
+                    "0T" -> "1T" to 1; "2T" -> "3T" to 2; "4T" -> "5T" to 3; "6T" -> "7T" to 4
+                    "8T" -> "9T" to 5; "10T" -> "11T" to 6; "12T" -> "13T" to 7
+                    else -> partido.NumeroDeTiempo to partido.TIEMPOSJUGADOS
+                }
+            } else {
+                if (partido.NumeroDeTiempo == "0T") "1T" to 1 else "3T" to 2
+            }
+
+            // 🚀 INICIAR MOTOR (Captura el System.currentTimeMillis() para FECHA_PLAY)
+            motorCronometro.iniciar()
+
+            // Preparar mapa para Firebase con las llaves en MAYÚSCULAS
+            val datosMotor = motorCronometro.toFirebaseMap()
+            val updatesExtra = mapOf(
+                "NumeroDeTiempo" to nuevoNT,
+                "TIEMPOSJUGADOS" to tiemposJ,
+                "ESTADO" to 0,
+                "HORA_PLAY" to SimpleDateFormat("HH-mm-ss", Locale.getDefault()).format(Date())
+            )
+
+            val finalUpdates = datosMotor + updatesExtra
+
+            // Doble escritura: Histórico y PARTIDOACTUAL (Overlay)
+            repository.enviarEstadoCronometro(campeonatoId, partidoId, finalUpdates).onSuccess {
+                val pUpd = partido.copy(NumeroDeTiempo = nuevoNT, TIEMPOSJUGADOS = tiemposJ, ESTADO = 0)
+                repository.publicarEnPartidosJugandose(pUpd)
+                _uiState.update { it.copy(cronoPausado = false) }
             }
             _uiState.update { it.copy(actualizandoFirebase = false) }
         }
@@ -438,7 +501,7 @@ class TiempoRealViewModel(
     }
     */
 
-    fun detenerCronometro() {
+    fun detenerCronometro_Antiguo() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
             _uiState.update { it.copy(actualizandoFirebase = true) }
@@ -464,6 +527,63 @@ class TiempoRealViewModel(
                 if (_uiState.value.modoTransmision) sincronizarConOverlay(pUpd)
             }
             _uiState.update { it.copy(actualizandoFirebase = false) }
+        }
+    }
+
+    fun detenerCronometro() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            _uiState.update { it.copy(actualizandoFirebase = true) }
+
+            val esBasquet = partido.DEPORTE.equals("BASQUET", ignoreCase = true)
+            val nuevoEstado = if (esBasquet) {
+                when (partido.NumeroDeTiempo) {
+                    "1T" -> "2T"; "3T" -> "4T"; "5T" -> "6T"; "7T" -> "8T"
+                    "9T" -> "10T"; "11T" -> "12T"; "13T" -> "14T"
+                    else -> partido.NumeroDeTiempo
+                }
+            } else {
+                if (partido.NumeroDeTiempo == "1T") "2T" else "4T"
+            }
+
+            val estaFinalizado = if (esBasquet) nuevoEstado == "14T" else nuevoEstado == "4T"
+
+            // 🛑 FINALIZAR EN MOTOR (Calcula pausa acumulada final)
+            motorCronometro.finalizar()
+
+            val datosMotor = motorCronometro.toFirebaseMap()
+            val updatesExtra = mapOf(
+                "NumeroDeTiempo" to nuevoEstado,
+                "ESTADO" to if (estaFinalizado) 1 else 0
+            )
+
+            // Sincronización Doble
+            repository.enviarEstadoCronometro(campeonatoId, partidoId, datosMotor + updatesExtra).onSuccess {
+                val pUpd = partido.copy(NumeroDeTiempo = nuevoEstado, ESTADO = if (estaFinalizado) 1 else 0)
+                repository.publicarEnPartidosJugandose(pUpd)
+                _uiState.update { it.copy(cronoPausado = true) }
+            }
+            _uiState.update { it.copy(actualizandoFirebase = false) }
+        }
+    }
+
+    /**
+     * Función adicional para Pausar/Reanudar (Esencial para el nuevo motor)
+     */
+    fun togglePausa() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (partido.estaFinalizado()) return@launch
+
+            if (motorCronometro.estaEnPausa()) {
+                motorCronometro.reanudar()
+            } else {
+                motorCronometro.pausar()
+            }
+
+            val datosMotor = motorCronometro.toFirebaseMap()
+            repository.enviarEstadoCronometro(campeonatoId, partidoId, datosMotor)
+            _uiState.update { it.copy(cronoPausado = motorCronometro.estaEnPausa()) }
         }
     }
 
