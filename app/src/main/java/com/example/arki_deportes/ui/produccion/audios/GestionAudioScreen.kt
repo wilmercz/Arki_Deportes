@@ -1,6 +1,7 @@
 package com.example.arki_deportes.ui.produccion.audios
 
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.arki_deportes.data.model.AudioResource
@@ -152,6 +154,7 @@ fun AddAudioDialog(
     onDismiss: () -> Unit,
     onConfirm: (Uri, String, String, String, String, String?) -> Unit
 ) {
+    val context = LocalContext.current
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var fileName by remember { mutableStateOf("") }
     var tipo by remember { mutableStateOf("FX") }
@@ -184,7 +187,24 @@ fun AddAudioDialog(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         selectedUri = uri
-        uri?.let { fileName = it.lastPathSegment ?: "audio_file" }
+        uri?.let {
+            // 🎯 OBTENER NOMBRE REAL DESDE EL CONTENT RESOLVER
+            val cursor = context.contentResolver.query(it, null, null, null, null)
+            cursor?.use { c ->
+                val nameIndex = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (c.moveToFirst()) {
+                    val fullPath = c.getString(nameIndex)
+                    // Quitamos la extensión (ej: "Cancion.mp3" -> "Cancion")
+                    fileName = fullPath.substringBeforeLast(".") 
+                    // Si es música y no hay categoría, auto-llenar
+                    if (tipo == "MUSICA" && categoria.startsWith("MUSICA_")) {
+                        categoria = fileName
+                    }
+                }
+            } ?: run {
+                fileName = it.lastPathSegment ?: "audio_file"
+            }
+        }
     }
 
     AlertDialog(
@@ -212,7 +232,11 @@ fun AddAudioDialog(
                     )
                     ExposedDropdownMenu(expanded = expandedDep, onDismissRequest = { expandedDep = false }) {
                         deportes.forEach { d ->
-                            DropdownMenuItem(text = { Text(d) }, onClick = { deporte = d; expandedDep = false })
+                            DropdownMenuItem(text = { Text(d) }, onClick = { 
+                                deporte = d
+                                if (tipo == "MUSICA") categoria = "MUSICA_$d"
+                                expandedDep = false 
+                            })
                         }
                     }
                 }
@@ -223,7 +247,7 @@ fun AddAudioDialog(
                     RadioButton(selected = tipo == "FX", onClick = { tipo = "FX"; customId = null; categoria = "" })
                     Text("FX (Efecto)")
                     Spacer(modifier = Modifier.width(16.dp))
-                    RadioButton(selected = tipo == "MUSICA", onClick = { tipo = "MUSICA"; customId = null; categoria = "MUSICA_$deporte" })
+                    RadioButton(selected = tipo == "MUSICA", onClick = { tipo = "MUSICA"; customId = null; categoria = if(fileName.isNotBlank()) fileName else "MUSICA_$deporte" })
                     Text("Música")
                 }
 
@@ -250,24 +274,23 @@ fun AddAudioDialog(
                             label = { Text("OTRO") }
                         )
                     }
-
-                    OutlinedTextField(
-                        value = categoria,
-                        onValueChange = { 
-                            categoria = it
-                            // Si el usuario escribe manualmente, quitamos el ID fijo para que sea aleatorio
-                            if (sugerenciasFX[deporte]?.any { s -> s.first == it } == false) {
-                                customId = null
-                            }
-                        },
-                        label = { Text("Nombre / Categoría") },
-                        placeholder = { Text("Ej: Tiro de Esquina") },
-                        modifier = Modifier.fillMaxWidth(),
-                        supportingText = { 
-                            if (customId != null) Text("ID de Sistema: $customId", color = MaterialTheme.colorScheme.secondary)
-                        }
-                    )
                 }
+
+                OutlinedTextField(
+                    value = categoria,
+                    onValueChange = { 
+                        categoria = it
+                        if (tipo == "FX" && sugerenciasFX[deporte]?.any { s -> s.first == it } == false) {
+                            customId = null
+                        }
+                    },
+                    label = { Text(if(tipo == "FX") "Nombre / Categoría" else "Nombre de la Canción") },
+                    placeholder = { Text(if(tipo == "FX") "Ej: Tiro de Esquina" else "Ej: Himno Nacional") },
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = { 
+                        if (customId != null) Text("ID de Sistema: $customId", color = MaterialTheme.colorScheme.secondary)
+                    }
+                )
 
                 // 4. Selección de Archivo
                 Divider()
@@ -296,7 +319,7 @@ fun AddAudioDialog(
         confirmButton = {
             TextButton(
                 enabled = selectedUri != null && categoria.isNotBlank(),
-                onClick = { selectedUri?.let { onConfirm(it, fileName, tipo, categoria, deporte, customId) } }
+                onClick = { selectedUri?.let { onConfirm(it, categoria, tipo, categoria, deporte, customId) } }
             ) {
                 Text("SUBIR A LA NUBE", fontWeight = FontWeight.Bold)
             }

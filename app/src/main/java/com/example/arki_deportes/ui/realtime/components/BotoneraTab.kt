@@ -51,12 +51,18 @@ fun BotoneraTab(
     audios: List<AudioResource>,
     volumen: Int,
     estado: String,
+    deporteActual: String,
     onPlay: (AudioResource) -> Unit,
     onPause: () -> Unit,
     onStop: () -> Unit,
     onVolumeChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 🔍 Filtramos por deporte y tipo
+    val audiosDelDeporte = audios.filter {
+        it.deporte.equals(deporteActual, ignoreCase = true) || it.deporte == "GENERAL"
+    }
+
     val fxAudios = audios.filter { it.tipo == "FX" }
     val musicaAudios = audios.filter { it.tipo == "MUSICA" }
 
@@ -111,54 +117,75 @@ fun BotoneraTab(
                     }
                 }
 
-                // Lista de canciones
-                LazyRow(
+                // --- SECCIÓN MÚSICA (Grid 2 columnas) ---
+                Text(
+                    text = "🎵 MÚSICA ($deporteActual)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.heightIn(max = 150.dp), // Limitamos altura para dejar espacio a los FX
+                    contentPadding = PaddingValues(vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(top = 8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(musicaAudios) { musica ->
-                        AssistChip(
+                        OutlinedButton(
                             onClick = { onPlay(musica) },
-                            label = { Text(musica.nombre) },
-                            leadingIcon = { Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(16.dp)) }
-                        )
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(4.dp)
+                        ) {
+                            Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(musica.nombre, maxLines = 1, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                Divider(modifier = Modifier.padding(vertical = 12.dp))
+
+                // --- SECCIÓN FX (Grid 3 columnas) ---
+                Text(
+                    text = "🎹 EFECTOS (FX)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f).padding(top = 8.dp)
+                ) {
+                    items(items = fxAudios) { fx ->
+                        // 🎯 Si el FX tiene un ID de sistema (ej: FUTBOL_FX_ESQUINA), lo destacamos
+                        val esSistema = fx.id.startsWith("${deporteActual}_FX_") || fx.id.startsWith("FX_")
+
+                        Button(
+                            onClick = { onPlay(fx) },
+                            modifier = Modifier.height(60.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (esSistema) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                            ),
+                            shape = MaterialTheme.shapes.medium,
+                            contentPadding = PaddingValues(4.dp)
+                        ) {
+                            Text(
+                                text = fx.nombre,
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 2,
+                                fontWeight = if (esSistema) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // --- SECCIÓN FX (Grid de Botones) ---
-        Text(
-            text = "Efectos de Sonido (FX)",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .weight(1f)
-                .padding(top = 8.dp)
-        ) {
-            items(items = fxAudios) { fx: AudioResource ->
-                Button(
-                    onClick = { onPlay(fx) },
-                    modifier = Modifier.height(60.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    contentPadding = PaddingValues(4.dp)
-                ) {
-                    Text(
-                        text = fx.nombre,
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 2
-                    )
-                }
-            }
-        }
     }
 }
 

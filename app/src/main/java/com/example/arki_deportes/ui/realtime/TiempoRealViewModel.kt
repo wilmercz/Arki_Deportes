@@ -129,6 +129,7 @@ class TiempoRealViewModel(
         observarSoloTercio()
         //observarPenales()
         observarBanners()
+        observarAudios()
         iniciarActualizadorDeTiempo()
 
     }
@@ -1122,7 +1123,13 @@ class TiempoRealViewModel(
      * Ej: "FUTBOL_FX_ESQUINA", "FUTBOL_FX_CORTINA"
      */
     private fun obtenerUrlAudio(idAudio: String): String {
-        return _uiState.value.audios.find { it.id == idAudio }?.url ?: ""
+        val audio = _uiState.value.audios.find { it.id == idAudio }
+        if (audio == null) {
+            Log.w(TAG, "⚠️ Audio con ID '$idAudio' no encontrado en el catálogo local")
+        } else {
+            Log.d(TAG, "✅ Audio encontrado: ${audio.url}")
+        }
+        return audio?.url ?: ""
     }
 
 
