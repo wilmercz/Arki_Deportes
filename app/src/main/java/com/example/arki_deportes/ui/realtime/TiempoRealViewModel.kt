@@ -99,7 +99,9 @@ data class TiempoRealUiState(
     val audios: List<AudioResource> = emptyList(),
     val volumenAudio: Int = 50,
     val audioEstado: String = "STOP", // "PLAY", "STOP", "PAUSE"
-    val cronoPausado: Boolean = false
+    val cronoPausado: Boolean = false,
+    val lowerThirdVisible: Boolean = true, // 👈 Para el estado del Switch
+    val ultimaAccionTexto: String = ""
 )
 
 class TiempoRealViewModel(
@@ -122,12 +124,13 @@ class TiempoRealViewModel(
 
 
     init {
-
+        obtenerNombreCampeonato()
         observarPartido()
-        observarPenales()
+        observarSoloTercio()
+        //observarPenales()
         observarBanners()
         iniciarActualizadorDeTiempo()
-        obtenerNombreCampeonato()
+
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -152,8 +155,8 @@ class TiempoRealViewModel(
     private fun observarPartido() {
 
         viewModelScope.launch {
-            val campeonato = repository.getCampeonato(campeonatoId)
-            val nombreRealCamp = campeonato?.CAMPEONATO ?: "Campeonato"
+            //val campeonato = repository.getCampeonato(campeonatoId)
+            //val nombreRealCamp = campeonato?.CAMPEONATO ?: "Campeonato"
 
             repository.observePartido(campeonatoId, partidoId)
                 .catch { error ->
@@ -171,8 +174,11 @@ class TiempoRealViewModel(
 
                     // 2. Si el partido no tiene el nombre, se lo inyectamos manualmente
                     if (partido != null) {
+                        // Usamos el nombre que ya debería estar cargado en el UI State o el que traiga el partido
+                        val nombreCamp = _uiState.value.nombreCampeonatoReal
+
                         val partidoConNombre = if (partido.CAMPEONATOTXT.isBlank()) {
-                            partido.copy(CAMPEONATOTXT = nombreRealCamp)
+                            partido.copy(CAMPEONATOTXT = nombreCamp)
                         } else {
                             partido
                         }
@@ -185,7 +191,8 @@ class TiempoRealViewModel(
                                 "CRONO_PAUSA_ACUMULADA" to partido.CRONO_PAUSA_ACUMULADA,
                                 "CRONO_OFFSET" to partido.CRONO_OFFSET,
                                 "CRONO_EN_PAUSA" to partido.CRONO_EN_PAUSA,
-                                "CRONO_FINALIZADO" to partido.CRONO_FINALIZADO
+                                "CRONO_FINALIZADO" to partido.CRONO_FINALIZADO,
+                                "CRONO_INICIO_PAUSA" to partido.CRONO_INICIO_PAUSA
                             )
                             // Solo cargamos si hay cambios reales para no resetear el motor innecesariamente
                             motorCronometro.cargarDesdeFirebase(dataMotor)
@@ -195,6 +202,12 @@ class TiempoRealViewModel(
                             it.copy(
                                 partido = partidoConNombre,
                                 isLoading = false,
+                                penalesActivos = partido.MARCADOR_PENALES,
+                                equipoQueInicia = partido.PENALES_INICIA.coerceIn(1, 2),
+                                equipoEnTurno = partido.PENALES_TURNO.coerceIn(1, 2),
+                                tandaActual = partido.PENALES_TANDA.coerceAtLeast(1),
+                                historiaPenales1 = partido.PENALES_SERIE1,
+                                historiaPenales2 = partido.PENALES_SERIE2,
                                 error = null
                             )
                         }
@@ -228,6 +241,7 @@ class TiempoRealViewModel(
      * Actualiza el UiState con los datos de penales
      */
 
+    /*
     private fun observarPenales() {
         viewModelScope.launch {
             repository.observePartido(campeonatoId, partidoId)
@@ -251,6 +265,7 @@ class TiempoRealViewModel(
                 }
         }
     }
+*/
 
 
 
@@ -314,9 +329,10 @@ class TiempoRealViewModel(
                     actualizarTiempoDisplay()
 
                     // ✅ Solo sincronizar overlay si está activo
-                    if (_uiState.value.modoTransmision) {
+                   /* if (_uiState.value.modoTransmision) {
                         sincronizarConOverlay()
-                    }
+                    }*/
+
                 }
             }
         }
@@ -329,18 +345,27 @@ class TiempoRealViewModel(
 
     private fun actualizarTiempoDisplay() {
         val partido = _uiState.value.partido ?: return
+        val esBasquet = partido.DEPORTE.equals("BASQUET", ignoreCase = true)
 
-        val segundos = partido.calcularTiempoActualSegundos()
-        val tiempoFormateado = partido.formatearTiempo(segundos)
+        // Obtenemos los segundos transcurridos desde el motor
+        val transcurrido = motorCronometro.obtenerTiempoSegundos().toInt()
 
-        // Log solo cada 10 segundos para no saturar
-        if (segundos % 10 == 0) {
-            Log.d(TAG, "📺 Display actualizado: $tiempoFormateado (${segundos}s)")
+        val tiempoFormateado = if (esBasquet) {
+            // 🏀 BÁSQUET: Total (ej: 10 min) - Transcurrido
+            val totalSegundos = (partido.TIEMPOJUEGO.toIntOrNull() ?: 10) * 60
+            val restante = (totalSegundos - transcurrido).coerceAtLeast(0)
+
+            val min = restante / 60
+            val seg = restante % 60
+            String.format("%02d:%02d", min, seg)
+        } else {
+            // ⚽ FÚTBOL: Transcurrido normal
+            val min = transcurrido / 60
+            val seg = transcurrido % 60
+            String.format("%02d:%02d", min, seg)
         }
 
-        _uiState.update {
-            it.copy(tiempoActual = tiempoFormateado)
-        }
+        _uiState.update { it.copy(tiempoActual = tiempoFormateado) }
     }
 
     /**
@@ -455,6 +480,10 @@ class TiempoRealViewModel(
                 val pUpd = partido.copy(NumeroDeTiempo = nuevoNT, TIEMPOSJUGADOS = tiemposJ, ESTADO = 0)
                 repository.publicarEnPartidosJugandose(pUpd)
                 _uiState.update { it.copy(cronoPausado = false) }
+
+                if (_uiState.value.modoTransmision) {
+                    sincronizarConOverlay() // 👈 Notificamos a la web que el reloj arrancó
+                }
             }
             _uiState.update { it.copy(actualizandoFirebase = false) }
         }
@@ -591,34 +620,29 @@ class TiempoRealViewModel(
     fun reiniciarPartido() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
-
             _uiState.update { it.copy(actualizandoFirebase = true) }
 
-            val updates = mapOf(
+            motorCronometro.iniciar()
+            val datosMotor = motorCronometro.toFirebaseMap()
+
+            // Forzamos el tipo Map<String, Any?> para que acepte los nulls
+            val updates: Map<String, Any?> = datosMotor + mapOf(
                 "Cronometro" to null,
-                "FECHA_PLAY" to null,
+                "FECHA_PLAY" to 0L,
                 "HORA_PLAY" to null,
                 "NumeroDeTiempo" to "0T",
                 "TIEMPOSJUGADOS" to 0,
-                "ESTADO" to 0
+                "ESTADO" to 0,
+                "TIEMPOJUEGO" to "00:00"
             )
 
-            val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
-
-            result.onSuccess {
-                Log.d(TAG, "✅ Partido reiniciado (campos de inicio borrados)")
-                // Para que el display vuelva inmediato a 00:00
-                _uiState.update { it.copy(tiempoActual = "00:00") }
-            }.onFailure { e ->
-                Log.e(TAG, "❌ Error reiniciando: ${e.message}", e)
-                _uiState.update { it.copy(error = e.message) }
+            repository.enviarEstadoCronometro(campeonatoId, partidoId, updates).onSuccess {
+                _uiState.update { it.copy(tiempoActual = "00:00", cronoPausado = false) }
             }
 
             _uiState.update { it.copy(actualizandoFirebase = false) }
         }
     }
-
-
     /**
      * Ajusta el tiempo modificando FECHA_PLAY
      *
@@ -629,56 +653,29 @@ class TiempoRealViewModel(
     fun ajustarTiempo(segundos: Int) {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
+            val esBasquet = partido.DEPORTE.equals("BASQUET", ignoreCase = true)
 
-            if (!partido.estaEnCurso()) {
-                Log.w(TAG, "⚠️ No se puede ajustar: partido no en curso")
-                return@launch
-            }
+            // ✅ LÓGICA CORRECTA:
+            // Si es básquet, invertimos el signo.
+            // Ejemplo: Si presionas +1 min (60s), el ajuste debe ser -60s
+            // para que el tiempo transcurrido baje y el "restante" suba.
+            val ajusteReal = if (esBasquet) -segundos else segundos
 
-            val tiempoActual = partido.calcularTiempoActualSegundos()
-            val nuevoTiempo = (tiempoActual + segundos).coerceAtLeast(0)
+            // 1. Ajustamos el OFFSET en el motor local usando el ajusteReal
+            motorCronometro.agregarOffset(ajusteReal) // 👈 AQUÍ USAR ajusteReal
 
-            Log.d(TAG, "╔═══════════════════════════════════════════════════════")
-            Log.d(TAG, "⚙️ AJUSTANDO TIEMPO")
-            Log.d(TAG, "   Tiempo actual: ${tiempoActual}s")
-            Log.d(TAG, "   Ajuste: ${segundos}s")
-            Log.d(TAG, "   Nuevo tiempo: ${nuevoTiempo}s")
-            Log.d(TAG, "╚═══════════════════════════════════════════════════════")
+            Log.d(TAG, "⚙️ Ajuste: ${segundos}s | Real: ${ajusteReal}s | Offset Total: ${motorCronometro.obtenerTiempoSegundos()}s")
 
-            // Calcular nueva FECHA_PLAY
-            val ahora = System.currentTimeMillis()
-            val nuevoInicio = ahora - (nuevoTiempo * 1000)
+            // 2. Sincronizamos el nuevo estado del motor
+            val datosMotor = motorCronometro.toFirebaseMap()
+            repository.enviarEstadoCronometro(campeonatoId, partidoId, datosMotor).onSuccess {
+                // 3. Actualizamos el display de la App de inmediato
+                actualizarTiempoDisplay()
 
-            val formato = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
-            val nuevaFechaPlay = formato.format(Date(nuevoInicio))
-
-            val cal = Calendar.getInstance()
-            cal.timeInMillis = nuevoInicio
-            val nuevaHoraPlay = String.format(
-                "%02d-%02d-%02d",
-                cal.get(Calendar.HOUR_OF_DAY),
-                cal.get(Calendar.MINUTE),
-                cal.get(Calendar.SECOND)
-            )
-
-            Log.d(TAG, "   Nueva FECHA_PLAY: $nuevaFechaPlay")
-            Log.d(TAG, "   Nueva HORA_PLAY: $nuevaHoraPlay")
-
-            val updates = mapOf(
-                "FECHA_PLAY" to nuevaFechaPlay,
-                "HORA_PLAY" to nuevaHoraPlay,
-                "Cronometro" to nuevaFechaPlay
-            )
-
-            val result = repository.updatePartidoFields(campeonatoId, partidoId, updates)
-
-            result.onSuccess {
-                Log.d(TAG, "✅ Tiempo ajustado exitosamente")
+                // 4. Si transmites, sincroniza el overlay para que la web vea el cambio
                 if (_uiState.value.modoTransmision) {
                     sincronizarConOverlay()
                 }
-            }.onFailure { error ->
-                Log.e(TAG, "❌ Error ajustando tiempo: ${error.message}")
             }
         }
     }
@@ -1118,6 +1115,17 @@ class TiempoRealViewModel(
     }
 */
 
+
+    // 2. Nueva función para extraer el URL por ID (Súper rápida)
+    /**
+     * Busca el URL de un audio en el catálogo por su ID descriptivo
+     * Ej: "FUTBOL_FX_ESQUINA", "FUTBOL_FX_CORTINA"
+     */
+    private fun obtenerUrlAudio(idAudio: String): String {
+        return _uiState.value.audios.find { it.id == idAudio }?.url ?: ""
+    }
+
+
     fun agregarEsquinaEquipo1() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
@@ -1126,8 +1134,8 @@ class TiempoRealViewModel(
             val nuevasEsquinas = partido.ESQUINAS1 + 1
             val textoAccion = "🚩 ESQUINA - ${partido.EQUIPO1.uppercase()} (Total: $nuevasEsquinas)"
 
-            // Ruta de audio local para que la Web o la App reproduzcan
-            val rutaAudio = "D:\\SONIDOS DXT\\10 SPOT TIRO DE ESQUINA.mp3"
+            // 🎯 Ahora busca el link de Cloudinary usando el ID descriptivo
+            val rutaAudio = obtenerUrlAudio("FUTBOL_FX_ESQUINA")
 
             val updates = mapOf("ESQUINAS1" to nuevasEsquinas)
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -1144,7 +1152,8 @@ class TiempoRealViewModel(
             val nuevasEsquinas = partido.ESQUINAS2 + 1
             val textoAccion = "🚩 ESQUINA - ${partido.EQUIPO2.uppercase()} (Total: $nuevasEsquinas)"
 
-            val rutaAudio = "D:\\SONIDOS DXT\\10 SPOT TIRO DE ESQUINA.mp3"
+            // 🎯 Uso de ID descriptivo
+            val rutaAudio = obtenerUrlAudio("FUTBOL_FX_ESQUINA")
 
             val updates = mapOf("ESQUINAS2" to nuevasEsquinas)
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
@@ -1241,7 +1250,7 @@ class TiempoRealViewModel(
 
             Log.d(TAG, "Sincronizando con overlay... CRONOMETRANDO=${partido.estaEnCurso()}")
 
-            val result = repository.sincronizarPartidoActual(partido)
+            val result = repository.sincronizarPartidoActual(partido, _uiState.value.tiempoActual)
 
             result.onSuccess {
                 Log.d(TAG, "Overlay sincronizado exitosamente")
@@ -1769,48 +1778,70 @@ class TiempoRealViewModel(
      */
     private fun enviarAccionJugada(texto: String, rutaAudio: String = "") {
         viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            val esFutbol = partido.DEPORTE.equals("FUTBOL", ignoreCase = true)
 
-            val esFutbol = _uiState.value.partido?.DEPORTE?.equals("FUTBOL", ignoreCase = true) == true
-            /*
-            val updates = mapOf(
-                "ACCION_JUGADA_MINUTO" to texto,
-                "ACCION_AUDIO_URL" to rutaAudio,
-                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
-            )
-            */
-
+            // 1. Actualizamos el historial del partido (Nodo histórico)
             val updates = mutableMapOf<String, Any>(
-                "ACCION_AUDIO_URL" to rutaAudio,
-                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+                "ACCION_AUDIO_URL" to rutaAudio
             )
 
-
-            // ✅ Solo enviamos el texto de la jugada si el deporte es FUTBOL
             if (esFutbol) {
                 updates["ACCION_JUGADA_MINUTO"] = texto
             }
+            // else if (partido.DEPORTE.equals("BASQUET", ignoreCase = true)) {
+            //    /* Reservado para lógica de canastas en el futuro */
+            // }
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
 
-            // 2. 🚀 ACTUALIZAR EN PARTIDOACTUAL (Para la Web)
-            //actualizarPartidoActualAccion(texto, rutaAudio)
+            // 2. Lógica para el Overlay Web
+            // Si es Fútbol: Usamos el texto y FORZAMOS que el banner se muestre (true).
+            // Si no es Fútbol: Mandamos vacío "" para no ensuciar el tercio.
+            val textoFinal = if (esFutbol) texto else ""
+            
+            // 🔥 CORREGIDO: Forzamos la visibilidad a TRUE cuando se dispara una acción automática (Gol, Tarjeta, etc.)
+            val nuevaVisibilidad = true
 
-            // Si es Fútbol enviamos el texto, si es Básquet mandamos vacío para limpiar el overlay
-            actualizarPartidoActualAccion(if (esFutbol) texto else "", rutaAudio)
+            // 3. Actualizamos el estado local (Switch y texto guardado)
+            _uiState.update { it.copy(
+                ultimaAccionTexto = textoFinal,
+                lowerThirdVisible = nuevaVisibilidad
+            ) }
 
+            // 4. Enviamos al PARTIDOACTUAL (Overlay Web)
+            actualizarPartidoActualAccion(
+                texto = textoFinal,
+                rutaAudio = rutaAudio,
+                visible = nuevaVisibilidad
+            )
 
-            // 🎵 REPRODUCCIÓN DE AUDIO (Futura implementación)
-            // a futuro la app leera desde firebase la ruta de audio local o en storage y lo reproducira
-            if (rutaAudio.isNotEmpty()) {
-                // reproducirAudioLocal(rutaAudio)
+            // ✅ AGREGA ESTO AL FINAL:
+            if (_uiState.value.modoTransmision) {
+                sincronizarConOverlay()
             }
+        }
+    }
+
+
+    fun toggleLowerThird(visible: Boolean) {
+        viewModelScope.launch {
+            // 1. Actualización local inmediata
+            _uiState.update { it.copy(lowerThirdVisible = visible) }
+
+            // 3. Actualización en el Nodo PARTIDOACTUAL (Web)
+            actualizarPartidoActualAccion(
+                texto = _uiState.value.ultimaAccionTexto,
+                rutaAudio = "",
+                visible = visible
+            )
         }
     }
 
     /**
      * Actualiza específicamente los campos de acción en el nodo PARTIDOACTUAL
      */
-    private fun actualizarPartidoActualAccion(texto: String, rutaAudio: String) {
+    private fun actualizarPartidoActualAccion(texto: String, rutaAudio: String, visible: Boolean = true) {
         viewModelScope.launch {
             try {
                 val reference = com.google.firebase.database.FirebaseDatabase.getInstance().reference
@@ -1820,7 +1851,7 @@ class TiempoRealViewModel(
                 val updates = mapOf(
                     "ACCION_JUGADA_MINUTO" to texto,
                     "ACCION_AUDIO_URL" to rutaAudio,
-                    "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+                    "MOSTRAR_TERCIO" to visible
                 )
 
                 reference.updateChildren(updates).await()
@@ -2002,26 +2033,35 @@ class TiempoRealViewModel(
         _uiState.update { it.copy(volumenAudio = vol) }
     }
 
-
     fun enviarInfoAlOverlay(texto: String) {
         if (texto.isBlank()) return
 
         viewModelScope.launch {
-            // Usamos la lógica de enviarAccionJugada pero con el texto de info
+            // 1. Preparamos el texto con el prefijo
             val textoFinal = "📍 $texto"
 
-            val updates = mapOf(
-                "ACCION_JUGADA_MINUTO" to textoFinal,
-                "ULTIMA_ACTUALIZACION" to com.google.firebase.database.ServerValue.TIMESTAMP
+            // 1. Actualización local inmediata para que la App se sienta rápida
+            _uiState.update { it.copy(
+                ultimaAccionTexto = textoFinal,
+                lowerThirdVisible = true
+            ) }
+
+            // 3. Al Overlay Web (PARTIDOACTUAL)
+            actualizarPartidoActualAccion(
+                texto = textoFinal,
+                rutaAudio = "",
+                visible = true
             )
 
-            // Actualizamos en el nodo del partido
-            repository.updatePartidoFields(campeonatoId, partidoId, updates)
+            // 4. Sincronizar el resto de datos si la transmisión está activa
+            if (_uiState.value.modoTransmision) {
+                sincronizarConOverlay()
+            }
 
-            // Actualizamos en PARTIDOACTUAL (Overlay Web)
-            actualizarPartidoActualAccion(textoFinal, "")
         }
     }
+
+
 
     fun toggleMarcadorFutbol_Basquet(mostrar: Boolean) {
         // ✅ 1. Actualizamos el estado local PRIMERO para reactividad inmediata
@@ -2042,6 +2082,28 @@ class TiempoRealViewModel(
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error actualizando marcador web: ${e.message}")
             }
+        }
+    }
+
+
+    /**
+     * Escucha EXCLUSIVAMENTE el campo MOSTRAR_TERCIO para que el switch sea 100% reactivo
+     */
+    private fun observarSoloTercio() {
+        viewModelScope.launch {
+            // 🎯 Escuchamos PARTIDOACTUAL directamente
+            val ref = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                .child("ARKI_DEPORTES")
+                .child("PARTIDOACTUAL")
+                .child("MOSTRAR_TERCIO")
+
+            ref.addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+                override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                    val visible = snapshot.getValue(Boolean::class.java) ?: false
+                    _uiState.update { it.copy(lowerThirdVisible = visible) }
+                }
+                override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+            })
         }
     }
 

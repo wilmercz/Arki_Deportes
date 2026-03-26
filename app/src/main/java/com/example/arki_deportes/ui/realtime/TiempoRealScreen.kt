@@ -236,6 +236,8 @@ fun TiempoRealScreen(
                             onRestarEsquina1 = viewModel::restarEsquinaEquipo1,
                             onAgregarEsquina2 = viewModel::agregarEsquinaEquipo2,
                             onRestarEsquina2 = viewModel::restarEsquinaEquipo2,
+                            lowerThirdVisible = state.lowerThirdVisible,
+                            onToggleLowerThird = viewModel::toggleLowerThird,
                             modifier = Modifier.fillMaxSize()
                         )
                         1 -> PenalesTab(

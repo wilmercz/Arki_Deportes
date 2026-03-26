@@ -507,4 +507,64 @@ class PartidoFormViewModel(
         generarTextoSocial()
     }
 
+    /**
+     * Reinicia el partido a sus valores iniciales (como en VB.NET).
+     * Resetea goles, tarjetas, esquinas y actualiza fecha/hora a la actual.
+     */
+    fun reiniciarPartido() {
+        val hoy = LocalDate.now().format(DATE_FORMATTER)
+        val ahora = LocalTime.now().format(TIME_FORMATTER)
+
+        updateForm {
+            copy(
+                fechaPartido = hoy,
+                horaPartido = ahora,
+                goles1 = 0,
+                goles2 = 0,
+                etapa = Constants.EtapasPartido.NINGUNO,
+                transmision = false
+            )
+        }
+
+        // Si estamos en modo edición, debemos preparar un mapa de actualización para Firebase
+        // que limpie los campos de juego (FECHA_PLAY, TIEMPOSJUGADOS, etc.)
+        if (_uiState.value.isEditMode) {
+            val campeonatoId = _uiState.value.formData.campeonatoCodigo
+            val partidoId = _uiState.value.formData.codigoPartido
+
+            viewModelScope.launch {
+                val updates: Map<String, Any?> = mapOf(
+                    "FECHA_PARTIDO" to hoy,
+                    "HORA_PARTIDO" to ahora,
+                    "FECHA_PLAY" to 0L,
+                    "HORA_PLAY" to "",
+                    "TIEMPOSJUGADOS" to 0,
+                    "ESTADO" to 0,
+                    "NumeroDeTiempo" to "0T",
+                    "ESQUINAS1" to 0,
+                    "ESQUINAS2" to 0,
+                    "TAMARILLAS1" to 0,
+                    "TAMARILLAS2" to 0,
+                    "TROJAS1" to 0,
+                    "TROJAS2" to 0,
+                    "GOLES1" to 0,
+                    "GOLES2" to 0,
+                    "CRONO_PAUSA_ACUMULADA" to 0L,
+                    "CRONO_OFFSET" to 0L,
+                    "CRONO_EN_PAUSA" to false,
+                    "CRONO_FINALIZADO" to false,
+                    "MARCADOR_PENALES" to false,
+                    "PENALES1" to 0,
+                    "PENALES2" to 0,
+                    "Goles" to null,
+                    "CambiosEquipo1" to null,
+                    "CambiosEquipo2" to null
+                )
+                repository.updatePartidoFields(campeonatoId, partidoId, updates)
+                _uiState.update { it.copy(message = FormMessage("Partido reiniciado exitosamente")) }
+                generarTextoSocial()
+            }
+        }
+    }
+
 }

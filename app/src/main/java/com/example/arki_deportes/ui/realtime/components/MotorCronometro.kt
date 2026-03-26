@@ -41,9 +41,11 @@ class MotorCronometro {
     fun finalizar() {
         if (!finalizado) {
             if (!enPausa) {
-                val ahora = System.currentTimeMillis()
-                pausaAcumulada += (ahora - momentoPausa)
+                // Si estaba corriendo, marcamos el momento exacto del fin
+                momentoPausa = System.currentTimeMillis()
             }
+            // IMPORTANTE: NO sumar a pausaAcumulada aquí.
+            // La pausa acumulada solo crece cuando REANUDAS.
             enPausa = true
             finalizado = true
         }
@@ -88,24 +90,28 @@ class MotorCronometro {
     fun toFirebaseMap(): Map<String, Any> {
         return mapOf(
             "FECHA_PLAY" to inicio,
-            "CRONO_PAUSA_ACUMULADA" to (pausaAcumulada / 1000),
+            "CRONO_PAUSA_ACUMULADA" to (pausaAcumulada / 1000), // Segundos de pausas PASADAS
             "CRONO_OFFSET" to (offset / 1000),
             "CRONO_EN_PAUSA" to enPausa,
-            "CRONO_FINALIZADO" to finalizado
+            "CRONO_FINALIZADO" to finalizado,
+            "CRONO_INICIO_PAUSA" to momentoPausa // En milisegundos para precisión
         )
     }
 
     // 📥 IMPORTAR DESDE FIREBASE
     fun cargarDesdeFirebase(data: Map<String, Any>) {
+        // 1. Cargamos los valores básicos (convertimos segundos de Firebase a milisegundos)
         inicio = (data["FECHA_PLAY"] as? Long) ?: 0L
         pausaAcumulada = ((data["CRONO_PAUSA_ACUMULADA"] as? Long) ?: 0L) * 1000
         offset = ((data["CRONO_OFFSET"] as? Long) ?: 0L) * 1000
+
+        // 2. Cargamos los estados
         enPausa = data["CRONO_EN_PAUSA"] as? Boolean ?: false
         finalizado = data["CRONO_FINALIZADO"] as? Boolean ?: false
 
-        if (enPausa) {
-            momentoPausa = System.currentTimeMillis()
-        }
+        // 3. 🎯 LA CLAVE: Cargamos el momento exacto de la pausa que guardó el control.
+        // NO usamos System.currentTimeMillis() aquí porque eso "resetea" la pausa.
+        momentoPausa = (data["CRONO_INICIO_PAUSA"] as? Long) ?: 0L
     }
 
     fun estaEnPausa() = enPausa

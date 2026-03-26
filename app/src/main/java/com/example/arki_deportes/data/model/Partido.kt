@@ -80,6 +80,7 @@ data class Partido(
     val CRONO_OFFSET: Long = 0L,          // 👈 Nuevo
     val CRONO_EN_PAUSA: Boolean = false,  // 👈 Nuevo
     val CRONO_FINALIZADO: Boolean = false, // 👈 Nuevo
+    val CRONO_INICIO_PAUSA: Long = 0L,
     /**
      * Hora en formato "H-M-S"
      * VB.NET: Hour(Cronometro) & "-" & Minute(Cronometro) & "-" & Second(Cronometro)
@@ -368,7 +369,8 @@ data class Partido(
     var HASH_REGISTRO: String = "",
     var LLAVE: String = "",
     var ORIGEN: String = "",
-    var ORIGEN_DESCRIPCION: String = ""
+    var ORIGEN_DESCRIPCION: String = "",
+    var MOSTRAR_TERCIO: Boolean = true, // 👈 CAMBIADO A VAR
 
 ) {
     /**

@@ -68,7 +68,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.SportsBasketball
-import com.example.arki_deportes.utils.SportType
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Refresh
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,6 +131,8 @@ fun PartidoFormScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
+            val e1 = uiState.equipos.find { it.CODIGOEQUIPO == uiState.formData.equipo1Codigo }?.EQUIPO ?: "Equipo 1"
+            val e2 = uiState.equipos.find { it.CODIGOEQUIPO == uiState.formData.equipo2Codigo }?.EQUIPO ?: "Equipo 2"
 
             // 💡 MEJORA: Si ya hay un campeonato seleccionado (del contexto o edición),
             // mostramos un indicador claro en lugar de repetir la elección.
@@ -192,6 +195,25 @@ fun PartidoFormScreen(
                             }
                         }
                     }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Group,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "$e1 vs $e2",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             } else {
                 // Si está vacío, mostramos el selector normal
@@ -204,6 +226,21 @@ fun PartidoFormScreen(
                 )
             }
 
+
+            // BOTÓN REINICIAR (Solo visible en modo edición)
+            if (uiState.isEditMode) {
+                OutlinedButton(
+                    onClick = { viewModel.reiniciarPartido() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("REINICIAR PARTIDO (BORRAR GOLES/TIEMPOS)")
+                }
+            }
 
 
             // 1. FILTROS DE SELECCIÓN
@@ -527,7 +564,8 @@ private fun GrupoDropdown(
     enabled: Boolean
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selected = grupos.firstOrNull { it.CODIGOGRUPO == selectedCodigo }
+    //val selected = grupos.firstOrNull { it.CODIGOGRUPO == selectedCodigo }
+    val selected = grupos.firstOrNull { it.CODIGOGRUPO?.toString() == selectedCodigo }
     val display = selected?.GRUPO ?: ""
 
     ExposedDropdownMenuBox(
@@ -546,12 +584,16 @@ private fun GrupoDropdown(
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            grupos.forEach { grupo ->
-                androidx.compose.material3.DropdownMenuItem(
-                    text = { Text(grupo.GRUPO) },
+            DropdownMenuItem(
+                text = { Text("Ninguno") },
+                onClick = { onSelected(""); expanded = false }
+            )
+            grupos.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item.GRUPO) },
                     onClick = {
-                        //onSelected(grupo.CODIGOGRUPO)
-                        onSelected(grupo.CODIGOGRUPO?.toString() ?: "")
+                        // Corregido: Conversión explícita a String
+                        onSelected(item.CODIGOGRUPO?.toString() ?: "")
                         expanded = false
                     }
                 )

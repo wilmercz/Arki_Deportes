@@ -558,7 +558,7 @@ class FirebaseCatalogRepository(
      * @param partido Partido a sincronizar
      * @return Result con éxito o error
      */
-    suspend fun sincronizarPartidoActual(partido: Partido): Result<Unit> = try {
+    suspend fun sincronizarPartidoActual(partido: Partido, tiempoOverride: String? = null): Result<Unit> = try {
         val reference = database.reference
             .child(rootNode)
             .child("PARTIDOACTUAL")
@@ -586,13 +586,19 @@ class FirebaseCatalogRepository(
             // Cronómetro (la web calcula el transcurrido)
             "FECHA_PLAY" to partido.FECHA_PLAY,
             "HORA_PLAY" to partido.HORA_PLAY,
-            "CRONOMETRANDO" to partido.estaEnCurso(),
-
+            // MODIFICADO: Ahora detecta la pausa real para que la web se detenga
+            "CRONOMETRANDO" to (partido.estaEnCurso() && !partido.CRONO_EN_PAUSA),
+            // 🔥 AGREGAR ESTOS CAMPOS PARA QUE NO SE BORREN AL SINCRONIZAR
+            "CRONO_PAUSA_ACUMULADA" to partido.CRONO_PAUSA_ACUMULADA,
+            "CRONO_OFFSET" to partido.CRONO_OFFSET,
+            "CRONO_EN_PAUSA" to partido.CRONO_EN_PAUSA,
+            "CRONO_FINALIZADO" to partido.CRONO_FINALIZADO,
+            "CRONO_INICIO_PAUSA" to partido.CRONO_INICIO_PAUSA,
             // Estado / tiempos
             "NumeroDeTiempo" to partido.NumeroDeTiempo,
             "TIEMPOSJUGADOS" to partido.TIEMPOSJUGADOS,
             "ESTADO" to partido.ESTADO,
-            "TIEMPOJUEGO" to partido.TIEMPOJUEGO,
+            "TIEMPOJUEGO" to (tiempoOverride ?: partido.TIEMPOJUEGO),
             // Opcionales (los que pediste)
             "ESCUDO1_URL" to partido.BANDERAEQUIPO1,
             "ESCUDO2_URL" to partido.BANDERAEQUIPO2,
@@ -614,7 +620,8 @@ class FirebaseCatalogRepository(
             "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP
         )
 
-        reference.setValue(data).await()
+        //reference.setValue(data).await()
+        reference.updateChildren(data).await()
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
@@ -785,11 +792,17 @@ class FirebaseCatalogRepository(
             "ESTADO" to partido.ESTADO, // 0 = Jugándose, 1 = Finalizado
             "FECHA_PLAY" to partido.FECHA_PLAY,
             "HORA_PLAY" to partido.HORA_PLAY,
+            "CRONO_PAUSA_ACUMULADA" to partido.CRONO_PAUSA_ACUMULADA,
+            "CRONO_OFFSET" to partido.CRONO_OFFSET,
+            "CRONO_EN_PAUSA" to partido.CRONO_EN_PAUSA,
+            "CRONO_FINALIZADO" to partido.CRONO_FINALIZADO,
+
             "ULTIMA_ACTUALIZACION" to ServerValue.TIMESTAMP,
             "DEPORTE" to partido.DEPORTE,
         )
 
-        reference.setValue(data).await()
+        //reference.setValue(data).await()
+        reference.updateChildren(data).await()
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
@@ -970,7 +983,7 @@ class FirebaseCatalogRepository(
     suspend fun enviarEstadoCronometro(
         campeonatoId: String,
         partidoId: String,
-        datosCrono: Map<String, Any>
+        datosCrono: Map<String, Any?>
     ): Result<Unit> = try {
         // 1. Ruta histórica (Partidos)
         val refPartido = campeonatosReference()

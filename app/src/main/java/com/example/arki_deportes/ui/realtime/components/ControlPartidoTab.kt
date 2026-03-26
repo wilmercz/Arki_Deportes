@@ -55,6 +55,8 @@ fun ControlPartidoTab(
     onRestarEsquina1: () -> Unit,
     onAgregarEsquina2: () -> Unit,
     onRestarEsquina2: () -> Unit,
+    lowerThirdVisible: Boolean = true, // 👈 AGREGAR ESTO
+    onToggleLowerThird: (Boolean) -> Unit = {}, // 👈 AGREGAR ESTO
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -147,6 +149,53 @@ fun ControlPartidoTab(
             onMas2 = onAgregarRoja2,
             colorFondo = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
         )
+
+
+        // 🏁 CONTROL VISIBILIDAD LOWERTHIRD (ACCIONES)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (lowerThirdVisible)
+                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+                else
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (lowerThirdVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = null,
+                        tint = if (lowerThirdVisible) MaterialTheme.colorScheme.tertiary else Color.Gray
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "ACCIONES (LOWERTHIRD)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (lowerThirdVisible) "Banner de Jugadas Activo" else "Banner de Jugadas Oculto",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                Switch(
+                    checked = lowerThirdVisible,
+                    onCheckedChange = { onToggleLowerThird(it) }
+                )
+            }
+        }
+
 
 // ═══════════════════════════════════════════════════════════
         // 🖥️ VISIBILIDAD MARCADOR WEB (NUEVO)
