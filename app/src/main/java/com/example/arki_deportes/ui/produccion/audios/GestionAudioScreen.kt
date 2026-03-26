@@ -6,13 +6,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.arki_deportes.data.model.AudioResource
 
@@ -99,8 +101,8 @@ fun GestionAudioScreen(
     if (showAddDialog) {
         AddAudioDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { uri, name, tipo, cat, dep ->
-                viewModel.uploadAudio(uri, name, tipo, cat, dep)
+            onConfirm = { uri, name, tipo, cat, dep, customId ->
+                viewModel.uploadAudio(uri, name, tipo, cat, dep, customId)
                 showAddDialog = false
             }
         )
@@ -144,17 +146,39 @@ fun AudioItem(audio: AudioResource, onDelete: () -> Unit, onTransmit: () -> Unit
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddAudioDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Uri, String, String, String, String) -> Unit
+    onConfirm: (Uri, String, String, String, String, String?) -> Unit
 ) {
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var fileName by remember { mutableStateOf("") }
     var tipo by remember { mutableStateOf("FX") }
     var categoria by remember { mutableStateOf("") }
     var deporte by remember { mutableStateOf("FUTBOL") }
+    var customId by remember { mutableStateOf<String?>(null) }
+
+    // Catálogo de FX sugeridos por deporte
+    val sugerenciasFX = mapOf(
+        "FUTBOL" to listOf(
+            "ESQUINA" to "FUTBOL_FX_ESQUINA",
+            "CORTINA" to "FUTBOL_FX_CORTINA",
+            "GOL" to "FUTBOL_FX_GOL",
+            "INICIO" to "FUTBOL_FX_INICIO",
+            "TIEMPO JUEGO" to "FUTBOL_FX_TIEMPOJUEGO",
+            "MARCADOR" to "FUTBOL_FX_MARCADOR"
+        ),
+        "BASQUET" to listOf(
+            "CANASTA" to "BASQUET_FX_CANASTA",
+            "CORTINA" to "BASQUET_FX_CORTINA",
+            "TIEMPO FUERA" to "BASQUET_FX_TIMEOUT"
+        ),
+        "GENERAL" to listOf(
+            "CORTINA GEN." to "FX_CORTINA_GEN",
+            "ALERTA" to "FX_ALERTA"
+        )
+    )
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -167,56 +191,103 @@ fun AddAudioDialog(
         onDismissRequest = onDismiss,
         title = { Text("Subir Nuevo Audio") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { launcher.launch("audio/*") }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (selectedUri == null) "Seleccionar Archivo" else "Cambiar Archivo")
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 1. Selección de Deporte
+                Text("Deporte:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                val deportes = listOf("FUTBOL", "BASQUET", "AUTOMOVILISMO", "CICLISMO", "GENERAL")
+                var expandedDep by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = expandedDep,
+                    onExpandedChange = { expandedDep = !expandedDep }
+                ) {
+                    OutlinedTextField(
+                        value = deporte,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDep) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = expandedDep, onDismissRequest = { expandedDep = false }) {
+                        deportes.forEach { d ->
+                            DropdownMenuItem(text = { Text(d) }, onClick = { deporte = d; expandedDep = false })
+                        }
+                    }
                 }
-                if (selectedUri != null) {
-                    Text("Archivo: $fileName", style = MaterialTheme.typography.bodySmall)
-                }
-                
-                Text("Tipo:", style = MaterialTheme.typography.labelLarge)
+
+                // 2. Selección de Tipo
+                Text("Tipo:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = tipo == "FX", onClick = { tipo = "FX"; if (categoria.isEmpty()) categoria = "CORTINA" })
-                    Text("FX")
+                    RadioButton(selected = tipo == "FX", onClick = { tipo = "FX"; customId = null; categoria = "" })
+                    Text("FX (Efecto)")
                     Spacer(modifier = Modifier.width(16.dp))
-                    RadioButton(selected = tipo == "MUSICA", onClick = { tipo = "MUSICA"; if (categoria.isEmpty()) categoria = "FUTBOL" })
+                    RadioButton(selected = tipo == "MUSICA", onClick = { tipo = "MUSICA"; customId = null; categoria = "MUSICA_$deporte" })
                     Text("Música")
                 }
 
+                // 3. Botones Rápidos si es FX
                 if (tipo == "FX") {
+                    Text("Acciones Rápidas (Sugerencias):", style = MaterialTheme.typography.labelMedium)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        sugerenciasFX[deporte]?.forEach { (label, id) ->
+                            FilterChip(
+                                selected = customId == id,
+                                onClick = { 
+                                    customId = id
+                                    categoria = label
+                                },
+                                label = { Text(label) }
+                            )
+                        }
+                        FilterChip(
+                            selected = customId == null && categoria.isNotEmpty() && !sugerenciasFX[deporte]?.any { it.first == categoria }!!,
+                            onClick = { customId = null; categoria = "" },
+                            label = { Text("OTRO") }
+                        )
+                    }
+
                     OutlinedTextField(
                         value = categoria,
-                        onValueChange = { categoria = it },
-                        label = { Text("Categoría (ej: FX_TIROS_ESQUINA)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    Text("Deporte:", style = MaterialTheme.typography.labelLarge)
-                    val deportes = listOf("FUTBOL", "AUTOMOVILISMO", "CICLISMO", "BASQUET")
-                    var expanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded }
-                    ) {
-                        OutlinedTextField(
-                            value = deporte,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Deporte") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            deportes.forEach { d ->
-                                DropdownMenuItem(
-                                    text = { Text(d) },
-                                    onClick = { deporte = d; categoria = d; expanded = false }
-                                )
+                        onValueChange = { 
+                            categoria = it
+                            // Si el usuario escribe manualmente, quitamos el ID fijo para que sea aleatorio
+                            if (sugerenciasFX[deporte]?.any { s -> s.first == it } == false) {
+                                customId = null
                             }
+                        },
+                        label = { Text("Nombre / Categoría") },
+                        placeholder = { Text("Ej: Tiro de Esquina") },
+                        modifier = Modifier.fillMaxWidth(),
+                        supportingText = { 
+                            if (customId != null) Text("ID de Sistema: $customId", color = MaterialTheme.colorScheme.secondary)
+                        }
+                    )
+                }
+
+                // 4. Selección de Archivo
+                Divider()
+                Button(
+                    onClick = { launcher.launch("audio/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Icon(Icons.Default.UploadFile, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (selectedUri == null) "Seleccionar Archivo MP3" else "Cambiar Archivo")
+                }
+                if (selectedUri != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AudioFile, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(fileName, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                         }
                     }
                 }
@@ -225,13 +296,13 @@ fun AddAudioDialog(
         confirmButton = {
             TextButton(
                 enabled = selectedUri != null && categoria.isNotBlank(),
-                onClick = { selectedUri?.let { onConfirm(it, fileName, tipo, categoria, deporte) } }
+                onClick = { selectedUri?.let { onConfirm(it, fileName, tipo, categoria, deporte, customId) } }
             ) {
-                Text("Subir")
+                Text("SUBIR A LA NUBE", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
+            TextButton(onClick = onDismiss) { Text("CANCELAR") }
         }
     )
 }

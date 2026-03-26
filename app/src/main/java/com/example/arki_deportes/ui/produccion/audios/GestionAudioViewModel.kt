@@ -23,7 +23,7 @@ data class AudioUiState(
 
 class GestionAudioViewModel(
     private val repository: FirebaseCatalogRepository,
-    private val cloudinaryUploader: CloudinaryUploader   // ← nuevo
+    private val cloudinaryUploader: CloudinaryUploader
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AudioUiState())
@@ -42,14 +42,20 @@ class GestionAudioViewModel(
         }
     }
 
-    fun uploadAudio(uri: Uri, fileName: String, tipo: String, categoria: String, deporte: String) {
+    /**
+     * Sube un audio a Cloudinary y guarda la referencia en Firebase.
+     * @param customId Si se proporciona, se usará como ID fijo (ej: FUTBOL_FX_ESQUINA). 
+     *                 Si es null, Firebase generará un ID aleatorio.
+     */
+    fun uploadAudio(uri: Uri, fileName: String, tipo: String, categoria: String, deporte: String, customId: String? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isUploading = true) }
             try {
-                // ── Subida a Cloudinary (reemplaza uploadAudioFile_Storage) ──
+                // Subida exclusiva a Cloudinary
                 val downloadUrl = cloudinaryUploader.uploadAudioFile(uri, fileName)
 
                 val audio = AudioResource(
+                    id = customId ?: "", // El repositorio usará push() si esto es vacío
                     nombre = fileName,
                     url = downloadUrl,
                     tipo = tipo,
@@ -91,7 +97,7 @@ class GestionAudioViewModel(
 
 class GestionAudioViewModelFactory(
     private val repository: FirebaseCatalogRepository,
-    private val context: Context                         // ← nuevo (para CloudinaryUploader)
+    private val context: Context
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(GestionAudioViewModel::class.java)) {
