@@ -101,7 +101,8 @@ data class TiempoRealUiState(
     val audioEstado: String = "STOP", // "PLAY", "STOP", "PAUSE"
     val cronoPausado: Boolean = false,
     val lowerThirdVisible: Boolean = true, // 👈 Para el estado del Switch
-    val ultimaAccionTexto: String = ""
+    val ultimaAccionTexto: String = "",
+    val mostrarPortada: Boolean = false
 )
 
 class TiempoRealViewModel(
@@ -123,6 +124,7 @@ class TiempoRealViewModel(
     private val motorCronometro = MotorCronometro()
 
 
+
     init {
         obtenerNombreCampeonato()
         observarPartido()
@@ -130,6 +132,7 @@ class TiempoRealViewModel(
         //observarPenales()
         observarBanners()
         observarAudios()
+        observarPortada()
         iniciarActualizadorDeTiempo()
 
     }
@@ -2114,4 +2117,39 @@ class TiempoRealViewModel(
         }
     }
 
+
+    // Función para alternar portada
+    fun togglePortada() {viewModelScope.launch {
+        val nuevoEstado = !_uiState.value.mostrarPortada
+        try {
+            val reference = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                .child("ARKI_DEPORTES")
+                .child("PARTIDOACTUAL")
+                .child("MOSTRAR_PORTADA")
+
+            reference.setValue(nuevoEstado).await()
+            Log.d(TAG, "✅ Portada actualizada: $nuevoEstado")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error portada: ${e.message}")
+        }
+    }
+    }
+
+    // Observador reactivo
+    private fun observarPortada() {
+        viewModelScope.launch {
+            val ref = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                .child("ARKI_DEPORTES")
+                .child("PARTIDOACTUAL")
+                .child("MOSTRAR_PORTADA")
+
+            ref.addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+                override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                    val visible = snapshot.getValue(Boolean::class.java) ?: false
+                    _uiState.update { it.copy(mostrarPortada = visible) }
+                }
+                override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+            })
+        }
+    }
 }

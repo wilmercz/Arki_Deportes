@@ -58,6 +58,15 @@ fun TiempoRealScreen(
                     }
                 },
                 actions = {
+                    // 🖼️ NUEVO BOTÓN: PORTADA
+                    IconButton(onClick = viewModel::togglePortada) {
+                        Icon(
+                            imageVector = if (state.mostrarPortada) Icons.Default.CoPresent else Icons.Default.PictureInPicture,
+                            contentDescription = "Mostrar Portada",
+                            tint = if (state.mostrarPortada) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+
                     IconButton(
                         onClick = {
                             if (state.modoTransmision) { // Si está activo, pedimos confirmación

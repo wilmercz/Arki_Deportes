@@ -572,6 +572,7 @@ class FirebaseCatalogRepository(
             // Equipos / marcador
             "EQUIPO1" to partido.EQUIPO1,
             "EQUIPO2" to partido.EQUIPO2,
+            "TEXTOFACEBOOK" to partido.TEXTOFACEBOOK,
             "GOLES1" to partido.GOLES1,
             "GOLES2" to partido.GOLES2,
             "ESQUINAS1" to partido.ESQUINAS1,
@@ -783,6 +784,7 @@ class FirebaseCatalogRepository(
         val data = mapOf(
             "CODIGOPARTIDO" to partido.CODIGOPARTIDO,
             "CODIGOCAMPEONATO" to partido.CAMPEONATOCODIGO,
+            "TEXTOFACEBOOK" to partido.TEXTOFACEBOOK,
             "EQUIPO1" to partido.EQUIPO1,
             "EQUIPO2" to partido.EQUIPO2,
             "GOLES1" to partido.GOLES1,

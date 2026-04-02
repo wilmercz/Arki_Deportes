@@ -677,6 +677,7 @@ data class Partido(
             "Etapa" to ETAPA,
             "ESTADIO" to ESTADIO,
             "LUGAR" to LUGAR,
+            "TEXTOFACEBOOK" to TEXTOFACEBOOK,
             "FECHA_PARTIDO" to FECHA_PARTIDO,
             "HORA_PARTIDO" to HORA_PARTIDO,
             "OPERADOR" to OPERADOR,
