@@ -75,12 +75,12 @@ data class Partido(
      * VB.NET: FirebaseManager.EnqueueSet("FECHA_PLAY", Cronometro)
      */
     //val FECHA_PLAY: String = "",
-    val FECHA_PLAY: Any? = null, // 👈 Cambiado a Any? para soportar Long o String
-    val CRONO_PAUSA_ACUMULADA: Long = 0L, // 👈 Nuevo
-    val CRONO_OFFSET: Long = 0L,          // 👈 Nuevo
-    val CRONO_EN_PAUSA: Boolean = false,  // 👈 Nuevo
-    val CRONO_FINALIZADO: Boolean = false, // 👈 Nuevo
-    val CRONO_INICIO_PAUSA: Long = 0L,
+    val FECHA_PLAY: Any? = null,
+    val CRONO_PAUSA_ACUMULADA: Any? = 0L, // 👈 Cambiado a Any?
+    val CRONO_OFFSET: Any? = 0L,          // 👈 Cambiado a Any?
+    val CRONO_EN_PAUSA: Boolean = false,
+    val CRONO_FINALIZADO: Boolean = false,
+    val CRONO_INICIO_PAUSA: Any? = 0L,     // 👈 Cambiado a Any?
     /**
      * Hora en formato "H-M-S"
      * VB.NET: Hour(Cronometro) & "-" & Minute(Cronometro) & "-" & Second(Cronometro)
@@ -682,6 +682,11 @@ data class Partido(
             "OPERADOR" to OPERADOR,
             "timestampAsignacion" to timestampAsignacion,
             "DEPORTE" to DEPORTE,
+            "CRONO_PAUSA_ACUMULADA" to CRONO_PAUSA_ACUMULADA, // 👈 Añadir estos
+            "CRONO_OFFSET" to CRONO_OFFSET,
+            "CRONO_EN_PAUSA" to CRONO_EN_PAUSA,
+            "CRONO_FINALIZADO" to CRONO_FINALIZADO,
+            "CRONO_INICIO_PAUSA" to CRONO_INICIO_PAUSA
         )
     }
 }

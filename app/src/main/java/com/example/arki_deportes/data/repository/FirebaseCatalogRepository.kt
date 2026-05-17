@@ -71,7 +71,12 @@ class FirebaseCatalogRepository(
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val campeonatos = snapshot.children.mapNotNull { child ->
-                    child.getValue(Campeonato::class.java)
+                    try {
+                        child.getValue(Campeonato::class.java)
+                    } catch (e: Exception) {
+                        Log.e("FirebaseCatalogRepo", "❌ Error parseando campeonato ${child.key}: ${e.message}")
+                        null
+                    }
                 }
                 trySend(campeonatos.sortedBy { it.CAMPEONATO })
 
@@ -163,7 +168,16 @@ class FirebaseCatalogRepository(
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val partidos = snapshot.children.mapNotNull { it.getValue(Partido::class.java) }
+                val partidos = snapshot.children.mapNotNull { child ->
+                    try {
+                        // Intentamos parsear este partido individualmente
+                        child.getValue(Partido::class.java)?.copy(CAMPEONATOCODIGO = campeonatoId)
+                    } catch (e: Exception) {
+                        // ⚠️ Si falla (ej: el dato es un Long), imprimimos el error y saltamos ese registro
+                        Log.e("FirebaseCatalogRepo", "⚠️ Dato corrupto saltado en Partidos/${child.key}: ${e.message}")
+                        null
+                    }
+                }
                 trySend(partidos)
             }
             override fun onCancelled(error: DatabaseError) { close(error.toException()) }

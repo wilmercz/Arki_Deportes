@@ -193,14 +193,26 @@ class TiempoRealViewModel(
 
                         // 🔥🔥🔥 SINCRONIZACIÓN DEL MOTOR CON FIREBASE 🔥🔥🔥
                         val fPlay = partido.FECHA_PLAY
-                        if (fPlay is Long && fPlay > 0) {
+                        if (fPlay != null && fPlay != "") {
+
+                            // Función auxiliar para convertir Any? a Long de forma segura
+                            fun toLongSafe(value: Any?): Long {
+                                return when (value) {
+                                    is Long -> value
+                                    is Number -> value.toLong()
+                                    is String -> value.toLongOrNull() ?: 0L
+                                    else -> 0L
+                                }
+                            }
+
+
                             val dataMotor = mapOf(
                                 "FECHA_PLAY" to fPlay,
-                                "CRONO_PAUSA_ACUMULADA" to partido.CRONO_PAUSA_ACUMULADA,
-                                "CRONO_OFFSET" to partido.CRONO_OFFSET,
+                                "CRONO_PAUSA_ACUMULADA" to toLongSafe(partido.CRONO_PAUSA_ACUMULADA),
+                                "CRONO_OFFSET" to toLongSafe(partido.CRONO_OFFSET),
                                 "CRONO_EN_PAUSA" to partido.CRONO_EN_PAUSA,
                                 "CRONO_FINALIZADO" to partido.CRONO_FINALIZADO,
-                                "CRONO_INICIO_PAUSA" to partido.CRONO_INICIO_PAUSA
+                                "CRONO_INICIO_PAUSA" to toLongSafe(partido.CRONO_INICIO_PAUSA)
                             )
                             // Solo cargamos si hay cambios reales para no resetear el motor innecesariamente
                             motorCronometro.cargarDesdeFirebase(dataMotor)
@@ -2003,32 +2015,57 @@ class TiempoRealViewModel(
         .getReference("/ARKI_DEPORTES/CONTROL_AUDIO")
 
     fun reproducirAudio(audio: AudioResource) {
-        viewModelScope.launch {
-            // Si es música, actualizamos la URL y ponemos PLAY
+        if (_uiState.value.reproduccionLocal) {
+            // --- MODO LOCAL ---
+            playLocalAudio(audio.url, audio.tipo == "MUSICA")
             if (audio.tipo == "MUSICA") {
-                audioControlRef.child("URL").setValue(audio.url)
-                audioControlRef.child("ESTADO").setValue("PLAY")
                 _uiState.update { it.copy(audioEstado = "PLAY") }
-            } else {
-                // Si es FX, enviamos un disparo único (puedes usar el repositorio)
-                repository.reproducirAudioEnOverlay(audio)
+            }
+        } else {
+            // --- MODO REMOTO (Sistema Actual) ---
+            viewModelScope.launch {
+                if (audio.tipo == "MUSICA") {
+                    audioControlRef.child("URL").setValue(audio.url)
+                    audioControlRef.child("ESTADO").setValue("PLAY")
+                    _uiState.update { it.copy(audioEstado = "PLAY") }
+                } else {
+                    repository.reproducirAudioEnOverlay(audio)
+                }
             }
         }
     }
 
     fun pausarAudio() {
-        audioControlRef.child("ESTADO").setValue("PAUSE")
+        if (_uiState.value.reproduccionLocal) {
+            musicPlayer?.pause()
+        } else {
+            audioControlRef.child("ESTADO").setValue("PAUSE")
+        }
         _uiState.update { it.copy(audioEstado = "PAUSE") }
     }
 
     fun detenerAudio() {
-        audioControlRef.child("ESTADO").setValue("STOP")
+        if (_uiState.value.reproduccionLocal) {
+            musicPlayer?.stop()
+            musicPlayer?.release()
+            musicPlayer = null
+        } else {
+            audioControlRef.child("ESTADO").setValue("STOP")
+        }
         _uiState.update { it.copy(audioEstado = "STOP") }
     }
 
     fun cambiarVolumen(nuevoVolumen: Int) {
         val vol = nuevoVolumen.coerceIn(0, 100)
-        audioControlRef.child("VOLUMEN").setValue(vol)
+
+        if (_uiState.value.reproduccionLocal) {
+            // Ajuste local
+            musicPlayer?.setVolume(vol / 100f, vol / 100f)
+        } else {
+            // Ajuste remoto
+            audioControlRef.child("VOLUMEN").setValue(vol)
+        }
+
         _uiState.update { it.copy(volumenAudio = vol) }
     }
 
