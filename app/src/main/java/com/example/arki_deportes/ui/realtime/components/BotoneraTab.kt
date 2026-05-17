@@ -25,6 +25,10 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.foundation.lazy.items // Para el LazyRow (Música)
 import androidx.compose.foundation.lazy.grid.items // Para el LazyVerticalGrid (FX) - ESTE ES EL QUE TE FALTA
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -71,6 +75,8 @@ fun BotoneraTab(
     val fxAudios = audios.filter { it.tipo == "FX" }
     val musicaAudios = audios.filter { it.tipo == "MUSICA" }
 
+    var selectedSubTab by remember { mutableIntStateOf(0) }
+
     // Función auxiliar para formatear ms a 00:00
     fun formatTime(ms: Long): String {
         val totalSeconds = ms / 1000
@@ -85,178 +91,152 @@ fun BotoneraTab(
             .padding(8.dp)
     ) {
         // --- SECCIÓN MÚSICA (Controlador) ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        // --- SECCIÓN SUPERIOR: TABS DE CONTROL ---
+        TabRow(
+            selectedTabIndex = selectedSubTab,
+            containerColor = Color.Transparent,
+            divider = {},
+            modifier = Modifier.height(48.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .padding(12.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Producción de Audio", fontWeight = FontWeight.Bold)
-                    Text(
-                        text = if(reproduccionLocal) "Modo Local (Esta App)" else "Modo Remoto (Overlay)",
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-                Switch(checked = reproduccionLocal, onCheckedChange = onToggleLocal)
+            Tab(selected = selectedSubTab == 0, onClick = { selectedSubTab = 0 }) {
+                Text("Mando", modifier = Modifier.padding(8.dp), style = MaterialTheme.typography.labelLarge)
             }
+            Tab(selected = selectedSubTab == 1, onClick = { selectedSubTab = 1 }) {
+                Text("Ajustes", modifier = Modifier.padding(8.dp), style = MaterialTheme.typography.labelLarge)
+            }
+        }
 
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = "Control de Música",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    IconButton(onClick = onStop) {
-                        Icon(Icons.Default.Stop, "Stop", tint = Color.Red)
-                    }
 
-                    IconButton(onClick = {
-                        if (estado == "PLAY") onPause()
-                        else if (musicaAudios.isNotEmpty()) onPlay(musicaAudios.first())
-                    }) {
-                        Icon(
-                            imageVector = if (estado == "PLAY") Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = "Play/Pause"
-                        )
-                    }
-
-                    // Slider de Volumen
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.VolumeUp, null, modifier = Modifier.size(16.dp))
-                        Slider(
-                            value = volumen.toFloat(),
-                            onValueChange = { onVolumeChange(it.toInt()) },
-                            valueRange = 0f..100f,
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        )
-                        Text("${volumen}%", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-
-                if (reproduccionLocal && duracionTotal > 0) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp, bottom = 12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Slider(
-                                value = posicionActual.toFloat(),
-                                onValueChange = { onSeek(it) },
-                                valueRange = 0f..duracionTotal.toFloat(),
-                                modifier = Modifier.height(24.dp),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.outline, // Bolita gris
-                                    activeTrackColor = MaterialTheme.colorScheme.outline, // Línea activa gris
-                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant // Línea fondo gris claro
+        // --- CONTENIDO VARIABLE DE LAS TABS ---
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        ) {
+            when (selectedSubTab) {
+                0 -> { // PESTAÑA REPRODUCTOR
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            IconButton(onClick = onStop) {
+                                Icon(Icons.Default.Stop, "Stop", tint = Color.Red)
+                            }
+                            IconButton(onClick = {
+                                if (estado == "PLAY") onPause()
+                                else if (musicaAudios.isNotEmpty()) onPlay(musicaAudios.first())
+                            }) {
+                                Icon(
+                                    imageVector = if (estado == "PLAY") Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = "Play/Pause"
                                 )
-                            )
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = formatTime(posicionActual),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.outline
+                            }
+                            // Control de Volumen
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.VolumeUp, null, modifier = Modifier.size(16.dp))
+                                Slider(
+                                    value = volumen.toFloat(),
+                                    onValueChange = { onVolumeChange(it.toInt()) },
+                                    valueRange = 0f..100f,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
                                 )
-                                Text(
-                                    text = formatTime(duracionTotal),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.outline
+                                Text("${volumen}%", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+
+                        // SeekBar Gris (Solo si es local)
+                        if (reproduccionLocal && duracionTotal > 0) {
+                            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                Slider(
+                                    value = posicionActual.toFloat(),
+                                    onValueChange = { onSeek(it) },
+                                    valueRange = 0f..duracionTotal.toFloat(),
+                                    modifier = Modifier.height(20.dp),
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = MaterialTheme.colorScheme.outline,
+                                        activeTrackColor = MaterialTheme.colorScheme.outline,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                                    )
                                 )
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(formatTime(posicionActual), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                    Text(formatTime(duracionTotal), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                }
                             }
                         }
                     }
                 }
-
-
-                // --- SECCIÓN MÚSICA (Grid 2 columnas) ---
-                Text(
-                    text = "🎵 MÚSICA ($deporteActual)",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.heightIn(max = 150.dp), // Limitamos altura para dejar espacio a los FX
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(musicaAudios) { musica ->
-                        OutlinedButton(
-                            onClick = { onPlay(musica) },
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(4.dp)
-                        ) {
-                            Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(musica.nombre, maxLines = 1, style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-
-                Divider(modifier = Modifier.padding(vertical = 12.dp))
-
-                // --- SECCIÓN FX (Grid 3 columnas) ---
-                Text(
-                    text = "🎹 EFECTOS (FX)",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.ExtraBold
-                )
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(top = 8.dp)
-                ) {
-                    items(items = fxAudios) { fx ->
-                        // 🎯 Si el FX tiene un ID de sistema (ej: FUTBOL_FX_ESQUINA), lo destacamos
-                        val esSistema = fx.id.startsWith("${deporteActual}_FX_") || fx.id.startsWith("FX_")
-
-                        Button(
-                            onClick = { onPlay(fx) },
-                            modifier = Modifier.height(60.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (esSistema) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                            ),
-                            shape = MaterialTheme.shapes.medium,
-                            contentPadding = PaddingValues(4.dp)
-                        ) {
+                1 -> { // PESTAÑA AJUSTES
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Producción de Audio", fontWeight = FontWeight.Bold)
                             Text(
-                                text = fx.nombre,
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 2,
-                                fontWeight = if (esSistema) FontWeight.Bold else FontWeight.Normal
+                                text = if(reproduccionLocal) "Modo Local (Móvil)" else "Modo Remoto (Web)",
+                                style = MaterialTheme.typography.labelSmall
                             )
                         }
+                        Switch(checked = reproduccionLocal, onCheckedChange = onToggleLocal)
                     }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // --- SECCIÓN FIJA: LISTAS DE AUDIO ---
+        Text(
+            text = "🎵 MÚSICA ($deporteActual)",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.heightIn(max = 150.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(musicaAudios) { musica ->
+                OutlinedButton(onClick = { onPlay(musica) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(musica.nombre, maxLines = 1, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+
+        Divider(modifier = Modifier.padding(vertical = 12.dp))
+
+        Text(
+            text = "🎹 EFECTOS (FX)",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.ExtraBold
+        )
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f).padding(top = 8.dp)
+        ) {
+            items(items = fxAudios) { fx ->
+                val esSistema = fx.id.startsWith("${deporteActual}_FX_") || fx.id.startsWith("FX_")
+                Button(
+                    onClick = { onPlay(fx) },
+                    modifier = Modifier.height(54.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (esSistema) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                    ),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(fx.nombre, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, maxLines = 2)
                 }
             }
         }
