@@ -58,6 +58,9 @@ fun BotoneraTab(
     onVolumeChange: (Int) -> Unit,
     reproduccionLocal: Boolean,
     onToggleLocal: (Boolean) -> Unit,
+    posicionActual: Long,
+    duracionTotal: Long,
+    onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // 🔍 Filtramos por deporte y tipo
@@ -67,6 +70,14 @@ fun BotoneraTab(
 
     val fxAudios = audios.filter { it.tipo == "FX" }
     val musicaAudios = audios.filter { it.tipo == "MUSICA" }
+
+    // Función auxiliar para formatear ms a 00:00
+    fun formatTime(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
 
     Column(
         modifier = modifier
@@ -79,7 +90,9 @@ fun BotoneraTab(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
             Row(
-                modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(12.dp)
+                    .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -134,6 +147,28 @@ fun BotoneraTab(
                     }
                 }
 
+                if (reproduccionLocal && duracionTotal >0) {
+                    Column(modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)) {
+                        Slider(
+                            value = posicionActual.toFloat(),
+                            onValueChange = { onSeek(it) },
+                            valueRange = 0f..duracionTotal.toFloat(),
+                            modifier = Modifier.height(20.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // Usamos labelSmall ya que labelExtraSmall no existe por defecto
+                            Text(formatTime(posicionActual), style = MaterialTheme.typography.labelSmall)
+                            Text(formatTime(duracionTotal), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+
                 // --- SECCIÓN MÚSICA (Grid 2 columnas) ---
                 Text(
                     text = "🎵 MÚSICA ($deporteActual)",
@@ -175,7 +210,9 @@ fun BotoneraTab(
                     columns = GridCells.Fixed(3),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f).padding(top = 8.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 8.dp)
                 ) {
                     items(items = fxAudios) { fx ->
                         // 🎯 Si el FX tiene un ID de sistema (ej: FUTBOL_FX_ESQUINA), lo destacamos

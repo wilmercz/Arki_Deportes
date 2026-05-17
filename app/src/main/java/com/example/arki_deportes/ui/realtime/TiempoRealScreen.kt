@@ -126,11 +126,23 @@ fun TiempoRealScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                 Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.width(8.dp))
                                 Text("CONTROL DE TIEMPO", fontWeight = FontWeight.Bold)
                             }
+
+                            // 🔥 TIEMPO VISIBLE CUANDO ESTÁ COLAPSADO
+                            if (!isCronometroExpanded) {
+                                Text(
+                                    text = state.tiempoActual,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                )
+                            }
+
                             Icon(
                                 imageVector = if (isCronometroExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                 contentDescription = null
@@ -302,6 +314,9 @@ fun TiempoRealScreen(
                             onPause = viewModel::pausarAudio,
                             onStop = viewModel::detenerAudio,
                             onVolumeChange = viewModel::cambiarVolumen,
+                            posicionActual = state.audioPosicionActual,
+                            duracionTotal = state.audioDuracionTotal,
+                            onSeek = viewModel::buscarPosicionAudio,
                             modifier = Modifier.fillMaxSize()
                         )
                         4 -> PublicidadTab(

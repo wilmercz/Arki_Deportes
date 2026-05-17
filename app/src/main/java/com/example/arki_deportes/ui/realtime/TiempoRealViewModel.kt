@@ -104,7 +104,9 @@ data class TiempoRealUiState(
     val lowerThirdVisible: Boolean = true, // 👈 Para el estado del Switch
     val ultimaAccionTexto: String = "",
     val mostrarPortada: Boolean = false,
-    val reproduccionLocal: Boolean = true // 👈 NUEVO: Control de reproducción local
+    val reproduccionLocal: Boolean = true, // 👈 NUEVO: Control de reproducción local
+    val audioPosicionActual: Long = 0L,
+    val audioDuracionTotal: Long = 0L
 )
 
 class TiempoRealViewModel(
@@ -127,7 +129,7 @@ class TiempoRealViewModel(
 
     // --- REPRODUCTORES LOCALES ---
     private var musicPlayer: MediaPlayer? = null
-
+    private var progressJob: Job? = null
 
     init {
         obtenerNombreCampeonato()
@@ -2014,12 +2016,37 @@ class TiempoRealViewModel(
     private val audioControlRef = com.google.firebase.database.FirebaseDatabase.getInstance()
         .getReference("/ARKI_DEPORTES/CONTROL_AUDIO")
 
+    private fun iniciarSeguimientoProgreso() {
+        progressJob?.cancel()
+        progressJob = viewModelScope.launch {
+            while (true) {
+                musicPlayer?.let { player ->
+                    if (player.isPlaying) {
+                        _uiState.update { it.copy(
+                            audioPosicionActual = player.currentPosition.toLong(),
+                            audioDuracionTotal = player.duration.toLong()
+                        ) }
+                    }
+                }
+                delay(500) // Actualiza cada medio segundo para suavidad
+            }
+        }
+    }
+
+    fun buscarPosicionAudio(positionMs: Float) {
+        if (_uiState.value.reproduccionLocal) {
+            musicPlayer?.seekTo(positionMs.toInt())
+            _uiState.update { it.copy(audioPosicionActual = positionMs.toLong()) }
+        }
+    }
+
     fun reproducirAudio(audio: AudioResource) {
         if (_uiState.value.reproduccionLocal) {
             // --- MODO LOCAL ---
             playLocalAudio(audio.url, audio.tipo == "MUSICA")
             if (audio.tipo == "MUSICA") {
                 _uiState.update { it.copy(audioEstado = "PLAY") }
+                iniciarSeguimientoProgreso()
             }
         } else {
             // --- MODO REMOTO (Sistema Actual) ---
@@ -2038,6 +2065,7 @@ class TiempoRealViewModel(
     fun pausarAudio() {
         if (_uiState.value.reproduccionLocal) {
             musicPlayer?.pause()
+            progressJob?.cancel()
         } else {
             audioControlRef.child("ESTADO").setValue("PAUSE")
         }
@@ -2049,6 +2077,9 @@ class TiempoRealViewModel(
             musicPlayer?.stop()
             musicPlayer?.release()
             musicPlayer = null
+            progressJob?.cancel() // 👈 Detener contador
+            _uiState.update { it.copy(audioPosicionActual = 0, audioDuracionTotal = 0) }
+
         } else {
             audioControlRef.child("ESTADO").setValue("STOP")
         }
