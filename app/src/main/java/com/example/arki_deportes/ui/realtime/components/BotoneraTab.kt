@@ -147,23 +147,44 @@ fun BotoneraTab(
                     }
                 }
 
-                if (reproduccionLocal && duracionTotal >0) {
-                    Column(modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)) {
-                        Slider(
-                            value = posicionActual.toFloat(),
-                            onValueChange = { onSeek(it) },
-                            valueRange = 0f..duracionTotal.toFloat(),
-                            modifier = Modifier.height(20.dp)
+                if (reproduccionLocal && duracionTotal > 0) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            // Usamos labelSmall ya que labelExtraSmall no existe por defecto
-                            Text(formatTime(posicionActual), style = MaterialTheme.typography.labelSmall)
-                            Text(formatTime(duracionTotal), style = MaterialTheme.typography.labelSmall)
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Slider(
+                                value = posicionActual.toFloat(),
+                                onValueChange = { onSeek(it) },
+                                valueRange = 0f..duracionTotal.toFloat(),
+                                modifier = Modifier.height(24.dp),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.outline, // Bolita gris
+                                    activeTrackColor = MaterialTheme.colorScheme.outline, // Línea activa gris
+                                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant // Línea fondo gris claro
+                                )
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = formatTime(posicionActual),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                                Text(
+                                    text = formatTime(duracionTotal),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
                         }
                     }
                 }
