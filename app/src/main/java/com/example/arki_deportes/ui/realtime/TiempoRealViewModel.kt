@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import com.example.arki_deportes.ui.realtime.components.MotorCronometro
+import android.media.MediaPlayer
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -102,7 +103,8 @@ data class TiempoRealUiState(
     val cronoPausado: Boolean = false,
     val lowerThirdVisible: Boolean = true, // 👈 Para el estado del Switch
     val ultimaAccionTexto: String = "",
-    val mostrarPortada: Boolean = false
+    val mostrarPortada: Boolean = false,
+    val reproduccionLocal: Boolean = true // 👈 NUEVO: Control de reproducción local
 )
 
 class TiempoRealViewModel(
@@ -123,6 +125,8 @@ class TiempoRealViewModel(
 
     private val motorCronometro = MotorCronometro()
 
+    // --- REPRODUCTORES LOCALES ---
+    private var musicPlayer: MediaPlayer? = null
 
 
     init {
@@ -240,36 +244,6 @@ class TiempoRealViewModel(
         }
     }
 
-    /**
-     * Observa los cambios en el sistema de penales desde Firebase
-     * Actualiza el UiState con los datos de penales
-     */
-
-    /*
-    private fun observarPenales() {
-        viewModelScope.launch {
-            repository.observePartido(campeonatoId, partidoId)
-                .catch { error ->
-                    Log.e(TAG, "❌ Error observando penales: ${error.message}")
-                }
-                .collect { partido ->
-                    // 🛡️ SEGURIDAD: Solo actualizamos si el partido existe
-                    if (partido != null) {
-                        _uiState.update { state ->
-                            state.copy(
-                                penalesActivos = partido.MARCADOR_PENALES,
-                                equipoQueInicia = partido.PENALES_INICIA.coerceIn(1, 2),
-                                equipoEnTurno = partido.PENALES_TURNO.coerceIn(1, 2),
-                                tandaActual = partido.PENALES_TANDA.coerceAtLeast(1),
-                                historiaPenales1 = partido.PENALES_SERIE1,
-                                historiaPenales2 = partido.PENALES_SERIE2
-                            )
-                        }
-                    }
-                }
-        }
-    }
-*/
 
 
 
@@ -583,6 +557,13 @@ class TiempoRealViewModel(
 
             // 🛑 FINALIZAR EN MOTOR (Calcula pausa acumulada final)
             motorCronometro.finalizar()
+
+            // 🎵 DETENER AUDIO LOCAL SI ESTÁ ACTIVO
+            if (_uiState.value.reproduccionLocal) {
+                musicPlayer?.stop()
+                musicPlayer?.release()
+                musicPlayer = null
+            }
 
             val datosMotor = motorCronometro.toFirebaseMap()
             val updatesExtra = mapOf(
@@ -1790,28 +1771,33 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
             val esFutbol = partido.DEPORTE.equals("FUTBOL", ignoreCase = true)
+            val esLocal = _uiState.value.reproduccionLocal
+
+            // 🎵 Disparo Local si el switch está activo
+            if (esLocal && rutaAudio.isNotBlank()) {
+                playLocalAudio(rutaAudio, false)
+            }
 
             // 1. Actualizamos el historial del partido (Nodo histórico)
-            val updates = mutableMapOf<String, Any>(
-                "ACCION_AUDIO_URL" to rutaAudio
-            )
+            val updates = mutableMapOf<String, Any>()
 
+            // 🚩 Si es LOCAL, NO enviamos la URL del audio a Firebase para que no suene remotamente
+            if (!esLocal && rutaAudio.isNotBlank()) {
+                updates["ACCION_AUDIO_URL"] = rutaAudio
+            }
+
+            // El texto de la jugada siempre se envía si es fútbol
             if (esFutbol) {
                 updates["ACCION_JUGADA_MINUTO"] = texto
             }
-            // else if (partido.DEPORTE.equals("BASQUET", ignoreCase = true)) {
-            //    /* Reservado para lógica de canastas en el futuro */
-            // }
 
             repository.updatePartidoFields(campeonatoId, partidoId, updates)
 
             // 2. Lógica para el Overlay Web
-            // Si es Fútbol: Usamos el texto y FORZAMOS que el banner se muestre (true).
-            // Si no es Fútbol: Mandamos vacío "" para no ensuciar el tercio.
             val textoFinal = if (esFutbol) texto else ""
-            
-            // 🔥 CORREGIDO: Forzamos la visibilidad a TRUE cuando se dispara una acción automática (Gol, Tarjeta, etc.)
-            val nuevaVisibilidad = true
+
+            // Forzamos visibilidad en Fútbol para acciones automáticas
+            val nuevaVisibilidad = if (esFutbol) true else _uiState.value.lowerThirdVisible
 
             // 3. Actualizamos el estado local (Switch y texto guardado)
             _uiState.update { it.copy(
@@ -1820,13 +1806,16 @@ class TiempoRealViewModel(
             ) }
 
             // 4. Enviamos al PARTIDOACTUAL (Overlay Web)
+            // 🔥 Si es local, mandamos "" en rutaAudio para asegurar que el reproductor web no se active
+            val audioParaOverlay = if (esLocal) "" else rutaAudio
+
             actualizarPartidoActualAccion(
                 texto = textoFinal,
-                rutaAudio = rutaAudio,
+                rutaAudio = audioParaOverlay,
                 visible = nuevaVisibilidad
             )
 
-            // ✅ AGREGA ESTO AL FINAL:
+            // ✅ Sincronización final si la transmisión está activa
             if (_uiState.value.modoTransmision) {
                 sincronizarConOverlay()
             }
@@ -2150,6 +2139,41 @@ class TiempoRealViewModel(
                 }
                 override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
             })
+        }
+    }
+
+    fun toggleReproduccionLocal(active: Boolean) {
+        _uiState.update { it.copy(reproduccionLocal = active) }
+        if (!active) {
+            musicPlayer?.stop()
+            musicPlayer?.release()
+            musicPlayer = null
+        }
+    }
+
+    private fun playLocalAudio(url: String, esMusica: Boolean) {
+        if (url.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (esMusica) {
+                    musicPlayer?.stop()
+                    musicPlayer?.release()
+                    musicPlayer = MediaPlayer().apply {
+                        setDataSource(url)
+                        prepare()
+                        start()
+                        isLooping = true
+                        setVolume(_uiState.value.volumenAudio / 100f, _uiState.value.volumenAudio / 100f)
+                    }
+                } else {
+                    MediaPlayer().apply {
+                        setDataSource(url)
+                        prepare()
+                        start()
+                        setOnCompletionListener { it.release() }
+                    }
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error audio local: ${e.message}") }
         }
     }
 }

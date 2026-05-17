@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,6 +36,9 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.text.format
+import java.text.SimpleDateFormat
+
 
 /**
  * Entry point para la pantalla Home enlazado al ViewModel.
@@ -103,9 +107,8 @@ fun HomeScreen(
     val usuario = UsuarioContext.getUsuario()
     
     // Verificar si hay una asignación caducada en el perfil del usuario
-    val tieneAsignacionEnPerfil = !usuario?.permisos?.codigoPartido.isNullOrBlank() && 
+    val tieneAsignacionEnPerfil = !usuario?.permisos?.codigoPartido.isNullOrBlank() &&
                                  usuario?.permisos?.codigoPartido != "NINGUNO"
-    val mostrarAvisoCaducado = tieneAsignacionEnPerfil && !state.isLive
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -154,12 +157,30 @@ fun HomeScreen(
                     }
                 }
 
+
                 // B. SI NO TIENE PARTIDO O QUIERE CAMBIARLO
                 if (!tieneAsignacionEnPerfil || state.forzarBusqueda) {
                     item {
+                        // 🎯 ORDENAMIENTO TRIPLE: 1. Hoy, 2. Futuros, 3. Pasados
+                        val hoy = remember { LocalDate.now() }
+                        val partidosOrdenados = remember(state.partidosDelCampeonato) {
+                            state.partidosDelCampeonato.sortedWith(
+                                compareBy<Partido> {
+                                    val pDate = parseFechaSeguro(it.FECHA_PARTIDO)
+                                    when {
+                                        pDate == hoy -> 0        // Prioridad 0: Hoy
+                                        pDate.isAfter(hoy) -> 1  // Prioridad 1: Futuros
+                                        else -> 2                // Prioridad 2: Pasados
+                                    }
+                                }
+                                    .thenBy { parseFechaSeguro(it.FECHA_PARTIDO) } // Fecha ASC
+                                    .thenBy { it.HORA_PARTIDO }                   // Hora ASC
+                            )
+                        }
+
                         AssignmentAssistantPanel(
                             campeonatos = state.campeonatos,
-                            partidos = state.partidosDelCampeonato,
+                            partidos = partidosOrdenados, // 👈 Usamos la lista con el nuevo orden
                             campeonatoSeleccionado = campeonatoActivo,
                             onSelectCampeonato = onSelectCampeonato,
                             onAsignarPartido = onAsignarPartido,
@@ -169,10 +190,27 @@ fun HomeScreen(
                         )
                     }
                 }
+
             }
+
 
         }
     }
+}
+
+
+/**
+ * Parsea la fecha de forma segura para comparaciones de ordenamiento.
+ */
+private fun parseFechaSeguro(fechaStr: String?): LocalDate {
+    if (fechaStr.isNullOrBlank()) return LocalDate.MAX
+    val formatos = listOf("yyyy-MM-dd", "dd/MM/yyyy", "yyyy/MM/dd", "d/M/yyyy", "dd-MM-yyyy")
+    for (formato in formatos) {
+        try {
+            return LocalDate.parse(fechaStr.trim(), DateTimeFormatter.ofPattern(formato))
+        } catch (e: Exception) { continue }
+    }
+    return LocalDate.MAX // Si el formato no es válido, lo manda al final de la lista
 }
 
 @Composable
@@ -246,12 +284,7 @@ private fun AssignmentAssistantPanel(
                 }
             }
 
-            Text(
-                text = "Asistente de Asignación Rápida",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+
             Text(
                 text = "Primero elige un torneo para ver sus partidos disponibles.",
                 style = MaterialTheme.typography.bodySmall,
@@ -320,8 +353,18 @@ private fun AssignmentAssistantPanel(
 
 @Composable
 private fun QuickMatchItem(partido: Partido, onAsignar: () -> Unit) {
-    val esCaducado = remember(partido.FECHA_PARTIDO) {
-        verificarSiEstaCaducado(partido.FECHA_PARTIDO)
+    val hoy = remember { LocalDate.now() }
+    val pDate = remember(partido.FECHA_PARTIDO) { parseFechaSeguro(partido.FECHA_PARTIDO) }
+
+    val esHoy = pDate == hoy
+    val esFuturo = pDate.isAfter(hoy)
+    val esCaducado = pDate.isBefore(hoy)
+
+    // 🎨 LÓGICA DE COLORES (60% Transparencia)
+    val itemBgColor = when {
+        esHoy -> Color(0xFFE3F2FD).copy(alpha = 0.6f)    // Azul Celeste
+        esFuturo -> Color(0xFFE0F2F1).copy(alpha = 0.6f) // Verde Agua
+        else -> Color(0xFFFFEBEE).copy(alpha = 0.6f)     // Rojo Suave
     }
 
     Surface(
@@ -333,20 +376,24 @@ private fun QuickMatchItem(partido: Partido, onAsignar: () -> Unit) {
         else
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(8.dp),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             0.5.dp,
-            if (esCaducado) MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-            else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            when {
+                esHoy -> Color(0xFF2196F3).copy(alpha = 0.3f)
+                esFuturo -> Color(0xFF009688).copy(alpha = 0.3f)
+                else -> Color(0xFFF44336).copy(alpha = 0.3f)
+            }
         )
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 // 1. Equipos
+                // Nombre de equipos (En negrita si es hoy)
                 Text(
                     text = "${partido.EQUIPO1} vs ${partido.EQUIPO2}",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (esCaducado) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else Color.Unspecified
+                    fontWeight = if (esHoy) FontWeight.ExtraBold else FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (esCaducado) Color.Gray else Color.DarkGray
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -365,7 +412,9 @@ private fun QuickMatchItem(partido: Partido, onAsignar: () -> Unit) {
                         style = MaterialTheme.typography.labelSmall,
                         color = if (esCaducado) Color.Gray else Color.Unspecified
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Outlined.CalendarMonth,
                         contentDescription = null,
@@ -373,25 +422,55 @@ private fun QuickMatchItem(partido: Partido, onAsignar: () -> Unit) {
                         tint = if (esCaducado) Color.Gray else MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(4.dp))
+                    val nombreDia = remember(partido.FECHA_PARTIDO) {
+                        obtenerNombreDia(partido.FECHA_PARTIDO)
+                    }
+
+
                     Text(
-                        text = "${partido.FECHA_PARTIDO} ${partido.HORA_PARTIDO}",
+                        text = "${if (nombreDia.isNotBlank()) "$nombreDia, " else ""}${partido.FECHA_PARTIDO}",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (esCaducado) Color.Gray else Color.Unspecified
                     )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        color = if (esCaducado) Color.Gray.copy(alpha = 0.5f) else Color(0xFF1976D2),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Watch,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = partido.HORA_PARTIDO,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
+
 
                 // 3. Etiquetas de Estado (OPERADOR / DISPONIBILIDAD / CADUCADO)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (esCaducado) {
-                        StatusTag(text = "CADUCADO", color = MaterialTheme.colorScheme.error)
-                    } else {
-                        val operador = partido.OPERADOR.trim()
-                        if (operador.isBlank() || operador == "NINGUNO") {
-                            StatusTag(text = "DISPONIBLE", color = Color(0xFF2E7D32)) // Verde bosque
-                        } else {
-                            StatusTag(text = "Operador: $operador", color = MaterialTheme.colorScheme.primary)
-                        }
+                    when {
+                        esHoy -> StatusTag("HOY", Color(0xFF1976D2))
+                        esFuturo -> StatusTag("PRÓXIMO", Color(0xFF388E3C))
+                        else -> StatusTag("CADUCADO", Color(0xFFD32F2F))
+                    }
+
+                    val op = partido.OPERADOR.trim()
+                    if (op.isNotBlank() && op != "NINGUNO") {
+                        StatusTag("Op: $op", Color(0xFF5D4037))
                     }
                 }
 
@@ -413,17 +492,19 @@ private fun QuickMatchItem(partido: Partido, onAsignar: () -> Unit) {
                     }
                 }*/
             }
-
             // Icono de acción a la derecha
             if (!esCaducado) {
                 IconButton(onClick = onAsignar) {
                     Icon(
                         imageVector = Icons.Default.AddCircle,
                         contentDescription = "Asignar",
-                        tint = MaterialTheme.colorScheme.primary
+                        modifier = Modifier.size(32.dp),
+                        // 🔵 Azul si es hoy, 🟢 Verde si es futuro
+                        tint = if (esHoy) Color(0xFF1976D2) else Color(0xFF388E3C)
                     )
                 }
             } else {
+                // Mantenemos el icono de bloqueo para los caducados
                 Icon(
                     imageVector = Icons.Default.Block,
                     contentDescription = "No disponible",
@@ -437,6 +518,20 @@ private fun QuickMatchItem(partido: Partido, onAsignar: () -> Unit) {
     }
 }
 
+private fun obtenerNombreDia(fecha: String): String {
+    if (fecha.isBlank()) return ""
+    return try {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale("es", "ES"))
+        val date = sdf.parse(fecha)
+        SimpleDateFormat("EEEE", Locale("es", "ES")).format(date!!).replaceFirstChar { it.uppercase() }
+    } catch (e: Exception) {
+        try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale("es", "ES"))
+            val date = sdf.parse(fecha)
+            SimpleDateFormat("EEEE", Locale("es", "ES")).format(date!!).replaceFirstChar { it.uppercase() }
+        } catch (e2: Exception) { "" }
+    }
+}
 
 @Composable
 private fun StatusTag(text: String, color: Color) {
@@ -454,96 +549,7 @@ private fun StatusTag(text: String, color: Color) {
     }
 }
 
-@Composable
-private fun LiveMatchCard(partido: PartidoActual) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
-        )
-    ) {
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(imageVector = Icons.Rounded.LiveTv, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                Text(text = "En vivo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-            Text(text = "Fútbol", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                TeamScore(nombre = partido.EQUIPO1, valor = partido.GOLES1, etiqueta = "Goles", modifier = Modifier.weight(1f))
-                Column(modifier = Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "Marcador", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                    Text(text = "${partido.GOLES1} - ${partido.GOLES2}", fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text(text = "Tiempo", style = MaterialTheme.typography.labelMedium)
-                    Text(text = partido.getTiempoNormalizado(), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                }
-                TeamScore(nombre = partido.EQUIPO2, valor = partido.GOLES2, etiqueta = "Goles", modifier = Modifier.weight(1f))
-            }
-            SurfaceStatus(text = partido.getEstadoTexto(), icon = partido.getEstadoIcono())
-        }
-    }
-}
 
-@Composable
-private fun TeamScore(nombre: String, valor: Int, etiqueta: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text = nombre.ifBlank { "Equipo" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-        Text(text = valor.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text(text = etiqueta, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
-    }
-}
-
-@Composable
-private fun SurfaceStatus(text: String, icon: String) {
-    Surface(color = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError, shape = MaterialTheme.shapes.medium) {
-        Text(text = "$icon $text", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(text = text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-}
-
-@Composable
-private fun PartidoCard(partido: Partido) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text = "${partido.EQUIPO1.ifBlank { "Por definir" }} vs ${partido.EQUIPO2.ifBlank { "Por definir" }}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Outlined.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(text = "${partido.FECHA_PARTIDO} · ${partido.HORA_PARTIDO}", style = MaterialTheme.typography.bodyMedium)
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-            Text(text = "Estado: ${partido.getEstadoTexto()}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-private fun verificarSiEstaCaducado(fechaStr: String?): Boolean {
-    if (fechaStr.isNullOrBlank()) return false
-    val formatos = listOf(
-        DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-        DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-        DateTimeFormatter.ofPattern("yyyy/MM/dd"),
-        DateTimeFormatter.ofPattern("d/M/yyyy"),
-        DateTimeFormatter.ofPattern("dd-MM-yyyy")
-    )
-
-    val hoy = LocalDate.now()
-    for (formato in formatos) {
-        try {
-            val fechaPartido = LocalDate.parse(fechaStr.trim(), formato)
-            val fechaLimite = fechaPartido.plusDays(1)
-            return hoy.isAfter(fechaLimite)
-        } catch (e: Exception) { continue }
-    }
-    return false
-}
 
 
 @Composable

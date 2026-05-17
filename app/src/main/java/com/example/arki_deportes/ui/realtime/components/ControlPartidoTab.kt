@@ -87,9 +87,6 @@ fun ControlPartidoTab(
                 modifier = Modifier.weight(1f)
             )
         }
-
-        Divider()
-
         // ═══════════════════════════════════════════════════════════
         // ⚽ GOLES
         // ═══════════════════════════════════════════════════════════
@@ -270,21 +267,21 @@ private fun ControlRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             // LABEL
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.width(100.dp)
+                modifier = Modifier.width(70.dp)
             ) {
-                Text(text = icono, fontSize = 20.sp)
+                Text(text = icono, fontSize = 15.sp)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = label,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Normal
                 )
             }
 
@@ -327,16 +324,16 @@ private fun ControlesCompactos(
             Icon(
                 imageVector = Icons.Default.Remove,
                 contentDescription = "Restar",
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(36.dp)
             )
         }
 
         // VALOR
         Text(
             text = valor.toString(),
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(32.dp)
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Normal,
+            modifier = Modifier.width(30.dp)
         )
 
         // Botón MÁS
@@ -347,7 +344,7 @@ private fun ControlesCompactos(
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Agregar",
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(36.dp)
             )
         }
     }

@@ -296,6 +296,8 @@ fun TiempoRealScreen(
                             volumen = state.volumenAudio,
                             estado = state.audioEstado,
                             deporteActual = partido.DEPORTE,
+                            reproduccionLocal = state.reproduccionLocal,
+                            onToggleLocal = viewModel::toggleReproduccionLocal,
                             onPlay = viewModel::reproducirAudio,
                             onPause = viewModel::pausarAudio,
                             onStop = viewModel::detenerAudio,

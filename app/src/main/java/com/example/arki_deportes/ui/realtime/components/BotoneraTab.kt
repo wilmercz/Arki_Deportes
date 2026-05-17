@@ -56,6 +56,8 @@ fun BotoneraTab(
     onPause: () -> Unit,
     onStop: () -> Unit,
     onVolumeChange: (Int) -> Unit,
+    reproduccionLocal: Boolean,
+    onToggleLocal: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // 🔍 Filtramos por deporte y tipo
@@ -76,6 +78,21 @@ fun BotoneraTab(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
+            Row(
+                modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Producción de Audio", fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if(reproduccionLocal) "Modo Local (Esta App)" else "Modo Remoto (Overlay)",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+                Switch(checked = reproduccionLocal, onCheckedChange = onToggleLocal)
+            }
+
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = "Control de Música",

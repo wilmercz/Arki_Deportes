@@ -103,7 +103,7 @@ private fun TabCronometro(
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // ═══════════════════════════════════════════════════════════
         // TIEMPO GRANDE CON INDICADOR DE ESTADO
@@ -115,10 +115,10 @@ private fun TabCronometro(
             // ✅ Indicador pulsante cuando está corriendo
             if (estaCorriendo) {
                 IndicadorPulsante()
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(4.dp))
             } else if (estaPausado) {
                 Icon(Icons.Default.Pause, contentDescription = "Pausado", tint = Color.Yellow, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(4.dp))
             }
 
             Text(
