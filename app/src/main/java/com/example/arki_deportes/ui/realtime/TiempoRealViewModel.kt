@@ -108,7 +108,8 @@ data class TiempoRealUiState(
     val audioPosicionActual: Long = 0L,
     val audioDuracionTotal: Long = 0L,
     val tablaPosiciones: List<TablaPosicionesItem> = emptyList(),
-    val mostrarTablaPosiciones: Boolean = false
+    val mostrarTablaPosiciones: Boolean = false,
+    val mostrarComparativa: Boolean = false
 
 )
 
@@ -2278,6 +2279,18 @@ class TiempoRealViewModel(
                 _uiState.update { it.copy(mostrarTablaPosiciones = visible) }
             }
         }
+        viewModelScope.launch {
+            repository.observeComparativaVisible().collect { visible ->
+                _uiState.update { it.copy(mostrarComparativa = visible) }
+            }
+        }
+    }
+
+    fun toggleComparativa() {
+        viewModelScope.launch {
+            val nuevoEstado = !_uiState.value.mostrarComparativa
+            repository.toggleComparativaOverlay(nuevoEstado)
+        }
     }
 
     // 3. Modifica el toggle:
@@ -2285,7 +2298,8 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             val nuevoEstado = !_uiState.value.mostrarTablaPosiciones
             // Esto hace la copia física de los datos de un nodo a otro
-            repository.sincronizarTablaAOverlay(campeonatoId, nuevoEstado)
+            //repository.sincronizarTablaAOverlay(campeonatoId, nuevoEstado)
+            repository.toggleVisibilidadTablaOverlay(nuevoEstado)
         }
     }
 
