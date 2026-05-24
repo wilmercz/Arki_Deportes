@@ -1,59 +1,21 @@
 package com.example.arki_deportes.ui.partidos
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.EmojiEvents
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -236,7 +198,7 @@ private fun PartidosList(
     partidos: List<Partido>,
     onEditPartido: (String) -> Unit,
     onDeletePartido: (String) -> Unit,
-    onConsolidarPartido: (String, Int, Int) -> Unit, // 👈 Nuevo
+    onConsolidarPartido: (String, Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -268,7 +230,10 @@ private fun PartidoCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showConsolidarDialog by remember { mutableStateOf(false) } // ✅ Error corregido
+    var showConsolidarDialog by remember { mutableStateOf(false) }
+
+    val esFinalizado = partido.ESTADO == 1
+    val colorTitulo = if (esFinalizado) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
 
     Card(
         modifier = modifier
@@ -289,28 +254,41 @@ private fun PartidoCard(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    // Título con Goles
                     Text(
-                        text = "${partido.EQUIPO1.ifBlank { "Por definir" }} vs ${partido.EQUIPO2.ifBlank { "Por definir" }}",
+                        text = buildString {
+                            append(partido.EQUIPO1.ifBlank { "Por definir" })
+                            append(" (${partido.GOLES1})")
+                            append(" vs ")
+                            append("(${partido.GOLES2}) ")
+                            append(partido.EQUIPO2.ifBlank { "Por definir" })
+                        },
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = colorTitulo
                     )
                     
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    /*DESACTIVADO TEMPORALMENTE
-                    Text(
-                        text = partido.getDeporteTexto(),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                     */
+                    // Etiqueta de Estado
+                    Surface(
+                        color = if (esFinalizado) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = if (esFinalizado) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = if (esFinalizado) "FINALIZADO" else "POR JUGARSE",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
 
                 Box {
                     IconButton(onClick = { showMenu = true }) {
                         Icon(
-                            imageVector = Icons.Default.Edit,
+                            imageVector = Icons.Default.MoreVert,
                             contentDescription = "Opciones"
                         )
                     }
@@ -325,12 +303,7 @@ private fun PartidoCard(
                                 showMenu = false
                                 onEdit()
                             },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = null
-                                )
-                            }
+                            leadingIcon = { Icon(Icons.Default.Edit, null) }
                         )
 
                         DropdownMenuItem(
@@ -339,11 +312,8 @@ private fun PartidoCard(
                                 showMenu = false
                                 showConsolidarDialog = true
                             },
-                            // Usamos un icono disponible: SportsScore (necesita material-icons-extended)
-                            // Si no lo tienes, puedes usar Icons.Default.CheckCircle
                             leadingIcon = { Icon(Icons.Default.CheckCircle, null) }
                         )
-
 
                         DropdownMenuItem(
                             text = { Text("Eliminar") },
@@ -409,24 +379,6 @@ private fun PartidoCard(
                 )
             }
 
-/*DESACTIVADO TEMPORALMENTE
-            if (partido.getMarcador() != "vs") {
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                androidx.compose.material3.Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = "${partido.getMarcadorLabel()}: ${partido.getMarcador()}",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-*/
             if (partido.ETAPA != Constants.EtapasPartido.NINGUNO) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -461,8 +413,6 @@ private fun PartidoCard(
             onDismiss = { showDeleteDialog = false }
         )
     }
-
-
 }
 
 
@@ -603,4 +553,3 @@ private fun formatFecha(fecha: String): String {
         fecha
     }
 }
-
