@@ -106,7 +106,10 @@ data class TiempoRealUiState(
     val mostrarPortada: Boolean = false,
     val reproduccionLocal: Boolean = true, // 👈 NUEVO: Control de reproducción local
     val audioPosicionActual: Long = 0L,
-    val audioDuracionTotal: Long = 0L
+    val audioDuracionTotal: Long = 0L,
+    val tablaPosiciones: List<TablaPosicionesItem> = emptyList(),
+    val mostrarTablaPosiciones: Boolean = false
+
 )
 
 class TiempoRealViewModel(
@@ -140,7 +143,8 @@ class TiempoRealViewModel(
         observarAudios()
         observarPortada()
         iniciarActualizadorDeTiempo()
-
+        //observarTablaPosiciones()
+        observarTablaPosicionesDesdeOverlay()
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -247,6 +251,11 @@ class TiempoRealViewModel(
                             viewModelScope.launch {
                                 repository.publicarEnPartidosJugandose(partidoConNombre)
                                 sincronizarConOverlay(partidoConNombre)
+
+                                // 🔥 NUEVO: Copiamos la tabla al cargar el control en vivo
+                                // Esto asegura que PARTIDOACTUAL/TablaPosiciones tenga datos de inmediato
+                                repository.sincronizarTablaAOverlay(campeonatoId, activa = false)
+
                             }
                         }
 
@@ -2242,6 +2251,41 @@ class TiempoRealViewModel(
                     }
                 }
             } catch (e: Exception) { Log.e(TAG, "Error audio local: ${e.message}") }
+        }
+    }
+
+
+    private fun observarTablaPosiciones() {
+        viewModelScope.launch {
+            repository.observeTablaPosiciones(campeonatoId)
+                .collect { lista ->
+                    _uiState.update { it.copy(tablaPosiciones = lista) }
+                }
+        }
+    }
+
+    // 2. Nueva función de observación:
+    private fun observarTablaPosicionesDesdeOverlay() {
+        viewModelScope.launch {
+            // Escuchamos los datos del overlay
+            repository.observeTablaPosicionesOverlay().collect { lista ->
+                _uiState.update { it.copy(tablaPosiciones = lista) }
+            }
+        }
+        viewModelScope.launch {
+            // Escuchamos el flag del overlay
+            repository.observeTablaPosicionesVisible().collect { visible ->
+                _uiState.update { it.copy(mostrarTablaPosiciones = visible) }
+            }
+        }
+    }
+
+    // 3. Modifica el toggle:
+    fun toggleTablaPosiciones() {
+        viewModelScope.launch {
+            val nuevoEstado = !_uiState.value.mostrarTablaPosiciones
+            // Esto hace la copia física de los datos de un nodo a otro
+            repository.sincronizarTablaAOverlay(campeonatoId, nuevoEstado)
         }
     }
 }

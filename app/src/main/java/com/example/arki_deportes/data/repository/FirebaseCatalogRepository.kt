@@ -2,6 +2,7 @@ package com.example.arki_deportes.data.repository
 
 import android.net.Uri
 import android.util.Log
+import com.example.arki_deportes.data.model.*
 import com.example.arki_deportes.data.model.Campeonato
 import com.example.arki_deportes.data.model.Equipo
 import com.example.arki_deportes.data.model.Grupo
@@ -1037,4 +1038,106 @@ class FirebaseCatalogRepository(
         val ordenApagado = mapOf("mostrar" to false)
         publicidadReference().setValue(ordenApagado).await()
     }
+
+
+    /**
+     * Observa la tabla de posiciones original del campeonato
+     */
+    fun observeTablaPosiciones(campeonatoId: String): Flow<List<TablaPosicionesItem>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("TablaPosiciones")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val lista = snapshot.children.mapNotNull { it.getValue(TablaPosicionesItem::class.java) }
+                // Las tablas de posiciones suelen ir ordenadas por PTS, luego DG, luego GF
+                trySend(lista.sortedWith(compareByDescending<TablaPosicionesItem> { it.PTS }
+                    .thenByDescending { it.DG }
+                    .thenByDescending { it.GF }))
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    /**
+     * Copia la tabla y activa/desactiva la visibilidad en el Overlay Web
+     */
+    suspend fun actualizarTablaEnOverlay(activa: Boolean, tabla: List<TablaPosicionesItem>? = null) {
+        val ref = rootReference.child("PARTIDOACTUAL")
+        val updates = mutableMapOf<String, Any?>("MOSTRAR_TABLAPOSICIONES" to activa)
+
+        if (activa && tabla != null) {
+            // Convertimos la lista a un mapa para que Firebase lo guarde correctamente
+            val tablaMap = tabla.associate { it.EQUIPO_CODIGO to it.toMap() }
+            updates["TablaPosiciones"] = tablaMap
+        }
+
+        ref.updateChildren(updates).await()
+    }
+
+    /**
+     * 1. Observa la tabla que está "Al Aire" en PARTIDOACTUAL
+     * Esta es la que usará el Tab para mostrar los datos
+     */
+    fun observeTablaPosicionesOverlay(): Flow<List<TablaPosicionesItem>> = callbackFlow {
+        val ref = rootReference.child("PARTIDOACTUAL").child("TablaPosiciones")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val lista = snapshot.children.mapNotNull { it.getValue(TablaPosicionesItem::class.java) }
+                // Ordenamos por PTS, DG, GF (Igual que en la web)
+                trySend(lista.sortedWith(
+                    compareByDescending<TablaPosicionesItem> { it.PTS }
+                        .thenByDescending { it.DG }
+                        .thenByDescending { it.GF }
+                ))
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    /**
+     * 2. Observa el Flag de visibilidad en PARTIDOACTUAL
+     */
+    fun observeTablaPosicionesVisible(): Flow<Boolean> = callbackFlow {
+        val ref = rootReference.child("PARTIDOACTUAL").child("MOSTRAR_TABLAPOSICIONES")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(snapshot.getValue(Boolean::class.java) ?: false)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    /**
+     * 3. Acción de Sincronización: Copia del Campeonato a PARTIDOACTUAL
+     */
+    suspend fun sincronizarTablaAOverlay(campeonatoId: String, activa: Boolean) {
+        val refActual = rootReference.child("PARTIDOACTUAL")
+
+        try {
+            // A. Leemos SIEMPRE la tabla original del campeonato para tener la copia lista
+            val snapshot = campeonatosReference().child(campeonatoId).child("TablaPosiciones").get().await()
+            val tablaOriginal = snapshot.children.mapNotNull { it.getValue(TablaPosicionesItem::class.java) }
+
+            // B. Convertimos a mapa para subirlo (Usa EQUIPO_CODIGO como llave)
+            val tablaMap = tablaOriginal.associate { it.EQUIPO_CODIGO to it.toMap() }
+
+            // C. Preparamos la actualización atómica
+            val updates = mutableMapOf<String, Any?>(
+                //"TablaPosiciones" to tablaMap,           // 👈 Aquí se crea la lista en PARTIDOACTUAL
+                "MOSTRAR_TABLAPOSICIONES" to activa    // 👈 Controla la visibilidad
+            )
+
+            refActual.updateChildren(updates).await()
+            Log.d("FirebaseCatalogRepo", "✅ Tabla copiada a PARTIDOACTUAL (Visible: $activa)")
+
+        } catch (e: Exception) {
+            Log.e("FirebaseCatalogRepo", "❌ Error al sincronizar tabla: ${e.message}")
+        }
+    }
+
 }

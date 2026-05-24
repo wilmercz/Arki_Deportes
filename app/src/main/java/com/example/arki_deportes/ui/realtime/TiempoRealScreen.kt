@@ -193,7 +193,12 @@ fun TiempoRealScreen(
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
-                    TabRow(selectedTabIndex = selectedTab) {
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedTab,
+                        edgePadding = 8.dp, // Espacio al inicio
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        divider = {} // Quitamos la línea de fondo si prefieres
+                    ) {
                         Tab(
                             selected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
@@ -223,6 +228,11 @@ fun TiempoRealScreen(
                             selected = selectedTab == 4,
                             onClick = { selectedTab = 4 },
                             text = { Text("📢 Pub") }
+                        )
+                        Tab(
+                            selected = selectedTab == 5,
+                            onClick = { selectedTab = 5 },
+                            text = { Text("📊 Tabla") }
                         )
                     }
 
@@ -326,6 +336,13 @@ fun TiempoRealScreen(
                             onSendSingle = viewModel::enviarPublicidadUnica,
                             onSendSequential = viewModel::enviarListaSecuencial,
                             onHide = viewModel::ocultarPublicidad,
+                            modifier = Modifier.fillMaxSize()
+                        )
+
+                        5 -> TablaPosicionesTab(
+                            tabla = state.tablaPosiciones,
+                            mostrarEnWeb = state.mostrarTablaPosiciones,
+                            onToggleWeb = viewModel::toggleTablaPosiciones,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
