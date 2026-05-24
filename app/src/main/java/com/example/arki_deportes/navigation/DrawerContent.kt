@@ -34,8 +34,8 @@ import com.example.arki_deportes.data.context.DeporteContext
 import com.example.arki_deportes.utils.SportType
 import com.example.arki_deportes.data.model.Partido
 import android.widget.Toast
-import androidx.compose.foundation.rememberScrollState // 👈 Añadir este
-import androidx.compose.foundation.verticalScroll//
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 private fun String?.matchesRoute(route: String): Boolean {
     return this == route || this?.startsWith("$route/") == true
@@ -69,11 +69,10 @@ fun DrawerContent(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
         drawerTonalElevation = 0.dp
     ) {
-        // 1. Envolver todo en un Column con scroll
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()) // 👈 Habilita el scroll
+                .verticalScroll(rememberScrollState())
         ) {
             // Header del Drawer
             DrawerHeader()
@@ -249,6 +248,23 @@ fun DrawerContent(
                         navigator.navigateToCampeonatoList()
                     } else {
                         navigator.navigateToPartidoList()
+                    }
+                    onCloseDrawer()
+                }
+            )
+
+            // 📊 NUEVA OPCIÓN: Tabla de Posiciones
+            DrawerMenuItem(
+                icon = Icons.Default.FormatListNumbered,
+                label = "Tabla Posiciones",
+                isSelected = currentRoute.matchesRoute(AppDestinations.GESTION_TABLA_POSICIONES),
+                onClick = {
+                    val idCamp = campeonatoActivo?.CODIGO
+                    if (idCamp.isNullOrBlank()) {
+                        Toast.makeText(context, "Seleccione un campeonato primero", Toast.LENGTH_SHORT).show()
+                        navigator.navigateToCampeonatoList()
+                    } else {
+                        navigator.navigateToGestionTablaPosiciones()
                     }
                     onCloseDrawer()
                 }
@@ -436,8 +452,7 @@ private fun DrawerMenuItem(
             .background(backgroundColor)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+        verticalAlignment = Alignment.CenterVertically) {
         Icon(
             imageVector = icon,
             contentDescription = label,

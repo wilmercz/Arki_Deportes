@@ -32,6 +32,7 @@ object AppDestinations {
     const val GESTION_AUDIO: String = "gestion_audio"
     const val GESTION_BANNER: String = "gestion_banner"
     const val GESTION_LOGO: String = "gestion_logo"
+    const val GESTION_TABLA_POSICIONES: String = "gestion_tabla_posiciones" // 👈 NUEVO
 
     // Otras pantallas
     const val MENCIONES: String = "menciones"
@@ -51,6 +52,7 @@ object AppDestinations {
         EQUIPO_LIST,
         PARTIDO_LIST,
         GRUPO_LIST,
+        GESTION_TABLA_POSICIONES, // 👈 NUEVO
         MENCIONES,
         EQUIPO_PRODUCCION,
         GESTION_AUDIO,

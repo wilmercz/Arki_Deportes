@@ -145,6 +145,11 @@ import com.example.arki_deportes.ui.produccion.logos.GestionLogoScreen
 import com.example.arki_deportes.ui.produccion.logos.GestionLogoViewModel
 import com.example.arki_deportes.ui.produccion.logos.GestionLogoViewModelFactory
 
+// TABLA DE POSICIONES
+import com.example.arki_deportes.ui.tablaposiciones.TablaPosicionesFormScreen
+import com.example.arki_deportes.ui.tablaposiciones.TablaPosicionesFormViewModel
+import com.example.arki_deportes.ui.tablaposiciones.TablaPosicionesFormViewModelFactory
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAIN ACTIVITY - ACTIVIDAD PRINCIPAL
@@ -258,7 +263,8 @@ class MainActivity : ComponentActivity() {
                         partidoFormRoute = { navigatorParam, codigo -> PantallaPartidoForm(navigatorParam, codigo) },
                         gestionAudioRoute = { n -> PantallaGestionAudio(n, openDrawer = openDrawer) },
                         gestionBannerRoute = { n -> PantallaGestionBanner(n, openDrawer = openDrawer) },
-                        gestionLogoRoute = { n -> PantallaGestionLogo(n, openDrawer = openDrawer) }
+                        gestionLogoRoute = { n -> PantallaGestionLogo(n, openDrawer = openDrawer) },
+                        gestionTablaPosicionesRoute = { n -> PantallaGestionTablaPosiciones(n, openDrawer = openDrawer) }
                     )
                 }
             }
@@ -380,6 +386,34 @@ class MainActivity : ComponentActivity() {
             viewModel = viewModel,
             onOpenDrawer = openDrawer
         )
+    }
+
+    @Composable
+    fun PantallaGestionTablaPosiciones(navigator: AppNavigator, openDrawer: () -> Unit) {
+        val campeonatoActivo by CampeonatoContext.campeonatoActivo.collectAsState()
+
+        if (campeonatoActivo == null) {
+            Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Debe seleccionar un campeonato primero en el menú lateral", textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { navigator.navigateToCampeonatoList() }) {
+                        Text("Ir a Lista de Campeonatos")
+                    }
+                }
+            }
+        } else {
+            val catalogRepo = remember(database, configManager) {
+                FirebaseCatalogRepository(database, configManager.obtenerNodoRaiz())
+            }
+            val viewModel: TablaPosicionesFormViewModel = viewModel(
+                factory = TablaPosicionesFormViewModelFactory(catalogRepo, campeonatoActivo!!.CODIGO)
+            )
+            TablaPosicionesFormScreen(
+                viewModel = viewModel,
+                onBack = { navigator.navigateBack() }
+            )
+        }
     }
 
     @Composable

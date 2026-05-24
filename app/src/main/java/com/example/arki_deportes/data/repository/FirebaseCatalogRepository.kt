@@ -1140,4 +1140,14 @@ class FirebaseCatalogRepository(
         }
     }
 
+
+    /**
+     * Guarda la tabla de posiciones completa en el nodo del campeonato
+     */
+    suspend fun saveTablaPosiciones(campeonatoId: String, tabla: List<TablaPosicionesItem>) {
+        val ref = campeonatosReference().child(campeonatoId).child("TablaPosiciones")
+        // Convertimos la lista a mapa usando el código del equipo como llave
+        val tablaMap = tabla.associate { it.EQUIPO_CODIGO to it.toMap() }
+        ref.setValue(tablaMap).await()
+    }
 }
