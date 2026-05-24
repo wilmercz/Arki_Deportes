@@ -29,6 +29,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.example.arki_deportes.ui.realtime.components.MotorCronometro
 import android.media.MediaPlayer
+import com.example.arki_deportes.utils.Constants
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -599,6 +600,21 @@ class TiempoRealViewModel(
                 val pUpd = partido.copy(NumeroDeTiempo = nuevoEstado, ESTADO = if (estaFinalizado) 1 else 0)
                 repository.publicarEnPartidosJugandose(pUpd)
                 _uiState.update { it.copy(cronoPausado = true) }
+
+                // 🚀 POTENCIA AUTOMÁTICA CONDICIONAL: Solo consolidar si es Fase de Grupos
+                if (estaFinalizado && pUpd.ETAPA == Constants.EtapasPartido.NINGUNO) {
+                    viewModelScope.launch {
+                        Log.d(TAG, "📊 Consolidando puntos automáticamente (Fase de Grupos)")
+                        repository.consolidarResultadoPartido(
+                            campeonatoId = campeonatoId,
+                            partidoId = partidoId,
+                            g1 = pUpd.GOLES1,
+                            g2 = pUpd.GOLES2
+                        )
+                    }
+                } else if (estaFinalizado) {
+                    Log.d(TAG, "🏆 Partido de eliminatoria finalizado (Sin actualizar tabla)")
+                }
             }
             _uiState.update { it.copy(actualizandoFirebase = false) }
         }
