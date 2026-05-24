@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,6 +65,8 @@ import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.material.icons.filled.CheckCircle
+
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -87,6 +90,7 @@ fun PartidoListRoute(
         onRefresh = { viewModel.refresh() },
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onDeletePartido = viewModel::deletePartido,
+        onConsolidarPartido = viewModel::consolidarPartido,
         getFilteredPartidos = viewModel::getFilteredPartidos,
         onNavigateBack = onNavigateBack,
         onOpenDrawer = onOpenDrawer,
@@ -103,6 +107,7 @@ fun PartidoListScreen(
     onRefresh: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onDeletePartido: (String) -> Unit,
+    onConsolidarPartido: (String, Int, Int) -> Unit,
     getFilteredPartidos: () -> List<Partido>,
     onNavigateBack: (() -> Unit)?,
     onOpenDrawer: (() -> Unit)?,
@@ -194,7 +199,8 @@ fun PartidoListScreen(
                             PartidosList(
                                 partidos = filteredPartidos,
                                 onEditPartido = onEditPartido,
-                                onDeletePartido = onDeletePartido
+                                onDeletePartido = onDeletePartido,
+                                onConsolidarPartido = onConsolidarPartido
                             )
                         }
                     }
@@ -230,6 +236,7 @@ private fun PartidosList(
     partidos: List<Partido>,
     onEditPartido: (String) -> Unit,
     onDeletePartido: (String) -> Unit,
+    onConsolidarPartido: (String, Int, Int) -> Unit, // 👈 Nuevo
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -244,7 +251,8 @@ private fun PartidosList(
             PartidoCard(
                 partido = partido,
                 onEdit = { onEditPartido(partido.CODIGOPARTIDO) },
-                onDelete = { onDeletePartido(partido.CODIGOPARTIDO) }
+                onDelete = { onDeletePartido(partido.CODIGOPARTIDO) },
+                onConsolidar = { g1, g2 -> onConsolidarPartido(partido.CODIGOPARTIDO, g1, g2) }
             )
         }
     }
@@ -255,10 +263,12 @@ private fun PartidoCard(
     partido: Partido,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onConsolidar: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showConsolidarDialog by remember { mutableStateOf(false) } // ✅ Error corregido
 
     Card(
         modifier = modifier
@@ -322,6 +332,19 @@ private fun PartidoCard(
                                 )
                             }
                         )
+
+                        DropdownMenuItem(
+                            text = { Text("Finalizar y Consolidar") },
+                            onClick = {
+                                showMenu = false
+                                showConsolidarDialog = true
+                            },
+                            // Usamos un icono disponible: SportsScore (necesita material-icons-extended)
+                            // Si no lo tienes, puedes usar Icons.Default.CheckCircle
+                            leadingIcon = { Icon(Icons.Default.CheckCircle, null) }
+                        )
+
+
                         DropdownMenuItem(
                             text = { Text("Eliminar") },
                             onClick = {
@@ -415,6 +438,19 @@ private fun PartidoCard(
         }
     }
 
+
+    //  dialogos
+    if (showConsolidarDialog) {
+        ConsolidarMarcadorDialog(
+            partido = partido,
+            onConfirm = { g1, g2 ->
+                showConsolidarDialog = false
+                onConsolidar(g1, g2)
+            },
+            onDismiss = { showConsolidarDialog = false }
+        )
+    }
+
     if (showDeleteDialog) {
         DeleteConfirmationDialog(
             partidoDescripcion = "${partido.EQUIPO1} vs ${partido.EQUIPO2}",
@@ -425,6 +461,40 @@ private fun PartidoCard(
             onDismiss = { showDeleteDialog = false }
         )
     }
+
+
+}
+
+
+@Composable
+fun ConsolidarMarcadorDialog(
+    partido: Partido,
+    onConfirm: (Int, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var g1 by remember { mutableStateOf(partido.GOLES1.toString()) }
+    var g2 by remember { mutableStateOf(partido.GOLES2.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pitido Final: ${partido.EQUIPO1} vs ${partido.EQUIPO2}") },
+        text = {
+            Column {
+                Text("Confirma el marcador final para actualizar la tabla de posiciones:")
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp)) {
+                    OutlinedTextField(value = g1, onValueChange = { g1 = it }, label = { Text(partido.EQUIPO1) }, modifier = Modifier.weight(1f))
+                    Text("-", Modifier.padding(horizontal = 8.dp))
+                    OutlinedTextField(value = g2, onValueChange = { g2 = it }, label = { Text(partido.EQUIPO2) }, modifier = Modifier.weight(1f))
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(g1.toIntOrNull() ?: 0, g2.toIntOrNull() ?: 0) }) {
+                Text("Confirmar y Actualizar Tabla")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }
 
 @Composable
@@ -533,3 +603,4 @@ private fun formatFecha(fecha: String): String {
         fecha
     }
 }
+

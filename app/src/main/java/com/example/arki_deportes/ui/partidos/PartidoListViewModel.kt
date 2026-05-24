@@ -148,5 +148,33 @@ class PartidoListViewModel(
         }
     }
 
+    fun consolidarPartido(partidoId: String, g1: Int, g2: Int) {
+        val campeonatoId = _uiState.value.campeonatoActivo ?: return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = repository.consolidarResultadoPartido(campeonatoId, partidoId, g1, g2)
+
+            result.onSuccess {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Resultado consolidado con éxito") }
+            }.onFailure { e ->
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Error: ${e.message}") }
+            }
+        }
+    }
+
+
+    fun consolidarMarcador(partidoId: String, g1: Int, g2: Int) {
+        val campeonatoId = _uiState.value.campeonatoActivo ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = repository.consolidarResultadoPartido(campeonatoId, partidoId, g1, g2)
+            result.onSuccess {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Marcador consolidado!") }
+            }.onFailure { e ->
+                _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
+            }
+        }
+    }
 
 }

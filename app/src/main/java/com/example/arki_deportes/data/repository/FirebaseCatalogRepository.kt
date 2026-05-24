@@ -1150,4 +1150,107 @@ class FirebaseCatalogRepository(
         val tablaMap = tabla.associate { it.EQUIPO_CODIGO to it.toMap() }
         ref.setValue(tablaMap).await()
     }
+
+    /**
+     * 🏁 Pitido Final y Consolidación de Tabla
+     * Procesa el resultado de un partido y actualiza la tabla de posiciones.
+     * Maneja automáticamente "Correcciones" si el partido ya estaba finalizado (ESTADO == 1).
+     */
+    suspend fun consolidarResultadoPartido(
+        campeonatoId: String,
+        partidoId: String,
+        g1: Int,
+        g2: Int
+    ): Result<Unit> {
+        val refPartido = campeonatosReference().child(campeonatoId).child("Partidos").child(partidoId)
+        val refTabla = campeonatosReference().child(campeonatoId).child("TablaPosiciones")
+
+        return try {
+            // 1. Obtener datos actuales del partido
+            val partidoSnap = refPartido.get().await()
+            val p = partidoSnap.getValue(Partido::class.java)
+                ?: return Result.failure(Exception("Partido no encontrado"))
+
+            // 2. Obtener datos de la tabla para ambos equipos
+            val snapEq1 = refTabla.child(p.CODIGOEQUIPO1).get().await()
+            val snapEq2 = refTabla.child(p.CODIGOEQUIPO2).get().await()
+
+            // Si el equipo no existe en la tabla, creamos un registro nuevo
+            var item1 = snapEq1.getValue(TablaPosicionesItem::class.java)
+                ?: TablaPosicionesItem(EQUIPO_CODIGO = p.CODIGOEQUIPO1, EQUIPO_NOMBRE = p.EQUIPO1, CAMPEONATO_CODIGO = campeonatoId)
+
+            var item2 = snapEq2.getValue(TablaPosicionesItem::class.java)
+                ?: TablaPosicionesItem(EQUIPO_CODIGO = p.CODIGOEQUIPO2, EQUIPO_NOMBRE = p.EQUIPO2, CAMPEONATO_CODIGO = campeonatoId)
+
+            // 3. 🔥 LÓGICA DE RECALCULO: Si ya estaba finalizado, revertimos lo anterior
+            if (p.ESTADO == 1) {
+                item1 = revertirEfectoPartido(item1, p.GOLES1, p.GOLES2)
+                item2 = revertirEfectoPartido(item2, p.GOLES2, p.GOLES1)
+            }
+
+            // 4. Aplicamos el nuevo resultado (el actual)
+            item1 = aplicarEfectoPartido(item1, g1, g2)
+            item2 = aplicarEfectoPartido(item2, g2, g1)
+
+            // 5. Escritura ATÓMICA: Todo se guarda al mismo tiempo o nada se guarda
+            val updates = mapOf(
+                "Partidos/$partidoId/GOLES1" to g1,
+                "Partidos/$partidoId/GOLES2" to g2,
+                "Partidos/$partidoId/ESTADO" to 1,
+                "Partidos/$partidoId/NumeroDeTiempo" to "4T",
+                "TablaPosiciones/${p.CODIGOEQUIPO1}" to item1.toMap(),
+                "TablaPosiciones/${p.CODIGOEQUIPO2}" to item2.toMap()
+            )
+
+            campeonatosReference().child(campeonatoId).updateChildren(updates).await()
+            Log.d("FirebaseCatalogRepo", "✅ Resultado consolidado: ${p.EQUIPO1} $g1 - $g2 ${p.EQUIPO2}")
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            Log.e("FirebaseCatalogRepo", "❌ Error al consolidar: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+// --- FUNCIONES AUXILIARES DE MATEMÁTICA DEPORTIVA ---
+
+    private fun aplicarEfectoPartido(item: TablaPosicionesItem, gf: Int, gc: Int): TablaPosicionesItem {
+        val win = if (gf > gc) 1 else 0
+        val draw = if (gf == gc) 1 else 0
+        val loss = if (gf < gc) 1 else 0
+
+        return item.copy(
+            PJ = item.PJ + 1,
+            PG = item.PG + win,
+            PE = item.PE + draw,
+            PP = item.PP + loss,
+            GF = item.GF + gf,
+            GC = item.GC + gc
+        ).run {
+            // Recalculamos derivados
+            copy(DG = GF - GC, PTS = (PG * 3) + PE)
+        }
+    }
+
+    private fun revertirEfectoPartido(item: TablaPosicionesItem, gf: Int, gc: Int): TablaPosicionesItem {
+        val win = if (gf > gc) 1 else 0
+        val draw = if (gf == gc) 1 else 0
+        val loss = if (gf < gc) 1 else 0
+
+        return item.copy(
+            PJ = (item.PJ - 1).coerceAtLeast(0),
+            PG = (item.PG - win).coerceAtLeast(0),
+            PE = (item.PE - draw).coerceAtLeast(0),
+            PP = (item.PP - loss).coerceAtLeast(0),
+            GF = (item.GF - gf).coerceAtLeast(0),
+            GC = (item.GC - gc).coerceAtLeast(0)
+        ).run {
+            copy(DG = GF - GC, PTS = (PG * 3) + PE)
+        }
+    }
+
+    suspend fun toggleVisibilidadTablaOverlay(activa: Boolean) {
+        rootReference.child("PARTIDOACTUAL").child("MOSTRAR_TABLAPOSICIONES").setValue(activa).await()
+    }
+
 }
