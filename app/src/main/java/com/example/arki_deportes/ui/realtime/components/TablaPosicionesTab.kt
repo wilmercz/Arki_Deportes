@@ -30,6 +30,8 @@ fun TablaPosicionesTab(
     mostrarEnWeb: Boolean,
     onToggleWeb: () -> Unit,
     onSyncData: () -> Unit,
+    mostrarComparativa: Boolean, // 👈 NUEVO
+    onToggleComparativa: () -> Unit, // 👈 NUEVO
     modifier: Modifier = Modifier
 ) {
     val azulArki = Color(0xFF2E5BBA)
@@ -73,6 +75,17 @@ fun TablaPosicionesTab(
                         )
                     }
 
+                    // 📊 SWITCH COMPARATIVA (NUEVO)
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    Switch(
+                        checked = mostrarComparativa,
+                        onCheckedChange = { onToggleComparativa() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF4CAF50), // Verde
+                            checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
+                        )
+                    )
 
                 }
             }

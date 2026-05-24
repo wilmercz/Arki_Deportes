@@ -103,6 +103,7 @@ class FirebaseCatalogRepository(
                 val series = snapshot.children.mapNotNull { it.getValue(Serie::class.java) }
                 trySend(series)
             }
+
             override fun onCancelled(error: DatabaseError) {
                 close(error.toException())
             }
@@ -119,6 +120,7 @@ class FirebaseCatalogRepository(
                 val grupos = snapshot.children.mapNotNull { it.getValue(Grupo::class.java) }
                 trySend(grupos.sortedBy { it.GRUPO })
             }
+
             override fun onCancelled(error: DatabaseError) {
                 close(error.toException())
             }
@@ -482,7 +484,7 @@ class FirebaseCatalogRepository(
             .child(codigoPartido)
             .removeValue()
             .await()
-            
+
         // También intentar removerlo de partidos en vivo por si acaso
         try {
             removerDePartidosJugandose(codigoPartido)
@@ -951,10 +953,10 @@ class FirebaseCatalogRepository(
     suspend fun toggleLogoOnAir(logo: LogoResource) {
         val newStatus = !logo.onAir
         val logoId = logo.id
-        
+
         // 1. Actualizar en lista global
         logosReference().child(logoId).child("onAir").setValue(newStatus).await()
-        
+
         // 2. Gestionar en lista Al Aire
         if (newStatus) {
             // Agregar a Al Aire
@@ -1007,7 +1009,7 @@ class FirebaseCatalogRepository(
             .child(campeonatoId)
             .child("Partidos")
             .child(partidoId)
-        
+
         refPartido.updateChildren(datosCrono).await()
 
         // 2. Ruta rápida (PARTIDOACTUAL para Overlay)
@@ -1025,6 +1027,10 @@ class FirebaseCatalogRepository(
     // ─────────────────────────────────────────────────────────────────────────────
 
     fun publicidadReference(): DatabaseReference = rootReference.child("PUBLICIDAD")
+
+    suspend fun enviarAnuncioPublicitario(anuncio: AnuncioPublicidad) {
+        publicidadReference().setValue(anuncio).await()
+    }
 
     suspend fun enviarAnuncioUnico(anuncio: AnuncioPublicidad) {
         publicidadReference().setValue(anuncio).await()
@@ -1251,6 +1257,28 @@ class FirebaseCatalogRepository(
 
     suspend fun toggleVisibilidadTablaOverlay(activa: Boolean) {
         rootReference.child("PARTIDOACTUAL").child("MOSTRAR_TABLAPOSICIONES").setValue(activa).await()
+    }
+
+    /**
+     * Alterna la visibilidad del panel de comparativa en el Overlay Web
+     */
+    suspend fun toggleComparativaOverlay(activa: Boolean) {
+        rootReference.child("PARTIDOACTUAL").child("MOSTRAR_COMPARATIVA").setValue(activa).await()
+    }
+
+    /**
+     * Observa el Flag de visibilidad de la comparativa en PARTIDOACTUAL
+     */
+    fun observeComparativaVisible(): Flow<Boolean> = callbackFlow {
+        val ref = rootReference.child("PARTIDOACTUAL").child("MOSTRAR_COMPARATIVA")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(snapshot.getValue(Boolean::class.java) ?: false)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
     }
 
 }

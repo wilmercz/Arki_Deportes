@@ -2280,17 +2280,12 @@ class TiempoRealViewModel(
             }
         }
         viewModelScope.launch {
+            // 📊 Escuchamos el flag de la comparativa
             repository.observeComparativaVisible().collect { visible ->
                 _uiState.update { it.copy(mostrarComparativa = visible) }
             }
         }
-    }
 
-    fun toggleComparativa() {
-        viewModelScope.launch {
-            val nuevoEstado = !_uiState.value.mostrarComparativa
-            repository.toggleComparativaOverlay(nuevoEstado)
-        }
     }
 
     // 3. Modifica el toggle:
@@ -2308,6 +2303,16 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             // 🔄 Esta función SI copia los datos de Campeonatos a PARTIDOACTUAL
             repository.sincronizarTablaAOverlay(campeonatoId, _uiState.value.mostrarTablaPosiciones)
+        }
+    }
+
+    /**
+     * Alterna la visibilidad de la comparativa en el Overlay Web
+     */
+    fun toggleComparativa() {
+        viewModelScope.launch {
+            val nuevoEstado = !_uiState.value.mostrarComparativa
+            repository.toggleComparativaOverlay(nuevoEstado)
         }
     }
 }

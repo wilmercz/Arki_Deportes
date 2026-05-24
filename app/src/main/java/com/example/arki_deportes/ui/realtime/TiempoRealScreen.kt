@@ -344,6 +344,8 @@ fun TiempoRealScreen(
                             mostrarEnWeb = state.mostrarTablaPosiciones,
                             onToggleWeb = viewModel::toggleTablaPosiciones,
                             onSyncData = viewModel::sincronizarTablaManual,
+                            mostrarComparativa = state.mostrarComparativa, // 👈 Pasar estado
+                            onToggleComparativa = viewModel::toggleComparativa, // 👈 Pasar acción
                             modifier = Modifier.fillMaxSize()
                         )
                     }
