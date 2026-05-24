@@ -234,6 +234,16 @@ fun TiempoRealScreen(
                             onClick = { selectedTab = 5 },
                             text = { Text("📊 Tabla") }
                         )
+                        Tab(
+                            selected = selectedTab == 6,
+                            onClick = { selectedTab = 6 },
+                            text = { Text("🎬 Producción") }
+                        )
+                        Tab(
+                            selected = selectedTab == 7,
+                            onClick = { selectedTab = 7 },
+                            text = { Text("⚽ Partidos") }
+                        )
                     }
 
                     when (selectedTab) {
@@ -338,7 +348,6 @@ fun TiempoRealScreen(
                             onHide = viewModel::ocultarPublicidad,
                             modifier = Modifier.fillMaxSize()
                         )
-
                         5 -> TablaPosicionesTab(
                             tabla = state.tablaPosiciones,
                             mostrarEnWeb = state.mostrarTablaPosiciones,
@@ -346,6 +355,18 @@ fun TiempoRealScreen(
                             onSyncData = viewModel::sincronizarTablaManual,
                             mostrarComparativa = state.mostrarComparativa, // 👈 Pasar estado
                             onToggleComparativa = viewModel::toggleComparativa, // 👈 Pasar acción
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        6 -> ProduccionTab(
+                            equipo = state.equipoProduccion,
+                            textosPredefinidos = state.textosPredefinidos,
+                            onUpdateProduccion = viewModel::actualizarCampoProduccion,
+                            onSendText = viewModel::enviarInfoAlOverlay,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        7 -> OtrosPartidosTab( // 🏟️ Otros Partidos de la jornada
+                            otrosPartidos = state.otrosPartidos,
+                            onSendMatchResult = viewModel::enviarResultadoOtroPartido,
                             modifier = Modifier.fillMaxSize()
                         )
                     }

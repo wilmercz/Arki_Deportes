@@ -1281,4 +1281,58 @@ class FirebaseCatalogRepository(
         awaitClose { ref.removeEventListener(listener) }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────────
+// GESTIÓN DE EQUIPO DE PRODUCCIÓN Y TEXTOS
+// ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Observa el equipo de producción asignado a un campeonato
+     */
+    fun observeEquipoProduccion(campeonatoId: String): Flow<EquipoProduccion> = callbackFlow {
+        val ref = rootReference.child("EquipoProduccion").child("campeonatos").child(campeonatoId)
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val equipo = snapshot.getValue(EquipoProduccion::class.java) ?: EquipoProduccion()
+                trySend(equipo)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    /**
+     * Actualiza un campo específico del equipo de producción
+     */
+    suspend fun actualizarEquipoProduccion(campeonatoId: String, campo: String, valor: Any) {
+        val ref = rootReference.child("EquipoProduccion").child("campeonatos").child(campeonatoId)
+        val updates = mapOf(
+            campo to valor,
+            "timestamp" to ServerValue.TIMESTAMP
+        )
+        ref.updateChildren(updates).await()
+    }
+
+    /**
+     * Obtiene la lista de frases o textos predefinidos para el control rápido
+     * Los textos se leen del propio campeonato.
+     */
+    fun observeTextosPredefinidos(campeonatoId: String): Flow<List<String>> = callbackFlow {
+        val ref = campeonatosReference().child(campeonatoId).child("TEXTOS_PREDEFINIDOS")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val textos = snapshot.children.mapNotNull { it.getValue(String::class.java) }
+                // Si está vacío en el campeonato, enviamos unos por defecto
+                if (textos.isEmpty()) {
+                    trySend(listOf("¡GOOOOOL!", "TARJETA AMARILLA", "CAMBIO EN EL EQUIPO", "FINAL DEL PARTIDO"))
+                } else {
+                    trySend(textos)
+                }
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
 }

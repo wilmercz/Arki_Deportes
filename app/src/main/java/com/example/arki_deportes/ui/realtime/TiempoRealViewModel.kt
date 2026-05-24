@@ -54,49 +54,14 @@ data class TiempoRealUiState(
     val error: String? = null,
     val modoTransmision: Boolean = true,
     val actualizandoFirebase: Boolean = false,
-    /**
-     * Indica si el modo penales está activo
-     * Corresponde a MARCADOR_PENALES en Firebase
-     */
     val penalesActivos: Boolean = false,
-
-    /**
-     * Equipo que INICIÓ la tanda (1 o 2)
-     * Permanente durante toda la tanda
-     * Corresponde a PENALES_INICIA en Firebase
-     */
     val equipoQueInicia: Int = 1,
-
-    /**
-     * Equipo en TURNO actual (1 o 2)
-     * Alterna automáticamente después de cada tiro
-     * Corresponde a PENALES_TURNO en Firebase
-     */
     val equipoEnTurno: Int = 1,
-
-    /**
-     * Número de tanda actual (1, 2, 3...)
-     * Se incrementa en muerte súbita
-     * Corresponde a PENALES_TANDA en Firebase
-     */
     val tandaActual: Int = 1,
-
-    /**
-     * Historial de tiros equipo 1 (tanda actual)
-     * [1, 0, 1...] donde 1=gol, 0=fallo
-     * Corresponde a PENALES_SERIE1 en Firebase
-     */
     val historiaPenales1: List<Int> = emptyList(),
-
-    /**
-     * Historial de tiros equipo 2 (tanda actual)
-     * [1, 1, 0...] donde 1=gol, 0=fallo
-     * Corresponde a PENALES_SERIE2 en Firebase
-     */
     val historiaPenales2: List<Int> = emptyList(),
     val banners: List<BannerResource> = emptyList(),
     val selectedBannerIds: Set<String> = emptySet(),
-    // --- GESTIÓN DE AUDIO ---
     val audios: List<AudioResource> = emptyList(),
     val volumenAudio: Int = 50,
     val audioEstado: String = "STOP", // "PLAY", "STOP", "PAUSE"
@@ -109,7 +74,10 @@ data class TiempoRealUiState(
     val audioDuracionTotal: Long = 0L,
     val tablaPosiciones: List<TablaPosicionesItem> = emptyList(),
     val mostrarTablaPosiciones: Boolean = false,
-    val mostrarComparativa: Boolean = false
+    val mostrarComparativa: Boolean = false,
+    val equipoProduccion: EquipoProduccion = EquipoProduccion(),
+    val otrosPartidos: List<Partido> = emptyList(),
+    val textosPredefinidos: List<String> = emptyList()
 
 )
 
@@ -146,6 +114,9 @@ class TiempoRealViewModel(
         iniciarActualizadorDeTiempo()
         //observarTablaPosiciones()
         observarTablaPosicionesDesdeOverlay()
+        observarEquipoProduccion()
+        observarOtrosPartidos()
+        cargarTextosPredefinidos()
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -267,8 +238,6 @@ class TiempoRealViewModel(
                 }
         }
     }
-
-
 
 
     /**
@@ -2313,6 +2282,45 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             val nuevoEstado = !_uiState.value.mostrarComparativa
             repository.toggleComparativaOverlay(nuevoEstado)
+        }
+    }
+
+
+    private fun observarEquipoProduccion() {
+        viewModelScope.launch {
+            // Observamos el equipo de producción del campeonato actual
+            repository.observeEquipoProduccion(campeonatoId).collect { equipo ->
+                _uiState.update { it.copy(equipoProduccion = equipo) }
+            }
+        }
+    }
+
+    private fun observarOtrosPartidos() {
+        viewModelScope.launch {
+            repository.observePartidos(campeonatoId).collect { partidos ->
+                // Filtramos el partido actual de la lista
+                _uiState.update { it.copy(otrosPartidos = partidos.filter { it.CODIGOPARTIDO != partidoId }) }
+            }
+        }
+    }
+
+    fun enviarResultadoOtroPartido(partido: Partido) {
+        val texto = "RESULTADO: ${partido.EQUIPO1} ${partido.GOLES1} - ${partido.GOLES2} ${partido.EQUIPO2}"
+        enviarInfoAlOverlay(texto)
+    }
+
+    fun actualizarCampoProduccion(campo: String, valor: String) {
+        viewModelScope.launch {
+            repository.actualizarEquipoProduccion(campeonatoId, campo, valor)
+        }
+    }
+
+    private fun cargarTextosPredefinidos() {
+        viewModelScope.launch {
+            // Ahora pasamos el campeonatoId para leer los textos del nodo correcto
+            repository.observeTextosPredefinidos(campeonatoId).collect { textos ->
+                _uiState.update { it.copy(textosPredefinidos = textos) }
+            }
         }
     }
 }
