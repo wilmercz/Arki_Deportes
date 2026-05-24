@@ -343,6 +343,7 @@ fun TiempoRealScreen(
                             tabla = state.tablaPosiciones,
                             mostrarEnWeb = state.mostrarTablaPosiciones,
                             onToggleWeb = viewModel::toggleTablaPosiciones,
+                            onSyncData = viewModel::sincronizarTablaManual,
                             modifier = Modifier.fillMaxSize()
                         )
                     }

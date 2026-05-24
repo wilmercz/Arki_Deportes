@@ -2288,4 +2288,12 @@ class TiempoRealViewModel(
             repository.sincronizarTablaAOverlay(campeonatoId, nuevoEstado)
         }
     }
+
+    // 2. Nueva función para el botón de sincronización manual
+    fun sincronizarTablaManual() {
+        viewModelScope.launch {
+            // 🔄 Esta función SI copia los datos de Campeonatos a PARTIDOACTUAL
+            repository.sincronizarTablaAOverlay(campeonatoId, _uiState.value.mostrarTablaPosiciones)
+        }
+    }
 }
