@@ -359,7 +359,8 @@ fun TiempoRealScreen(
                         )
                         6 -> ProduccionTab(
                             equipo = state.equipoProduccion,
-                            textosPredefinidos = state.textosPredefinidos,
+                            partido = partido,
+                            nombreCampeonato = state.nombreCampeonatoReal,
                             onUpdateProduccion = viewModel::actualizarCampoProduccion,
                             onSendText = viewModel::enviarInfoAlOverlay,
                             modifier = Modifier.fillMaxSize()
