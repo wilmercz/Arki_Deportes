@@ -254,9 +254,7 @@ class TiempoRealViewModel(
             var tickCount = 0
 
             while (true) {
-                delay(1000) // Cada segundo
-                tickCount++
-
+                delay(1000)
                 val partido = _uiState.value.partido
 
                 // ═══════════════════════════════════════════════════════
@@ -2083,27 +2081,24 @@ class TiempoRealViewModel(
         if (texto.isBlank()) return
 
         viewModelScope.launch {
-            // 1. Preparamos el texto con el prefijo
-            val textoFinal = "📍 $texto"
-
-            // 1. Actualización local inmediata para que la App se sienta rápida
+            // 1. Actualización local (ahora guardamos el texto tal cual viene)
             _uiState.update { it.copy(
-                ultimaAccionTexto = textoFinal,
+                ultimaAccionTexto = texto,
                 lowerThirdVisible = true
             ) }
 
-            // 3. Al Overlay Web (PARTIDOACTUAL)
+            // 2. Al Overlay Web (PARTIDOACTUAL)
+            // Enviamos el texto limpio para que la web pueda detectar el separador '|'
             actualizarPartidoActualAccion(
-                texto = textoFinal,
+                texto = texto,
                 rutaAudio = "",
                 visible = true
             )
 
-            // 4. Sincronizar el resto de datos si la transmisión está activa
+            // 3. Sincronizar si la transmisión está activa
             if (_uiState.value.modoTransmision) {
                 sincronizarConOverlay()
             }
-
         }
     }
 

@@ -320,7 +320,7 @@ fun TiempoRealScreen(
                             nombreCampeonato = state.nombreCampeonatoReal,
                             modoTransmision = state.modoTransmision,
                             onToggleTransmision = viewModel::toggleModoTransmision,
-                            onSendInfo = { texto -> viewModel.enviarInfoAlOverlay(texto) },
+                            onSendInfo = { texto -> viewModel.enviarInfoAlOverlay("📍 $texto") },
                             modifier = Modifier.fillMaxSize()
                         )
                         3 -> BotoneraTab(

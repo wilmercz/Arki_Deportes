@@ -47,24 +47,15 @@ fun ProduccionTab(
 
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ProduccionInputField(
-                    label = "Narrador",
-                    value = equipo.narrador,
-                    onValueChange = { onUpdateProduccion("narrador", it) },
-                    onSend = { if (equipo.narrador.isNotBlank()) onSendText("NARRACIÓN: ${equipo.narrador.uppercase()}") }
-                )
-                ProduccionInputField(
-                    label = "Comentarista",
-                    value = equipo.comentarista,
-                    onValueChange = { onUpdateProduccion("comentarista", it) },
-                    onSend = { if (equipo.comentarista.isNotBlank()) onSendText("COMENTARIOS: ${equipo.comentarista.uppercase()}") }
-                )
-                ProduccionInputField(
-                    label = "Borde de Campo",
-                    value = equipo.bordeCampo,
-                    onValueChange = { onUpdateProduccion("bordeCampo", it) },
-                    onSend = { if (equipo.bordeCampo.isNotBlank()) onSendText("BORDE DE CAMPO: ${equipo.bordeCampo.uppercase()}") }
-                )
+                ProduccionInputField("Narrador", equipo.narrador, { onUpdateProduccion("narrador", it) }) {
+                    if (equipo.narrador.isNotBlank()) onSendText("NARRACIÓN | ${equipo.narrador}")
+                }
+                ProduccionInputField("Comentarista", equipo.comentarista, { onUpdateProduccion("comentarista", it) }) {
+                    if (equipo.comentarista.isNotBlank()) onSendText("COMENTARIOS | ${equipo.comentarista}")
+                }
+                ProduccionInputField("Borde de Campo", equipo.bordeCampo, { onUpdateProduccion("bordeCampo", it) }) {
+                    if (equipo.bordeCampo.isNotBlank()) onSendText("BORDE DE CAMPO | ${equipo.bordeCampo}")
+                }
             }
         }
 
@@ -80,93 +71,55 @@ fun ProduccionTab(
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-            ) {
+            Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = customLinea1,
                         onValueChange = { customLinea1 = it },
-                        label = { Text("Línea 1 (Nombre / Título)") },
-                        placeholder = { Text("Ej: JOSE PERALTA") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        label = { Text("Línea 1 (Nombre)") },
+                        placeholder = { Text("Ej: Jose Peralta") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = customLinea2,
                         onValueChange = { customLinea2 = it },
-                        label = { Text("Línea 2 (Descripción)") },
-                        placeholder = { Text("Ej: JUGADOR DEL EQUIPO A") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        label = { Text("Línea 2 (Rol/Equipo)") },
+                        placeholder = { Text("Ej: Jugador de Equipo A") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Button(
                         onClick = {
                             if (customLinea1.isNotBlank()) {
-                                // Concatenamos ambas líneas para el tercio
-                                val textoFinal = if (customLinea2.isNotBlank()) "$customLinea1\n$customLinea2" else customLinea1
-                                onSendText(textoFinal.uppercase())
+                                // Formato exacto para la web: Línea 1 | Línea 2
+                                val textoFinal = if (customLinea2.isNotBlank()) "$customLinea1 | $customLinea2" else customLinea1
+                                onSendText(textoFinal)
                             }
                         },
                         modifier = Modifier.align(Alignment.End),
                         enabled = customLinea1.isNotBlank()
                     ) {
-                        Icon(Icons.Default.Send, null)
-                        Spacer(Modifier.width(8.dp))
                         Text("ENVIAR TERCIO")
                     }
                 }
             }
         }
 
-        // 🏆 SECCIÓN 3: TERCIOS AUTOMÁTICOS DE FINALIZACIÓN
+        // --- SECCIÓN PREMIACIÓN (Solo si el partido terminó) ---
         if (partido?.estaFinalizado() == true) {
-            item {
-                Text(
-                    "PREMIACIÓN",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFFFF9800) // Naranja/Oro
-                )
-            }
-
+            item { Text("PREMIACIÓN", style = MaterialTheme.typography.titleMedium, color = Color(0xFFFF9800)) }
             item {
                 val ganador = when {
                     partido.GOLES1 > partido.GOLES2 -> partido.EQUIPO1
                     partido.GOLES2 > partido.GOLES1 -> partido.EQUIPO2
                     else -> null
                 }
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (ganador != null) {
-                        // Opción Ganador del Partido
-                        OutlinedButton(
-                            onClick = { onSendText("¡FELICIDADES ${ganador.uppercase()}!\nGANADOR DEL ENCUENTRO") },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.EmojiEvents, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Enviar Ganador: $ganador")
-                        }
-
-                        // Opción Campeón del Torneo
-                        Button(
-                            onClick = { onSendText("¡FELICIDADES CAMPEÓN ${ganador.uppercase()}!\n$nombreCampeonato") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700), contentColor = Color.Black)
-                        ) {
-                            Icon(Icons.Default.EmojiEvents, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("ENVIAR CAMPEÓN: ${ganador.uppercase()}", fontWeight = FontWeight.Bold)
-                        }
-                    } else {
-                        // En caso de empate
-                        OutlinedButton(
-                            onClick = { onSendText("FINAL DEL PARTIDO\n$nombreCampeonato") },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Enviar Texto Final")
-                        }
+                if (ganador != null) {
+                    Button(
+                        onClick = { onSendText("¡FELICIDADES CAMPEÓN ${ganador.uppercase()}! | $nombreCampeonato") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700), contentColor = Color.Black)
+                    ) {
+                        Text("ENVIAR CINTILLO DE CAMPEÓN")
                     }
                 }
             }
