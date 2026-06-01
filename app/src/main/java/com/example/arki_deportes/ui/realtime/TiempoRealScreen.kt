@@ -321,6 +321,7 @@ fun TiempoRealScreen(
                             modoTransmision = state.modoTransmision,
                             onToggleTransmision = viewModel::toggleModoTransmision,
                             onSendInfo = { texto -> viewModel.enviarInfoAlOverlay("📍 $texto") },
+                            onGenerateSocialText = viewModel::generarTextoSocial,
                             modifier = Modifier.fillMaxSize()
                         )
                         3 -> BotoneraTab(

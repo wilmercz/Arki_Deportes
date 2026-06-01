@@ -22,7 +22,8 @@ import androidx.core.content.getSystemService
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.util.Log
+import androidx.compose.ui.graphics.Color
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * INFORMACIÓN TAB - SOLO INFO DEL PARTIDO
@@ -35,9 +36,11 @@ fun InformacionTab(
     modoTransmision: Boolean,
     onToggleTransmision: () -> Unit,
     onSendInfo: (String) -> Unit,
+    onGenerateSocialText: () -> Unit, // 👈 Nuevo parámetro
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val tieneTexto = !partido.TEXTOFACEBOOK.isNullOrBlank()
 
     Column(
         modifier = modifier
@@ -51,8 +54,8 @@ fun InformacionTab(
             style = MaterialTheme.typography.titleMedium
         )
 
-        Divider()
-// Usamos nombreCampeonato que viene directo del ViewModel (leído de Firebase)
+        HorizontalDivider()
+
         InfoRow("Campeonato", nombreCampeonato.ifBlank { "No especificado" }) {
             onSendInfo(nombreCampeonato)
         }
@@ -62,68 +65,75 @@ fun InformacionTab(
         InfoRow("Lugar", partido.LUGAR.ifBlank { "No especificado" }) {
             onSendInfo(partido.LUGAR)
         }
-        InfoRow("Fecha", partido.FECHA_PARTIDO ?: "No especificada")
-        InfoRow("Hora", partido.HORA_PARTIDO ?: "No especificada")
+        InfoRow("Fecha", partido.FECHA_PARTIDO.ifBlank { "No especificada" })
+        InfoRow("Hora", partido.HORA_PARTIDO.ifBlank { "No especificada" })
         InfoRow("Etapa", getEtapaTexto(partido.ETAPA))
 
+        HorizontalDivider()
 
-        Divider()
-        Log.d("InformacionTab", "Contenido de TEXTOFACEBOOK: '${partido.TEXTOFACEBOOK}'")
-// Cambiamos la condición para manejar nulos y espacios en blanco de forma más robusta
-        val tieneTexto = !partido.TEXTOFACEBOOK.isNullOrBlank()
-
-        if (tieneTexto) {
-            // ... el resto de tu código de la sección de Redes Sociales
-        } else {
-            // 💡 OPCIONAL: Mostrar un mensaje si está vacío para confirmar que el TAB funciona
-            Text("Sin resumen disponible", style = MaterialTheme.typography.bodySmall)
-        }
-
-
-        // --- SECCIÓN: TEXTO PARA REDES SOCIALES ---
-        if (partido.TEXTOFACEBOOK.isNotBlank()) {
+        // 📱 SECCIÓN: REDES SOCIALES (MEJORADA)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 text = "Resumen para Redes Sociales",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = if (tieneTexto) MaterialTheme.colorScheme.primary else Color.Gray,
                 fontWeight = FontWeight.Bold
             )
+            
+            // Botón para GENERAR si está vacío o se quiere actualizar
+            TextButton(onClick = onGenerateSocialText) {
+                Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(if (tieneTexto) "Regenerar" else "Generar ahora")
+            }
+        }
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            color = if (tieneTexto) 
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) 
+            else 
+                Color.LightGray.copy(alpha = 0.2f),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp, 
+                if (tieneTexto) MaterialTheme.colorScheme.outlineVariant else Color.LightGray
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = partido.TEXTOFACEBOOK,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
+                Text(
+                    text = if (tieneTexto) partido.TEXTOFACEBOOK else "No hay resumen generado para este partido.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (tieneTexto) MaterialTheme.colorScheme.onSurface else Color.Gray,
+                    modifier = Modifier.weight(1f)
+                )
 
-                    IconButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = android.content.ClipData.newPlainText("Resumen Partido", partido.TEXTOFACEBOOK)
-                            clipboard.setPrimaryClip(clip)
-                            Toast.makeText(context, "¡Copiado al portapapeles!", Toast.LENGTH_SHORT).show()
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copiar texto",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                IconButton(
+                    enabled = tieneTexto,
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("Resumen Partido", partido.TEXTOFACEBOOK)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(context, "¡Copiado!", Toast.LENGTH_SHORT).show()
                     }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copiar texto",
+                        tint = if (tieneTexto) MaterialTheme.colorScheme.primary else Color.Gray
+                    )
                 }
             }
         }
 
-        Divider()
+        HorizontalDivider()
 
         // SWITCH DE OVERLAY
         Card(
@@ -200,20 +210,11 @@ private fun InfoRow(
                 )
             }
         }
-
-        // BOTÓN DE ENVÍO (Solo si hay valor y función)
         if (onSend != null && valor != "No especificado") {
             IconButton(onClick = onSend, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Tv,
-                    contentDescription = "Enviar a Overlay",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
+                Icon(Icons.Default.Tv, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
             }
         }
-
-
     }
 }
 

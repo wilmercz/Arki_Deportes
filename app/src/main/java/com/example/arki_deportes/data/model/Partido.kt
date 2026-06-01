@@ -508,7 +508,7 @@ data class Partido(
         return if (diff <= 0) 0 else (diff / 1000L).toInt()
     }
 
-    private fun parseFechaInicioMillis(texto: String): Long? {
+    fun parseFechaInicioMillis(texto: String): Long? {
         val t = texto.trim()
         if (t.isBlank()) return null
 
@@ -682,6 +682,13 @@ data class Partido(
             "OPERADOR" to OPERADOR,
             "timestampAsignacion" to timestampAsignacion,
             "DEPORTE" to DEPORTE,
+            "TEXTOFACEBOOK" to TEXTOFACEBOOK, // 👈 ¡ESTE ERA EL QUE FALTABA!
+            "PROVINCIA" to PROVINCIA,         // 👈 Agregado
+            "ANIO" to ANIO,                   // 👈 Agregado
+            "TRANSMISION" to TRANSMISION,     // 👈 Agregado
+            "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,       // 👈 Agregado
+            "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION, // 👈 Agregado
+            "ORIGEN" to ORIGEN,               // 👈 Agregado
             "CRONO_PAUSA_ACUMULADA" to CRONO_PAUSA_ACUMULADA, // 👈 Añadir estos
             "CRONO_OFFSET" to CRONO_OFFSET,
             "CRONO_EN_PAUSA" to CRONO_EN_PAUSA,
