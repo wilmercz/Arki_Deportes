@@ -2,13 +2,14 @@
 
 package com.example.arki_deportes.ui.realtime.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -90,7 +91,7 @@ fun BotoneraTab(
             .fillMaxSize()
             .padding(8.dp)
     ) {
-        // --- SECCIÓN MÚSICA (Controlador) ---
+
         // --- SECCIÓN SUPERIOR: TABS DE CONTROL ---
         TabRow(
             selectedTabIndex = selectedSubTab,
@@ -109,7 +110,9 @@ fun BotoneraTab(
 
         // --- CONTENIDO VARIABLE DE LAS TABS ---
         Card(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ) {
             when (selectedSubTab) {
@@ -169,7 +172,9 @@ fun BotoneraTab(
                 }
                 1 -> { // PESTAÑA AJUSTES
                     Row(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -204,8 +209,19 @@ fun BotoneraTab(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(musicaAudios) { musica ->
-                OutlinedButton(onClick = { onPlay(musica) }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(16.dp))
+                val isLocal = musica.url.startsWith("content://")
+                OutlinedButton(
+                    onClick = { onPlay(musica) },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, if(isLocal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline)
+                ) {
+                    // 📂 Icono dinámico según origen
+                    Icon(
+                        imageVector = if (isLocal) Icons.Default.Folder else Icons.Default.Cloud,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if(isLocal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
+                    )
                     Spacer(Modifier.width(4.dp))
                     Text(musica.nombre, maxLines = 1, style = MaterialTheme.typography.labelSmall)
                 }
@@ -224,7 +240,9 @@ fun BotoneraTab(
             columns = GridCells.Fixed(3),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.weight(1f).padding(top = 8.dp)
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 8.dp)
         ) {
             items(items = fxAudios) { fx ->
                 val esSistema = fx.id.startsWith("${deporteActual}_FX_") || fx.id.startsWith("FX_")

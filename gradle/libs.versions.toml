@@ -49,6 +49,8 @@ jsoup = "1.16.2"  # Última versión estable de Jsoup
 swiperefresh = "0.31.5-beta"  # Misma versión que accompanist-webview
 reorderable = "0.9.6"
 
+documentfile = "1.1.0"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -64,6 +66,7 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 
 # Firebase
@@ -141,4 +144,3 @@ exoplayer-base = [
     "exoplayer-ui",
 
 ]
-

@@ -295,7 +295,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val viewModel: TiempoRealViewModel = viewModel(
-            factory = TiempoRealViewModelFactory(repository, campeonatoId, partidoId)
+            factory = TiempoRealViewModelFactory(repository, campeonatoId, partidoId, LocalContext.current)
         )
 
         TiempoRealScreen(

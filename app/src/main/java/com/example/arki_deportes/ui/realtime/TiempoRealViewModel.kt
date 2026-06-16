@@ -22,6 +22,11 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.example.arki_deportes.ui.realtime.components.MotorCronometro
 import android.media.MediaPlayer
+import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.documentfile.provider.DocumentFile
+
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -69,7 +74,8 @@ data class TiempoRealUiState(
 class TiempoRealViewModel(
     private val repository: FirebaseCatalogRepository,
     private val campeonatoId: String,
-    private val partidoId: String
+    private val partidoId: String,
+    private val context: Context
 ) : ViewModel() {
 
     private val TAG = "TiempoRealViewModel"
@@ -922,7 +928,63 @@ class TiempoRealViewModel(
     fun enviarPublicidadUnica(b: BannerResource) { viewModelScope.launch { repository.enviarAnuncioUnico(AnuncioPublicidad(b.tipo.lowercase(), when (b.tipo.uppercase()) { "VIDEO" -> b.urlVideo; "HTML" -> b.codigoHtml; else -> b.urlImagen }, 10)) } }
     fun enviarListaSecuencial() { val ids = _uiState.value.selectedBannerIds; if (ids.isEmpty()) return; viewModelScope.launch { val ads = _uiState.value.banners.filter { it.id in ids }.sortedBy { ids.indexOf(it.id) }.map { b -> AnuncioPublicidad(b.tipo.lowercase(), when (b.tipo.uppercase()) { "VIDEO" -> b.urlVideo; "HTML" -> b.codigoHtml; else -> b.urlImagen }, 10) }; repository.enviarListaAnuncios(ads); _uiState.update { it.copy(selectedBannerIds = emptySet()) } } }
     fun ocultarPublicidad() { viewModelScope.launch { repository.ocultarPublicidad() } }
-    private fun observarAudios() { viewModelScope.launch { repository.observeAudios().catch {}.collect { l -> _uiState.update { it.copy(audios = l) } } } }
+
+    private fun observarAudios() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido
+            val deporteActual = partido?.DEPORTE?.uppercase() ?: "GENERAL"
+
+            // 1. Observamos los audios de Firebase (Nube)
+            repository.observeAudios().collect { nubeAudios ->
+
+                // 2. Buscamos si hay una carpeta local vinculada a este deporte
+                val prefs = context.getSharedPreferences("ConfigAudio", Context.MODE_PRIVATE)
+                val folderUriString = prefs.getString("folder_$deporteActual", null)
+
+                val localAudios = if (folderUriString != null) {
+                    try {
+                        scanLocalFolder(Uri.parse(folderUriString), deporteActual)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error escaneando carpeta local: ${e.message}")
+                        emptyList()
+                    }
+                } else emptyList()
+
+                // 3. Mezclamos ambas listas: LOCALES primero + NUBE después
+                // Usamos un set para evitar duplicados por ID si ya se subieron
+                val listaHibrida = (localAudios + nubeAudios).distinctBy { it.nombre + it.deporte }
+
+                _uiState.update { it.copy(audios = listaHibrida) }
+            }
+        }
+    }
+
+    /**
+     * Escanea archivos .mp3 en una carpeta del dispositivo usando SAF
+     */
+    private fun scanLocalFolder(folderUri: Uri, deporte: String): List<AudioResource> {
+        val result = mutableListOf<AudioResource>()
+        try {
+            val rootDoc = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, folderUri)
+            rootDoc?.listFiles()?.forEach { file ->
+                if (file.isFile && (file.name?.endsWith(".mp3", true) == true || file.name?.endsWith(".wav", true) == true)) {
+                    val cleanName = file.name?.substringBeforeLast(".")?.replace(Regex("^[0-9\\s._-]+"), "")?.trim()?.uppercase() ?: "AUDIO"
+
+                    result.add(AudioResource(
+                        id = "LOCAL_${file.name}",
+                        nombre = cleanName,
+                        url = file.uri.toString(), // 👈 La URL es la URI local del archivo
+                        tipo = "MUSICA", // Por defecto tratamos los locales como música/cortinas
+                        categoria = "LOCAL",
+                        deporte = deporte
+                    ))
+                }
+            }
+        } catch (e: Exception) { Log.e(TAG, "Error SAF: ${e.message}") }
+        return result
+    }
+
+
     fun buscarPosicionAudio(ms: Float) { if (_uiState.value.reproduccionLocal) { musicPlayer?.seekTo(ms.toInt()); _uiState.update { it.copy(audioPosicionActual = ms.toLong()) } } }
     fun reproducirAudio(a: AudioResource) { if (_uiState.value.reproduccionLocal) { playLocalAudio(a.url, a.tipo == "MUSICA"); if (a.tipo == "MUSICA") { _uiState.update { it.copy(audioEstado = "PLAY") }; iniciarSeguimientoProgreso() } } else { viewModelScope.launch { if (a.tipo == "MUSICA") { val ref = com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO"); ref.child("URL").setValue(a.url); ref.child("ESTADO").setValue("PLAY"); _uiState.update { it.copy(audioEstado = "PLAY") } } else repository.reproducirAudioEnOverlay(a) } } }
     fun pausarAudio() { if (_uiState.value.reproduccionLocal) musicPlayer?.pause() else com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("ESTADO").setValue("PAUSE"); _uiState.update { it.copy(audioEstado = "PAUSE") } }
