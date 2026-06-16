@@ -2,6 +2,7 @@
 
 package com.example.arki_deportes.ui.realtime.components
 
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -18,6 +19,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.arki_deportes.data.model.AudioResource
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -41,6 +45,10 @@ fun BotoneraTab(
     posicionActual: Long,
     duracionTotal: Long,
     onSeek: (Float) -> Unit,
+    idAudioActual: String?,
+    modoBucle: Boolean,
+    onToggleBucle: () -> Unit,
+    onExplorarCarpeta: (Uri) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // 🔍 Filtramos por deporte y tipo "GENERAL"
@@ -68,6 +76,12 @@ fun BotoneraTab(
 
     var selectedSubTab by remember { mutableIntStateOf(0) }
 
+    // Launcher para el explorador flexible
+    val pickFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri -> uri?.let { onExplorarCarpeta(it) } }
+
+
     fun formatTime(ms: Long): String {
         val totalSeconds = ms / 1000
         val minutes = totalSeconds / 60
@@ -75,7 +89,9 @@ fun BotoneraTab(
         return String.format("%02d:%02d", minutes, seconds)
     }
 
-    Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
+    Column(modifier = modifier
+        .fillMaxSize()
+        .padding(8.dp)) {
 
         // --- TABS DE CONTROL (MANDO / AJUSTES) ---
         TabRow(
@@ -93,12 +109,14 @@ fun BotoneraTab(
         }
 
         Card(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ) {
             when (selectedSubTab) {
                 0 -> { // PESTAÑA REPRODUCTOR
-                    Column(modifier = Modifier.padding(8.dp)) {
+                    Column(modifier = Modifier.padding(5.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -124,6 +142,16 @@ fun BotoneraTab(
                                 )
                                 Text("${volumen}%", style = MaterialTheme.typography.labelSmall)
                             }
+
+                            // --- CONTROLES DE REPRODUCCIÓN (Mando) ---
+                            // Añade un botón para el modo Bucle/Continuo
+                            IconButton(onClick = onToggleBucle) {
+                                Icon(
+                                    imageVector = if (modoBucle) Icons.Default.RepeatOne else Icons.Default.FormatListNumbered,
+                                    tint = if (modoBucle) MaterialTheme.colorScheme.primary else Color.Gray,
+                                    contentDescription = "Modo de reproducción"
+                                )
+                            }
                         }
 
                         if (reproduccionLocal && duracionTotal > 0) {
@@ -148,7 +176,9 @@ fun BotoneraTab(
                 }
                 1 -> { // PESTAÑA AJUSTES
                     Row(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        modifier = Modifier
+                            .padding(10.dp)
+                            .fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -165,7 +195,7 @@ fun BotoneraTab(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        //Spacer(Modifier.height(8.dp))
 
         // --- SECCIÓN MÚSICA CON SELECTOR HÍBRIDO ---
         Row(
@@ -174,20 +204,28 @@ fun BotoneraTab(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "🎵 MÚSICA ($deporteActual)",
+                text = "🎵$deporteActual",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary
             )
 
+
             // Selector LOCAL / NUBE (Chips)
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Botón Explorar (Solo aparece si está en LOCAL)
+                if (origenMusicaSeleccionado == "LOCAL") {
+                    IconButton(onClick = { pickFolderLauncher.launch(null) }) {
+                        Icon(Icons.Default.Folder, "Explorar otra", tint = MaterialTheme.colorScheme.secondary)
+                    }
+                }
+
                 FilterChip(
                     selected = origenMusicaSeleccionado == "LOCAL",
                     onClick = { origenMusicaSeleccionado = "LOCAL" },
                     label = { Text("LOCAL", style = MaterialTheme.typography.labelSmall) },
                     leadingIcon = if (origenMusicaSeleccionado == "LOCAL") {
-                        { Icon(Icons.Default.Folder, null, modifier = Modifier.size(16.dp)) }
+                        { Icon(Icons.Default.Folder, null, modifier = Modifier.size(10.dp)) }
                     } else null
                 )
                 Spacer(Modifier.width(4.dp))
@@ -196,9 +234,10 @@ fun BotoneraTab(
                     onClick = { origenMusicaSeleccionado = "NUBE" },
                     label = { Text("NUBE", style = MaterialTheme.typography.labelSmall) },
                     leadingIcon = if (origenMusicaSeleccionado == "NUBE") {
-                        { Icon(Icons.Default.Cloud, null, modifier = Modifier.size(16.dp)) }
+                        { Icon(Icons.Default.Cloud, null, modifier = Modifier.size(10.dp)) }
                     } else null
                 )
+
             }
         }
 
@@ -229,21 +268,36 @@ fun BotoneraTab(
                     )
                 }
             }
+
+
             items(musicaFiltrada) { musica ->
+                val estaAlAire = musica.id == idAudioActual
                 val isLocal = musica.url.startsWith("content://")
+
                 OutlinedButton(
                     onClick = { onPlay(musica) },
                     modifier = Modifier.fillMaxWidth(),
-                    border = BorderStroke(1.dp, if(isLocal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline)
+                    border = BorderStroke(
+                        width = if(estaAlAire) 2.dp else 1.dp,
+                        color = if(estaAlAire) MaterialTheme.colorScheme.primary else (if(isLocal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline)
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if(estaAlAire) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else Color.Transparent
+                    )
                 ) {
                     Icon(
-                        imageVector = if (isLocal) Icons.Default.Folder else Icons.Default.Cloud,
+                        imageVector = if (estaAlAire) Icons.Default.VolumeUp else (if (isLocal) Icons.Default.Folder else Icons.Default.Cloud),
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = if(isLocal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
+                        tint = if(estaAlAire) MaterialTheme.colorScheme.primary else (if(isLocal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary)
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text(musica.nombre, maxLines = 1, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        text = if(estaAlAire) "• ${musica.nombre}" else musica.nombre,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if(estaAlAire) FontWeight.Bold else FontWeight.Normal
+                    )
                 }
             }
         }
@@ -261,19 +315,30 @@ fun BotoneraTab(
             columns = GridCells.Fixed(3),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.weight(1f).padding(top = 8.dp)
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 8.dp)
         ) {
             items(items = fxAudios) { fx ->
+                val estaAlAire = fx.id == idAudioActual
                 val esSistema = fx.id.startsWith("${deporteActual}_FX_") || fx.id.startsWith("FX_")
+                
                 Button(
                     onClick = { onPlay(fx) },
                     modifier = Modifier.height(54.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (esSistema) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        containerColor = if (estaAlAire) MaterialTheme.colorScheme.error 
+                                         else if (esSistema) MaterialTheme.colorScheme.primary 
+                                         else MaterialTheme.colorScheme.secondary
                     ),
                     shape = MaterialTheme.shapes.medium
                 ) {
-                    Text(fx.nombre, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, maxLines = 2)
+                    Text(
+                        text = if (estaAlAire) "🔊 ${fx.nombre}" else fx.nombre,
+                        textAlign = TextAlign.Center, 
+                        style = MaterialTheme.typography.labelSmall, 
+                        maxLines = 2
+                    )
                 }
             }
         }

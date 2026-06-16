@@ -36,7 +36,9 @@ fun InformacionTab(
     modoTransmision: Boolean,
     onToggleTransmision: () -> Unit,
     onSendInfo: (String) -> Unit,
-    onGenerateSocialText: () -> Unit, // 👈 Nuevo parámetro
+    onGenerateSocialText: () -> Unit,
+    mostrarRedes: Boolean, // 👈 NUEVO
+    onToggleRedes: (Boolean) -> Unit, // 👈 NUEVO
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -68,6 +70,43 @@ fun InformacionTab(
         InfoRow("Fecha", partido.FECHA_PARTIDO.ifBlank { "No especificada" })
         InfoRow("Hora", partido.HORA_PARTIDO.ifBlank { "No especificada" })
         InfoRow("Etapa", getEtapaTexto(partido.ETAPA))
+
+        HorizontalDivider()
+
+        // 🌐 PANEL REDES SOCIALES OVERLAY (NUEVO)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (mostrarRedes) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Icon(
+                        imageVector = if (mostrarRedes) Icons.Default.Public else Icons.Default.PublicOff,
+                        contentDescription = null,
+                        tint = if (mostrarRedes) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("PANEL REDES EN OVERLAY", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (mostrarRedes) "Visible en Web Overlay" else "Oculto en Web Overlay",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Switch(
+                    checked = mostrarRedes,
+                    onCheckedChange = { onToggleRedes(it) }
+                )
+            }
+        }
 
         HorizontalDivider()
 

@@ -47,6 +47,7 @@ data class TiempoRealUiState(
     val lowerThirdVisible: Boolean = true,
     val ultimaAccionTexto: String = "",
     val mostrarPortada: Boolean = false,
+    val mostrarRedes: Boolean = false, // 👈 NUEVO
     val reproduccionLocal: Boolean = true,
     val audioPosicionActual: Long = 0L,
     val audioDuracionTotal: Long = 0L,
@@ -55,7 +56,11 @@ data class TiempoRealUiState(
     val mostrarComparativa: Boolean = false,
     val equipoProduccion: EquipoProduccion = EquipoProduccion(),
     val otrosPartidos: List<Partido> = emptyList(),
-    val textosPredefinidos: List<String> = emptyList()
+    val textosPredefinidos: List<String> = emptyList(),
+    val modoBucle: Boolean = false, // true = repetir canción, false = avanzar a siguiente
+    val idAudioActual: String? = null,
+    val carpetaLocalTemporal: String? = null, // Para el explorador flexible
+
 )
 
 class TiempoRealViewModel(
@@ -74,6 +79,10 @@ class TiempoRealViewModel(
     private val motorCronometro = MotorCronometro()
     private var musicPlayer: MediaPlayer? = null
     private var progressJob: Job? = null
+    private val refreshTrigger = MutableStateFlow(0)
+    private val temporaryFolderUri = MutableStateFlow<String?>(null)
+
+    private var fxPlayer: MediaPlayer? = null // 👈 Para rastrear el FX que suena
 
     init {
         obtenerNombreCampeonato()
@@ -82,6 +91,7 @@ class TiempoRealViewModel(
         observarBanners()
         observarAudios() // 👈 Ahora es reactivo al deporte
         observarPortada()
+        observarRedes() // 👈 NUEVO
         iniciarActualizadorDeTiempo()
         observarTablaPosicionesDesdeOverlay()
         observarEquipoProduccion()
@@ -879,21 +889,28 @@ class TiempoRealViewModel(
         viewModelScope.launch { try { com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").updateChildren(mapOf("PENALES1" to p1, "PENALES2" to p2, "PENALES_INICIA" to ini, "PENALES_TANDA" to tanda, "PENALES_TURNO" to turno, "PENALES_SERIE1" to s1, "PENALES_SERIE2" to s2, "MARCADOR_PENALES" to act)).await() } catch (e: Exception) {} }
     }
 
-    private fun enviarAccionJugada(txt: String, audio: String = "") {
-        viewModelScope.launch {
-            val p = _uiState.value.partido ?: return@launch
-            val esF = p.DEPORTE.equals("FUTBOL", true)
-            val esL = _uiState.value.reproduccionLocal
-            if (esL && audio.isNotBlank()) playLocalAudio(audio, false)
-            val up = mutableMapOf<String, Any>()
-            if (!esL && audio.isNotBlank()) up["ACCION_AUDIO_URL"] = audio
-            if (esF) up["ACCION_JUGADA_MINUTO"] = txt
-            repository.updatePartidoFields(campeonatoId, partidoId, up)
-            val tf = if (esF) txt else ""; val v = if (esF) true else _uiState.value.lowerThirdVisible
-            _uiState.update { it.copy(ultimaAccionTexto = tf, lowerThirdVisible = v) }
-            actualizarPartidoActualAccion(tf, if (esL) "" else audio, v)
-            if (_uiState.value.modoTransmision) sincronizarConOverlay()
+
+    private fun enviarAccionJugada(txt: String, audio: String = "") {viewModelScope.launch {
+        val p = _uiState.value.partido ?: return@launch
+        val esF = p.DEPORTE.equals("FUTBOL", true)
+        val esL = _uiState.value.reproduccionLocal
+
+        if (esL && audio.isNotBlank()) {
+            // Buscamos el recurso completo o creamos uno temporal de tipo FX
+            val audioObj = _uiState.value.audios.find { it.url == audio }
+                ?: AudioResource(id = "TEMP_FX", url = audio, tipo = "FX")
+            playLocalAudio(audioObj)
         }
+
+        val up = mutableMapOf<String, Any>()
+        if (!esL && audio.isNotBlank()) up["ACCION_AUDIO_URL"] = audio
+        if (esF) up["ACCION_JUGADA_MINUTO"] = txt
+        repository.updatePartidoFields(campeonatoId, partidoId, up)
+        val tf = if (esF) txt else ""; val v = if (esF) true else _uiState.value.lowerThirdVisible
+        _uiState.update { it.copy(ultimaAccionTexto = tf, lowerThirdVisible = v) }
+        actualizarPartidoActualAccion(tf, if (esL) "" else audio, v)
+        if (_uiState.value.modoTransmision) sincronizarConOverlay()
+    }
     }
 
     fun toggleLowerThird(v: Boolean) {
@@ -944,36 +961,68 @@ class TiempoRealViewModel(
         }
     }
 
+    // 2. Actualiza observarAudios para incluir la carpeta temporal
     private fun observarAudios() {
         viewModelScope.launch {
-            // Hacemos que la carga sea reactiva al deporte del partido actual
             combine(
                 _uiState.map { it.partido?.DEPORTE }.distinctUntilChanged(),
-                repository.observeAudios()
-            ) { deporte, nubeAudios ->
+                repository.observeAudios(),
+                temporaryFolderUri,
+                refreshTrigger
+            ) { deporte, nubeAudios, tempUri, _ ->
                 val deporteActual = deporte?.uppercase() ?: "GENERAL"
-
                 val prefs = context.getSharedPreferences("ConfigAudio", Context.MODE_PRIVATE)
-                val folderUriString = prefs.getString("folder_$deporteActual", null)
 
-                val localAudios = if (folderUriString != null) {
-                    try {
-                        scanLocalFolder(Uri.parse(folderUriString), deporteActual)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error escaneando carpeta local: ${e.message}")
-                        emptyList()
-                    }
+                // Prioridad: 1. Carpeta Temporal elegida | 2. Carpeta Vinculada al Deporte
+                val folderToScan = tempUri ?: prefs.getString("folder_$deporteActual", null)
+
+                val localAudios = if (folderToScan != null) {
+                    try { scanLocalFolder(Uri.parse(folderToScan), deporteActual) }
+                    catch (e: Exception) { emptyList() }
                 } else emptyList()
 
-                // Mezclamos: LOCALES primero + NUBE después.
-                // Evitamos duplicados comparando nombre, deporte y tipo.
-                (localAudios + nubeAudios).distinctBy { "${it.nombre}_${it.deporte}_${it.tipo}" }
-            }.collect { listaHibrida ->
-                _uiState.update { it.copy(audios = listaHibrida) }
+                (localAudios + nubeAudios).distinctBy { "${it.nombre}_${it.tipo}" }
+            }.collect { lista ->
+                _uiState.update { it.copy(audios = lista) }
             }
         }
     }
 
+    // 3. Lógica de "Siguiente Canción" al terminar
+    private fun configurarMediaPlayer(player: MediaPlayer, audio: AudioResource) {
+        player.setOnCompletionListener {
+            viewModelScope.launch {
+                if (_uiState.value.modoBucle) {
+                    player.start() // Reinicia la misma
+                } else if (audio.tipo == "MUSICA") {
+                    reproducirSiguiente() // Avanza en la lista
+                } else {
+                    detenerAudio() // FX termina y ya
+                }
+            }
+        }
+    }
+
+    fun reproducirSiguiente() {
+        val state = _uiState.value
+        val musicas = state.audios.filter { it.tipo == "MUSICA" } // Aquí podrías filtrar por el origen actual
+        val indexActual = musicas.indexOfFirst { it.id == state.idAudioActual }
+
+        if (indexActual != -1 && indexActual < musicas.size - 1) {
+            reproducirAudio(musicas[indexActual + 1])
+        } else if (musicas.isNotEmpty()) {
+            reproducirAudio(musicas[0]) // Vuelve al principio si quieres que sea infinito
+        }
+    }
+
+    fun setCarpetaTemporal(uri: Uri) {
+        temporaryFolderUri.value = uri.toString()
+        _uiState.update { it.copy(carpetaLocalTemporal = uri.toString()) }
+    }
+
+    fun toggleBucle() {
+        _uiState.update { it.copy(modoBucle = !it.modoBucle) }
+    }
 
     /**
      * Escanea archivos .mp3 en una carpeta del dispositivo usando SAF
@@ -1002,9 +1051,58 @@ class TiempoRealViewModel(
 
 
     fun buscarPosicionAudio(ms: Float) { if (_uiState.value.reproduccionLocal) { musicPlayer?.seekTo(ms.toInt()); _uiState.update { it.copy(audioPosicionActual = ms.toLong()) } } }
-    fun reproducirAudio(a: AudioResource) { if (_uiState.value.reproduccionLocal) { playLocalAudio(a.url, a.tipo == "MUSICA"); if (a.tipo == "MUSICA") { _uiState.update { it.copy(audioEstado = "PLAY") }; iniciarSeguimientoProgreso() } } else { viewModelScope.launch { if (a.tipo == "MUSICA") { val ref = com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO"); ref.child("URL").setValue(a.url); ref.child("ESTADO").setValue("PLAY"); _uiState.update { it.copy(audioEstado = "PLAY") } } else repository.reproducirAudioEnOverlay(a) } } }
+
+    fun reproducirAudio(a: AudioResource) {
+        // 1. Guardamos el ID para resaltar en la UI (Música o FX)
+        _uiState.update { it.copy(idAudioActual = a.id) }
+
+        if (_uiState.value.reproduccionLocal) {
+            playLocalAudio(a) // 👈 Ahora pasamos todo el objeto corregido
+            if (a.tipo == "MUSICA") {
+                _uiState.update { it.copy(audioEstado = "PLAY") }
+                iniciarSeguimientoProgreso()
+            }
+        } else {
+            // Lógica de nube (Overlay)
+            viewModelScope.launch {
+                if (a.tipo == "MUSICA") {
+                    val ref = com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO")
+                    ref.child("URL").setValue(a.url)
+                    ref.child("ESTADO").setValue("PLAY")
+                    _uiState.update { it.copy(audioEstado = "PLAY") }
+                } else repository.reproducirAudioEnOverlay(a)
+            }
+        }
+    }
+
     fun pausarAudio() { if (_uiState.value.reproduccionLocal) musicPlayer?.pause() else com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("ESTADO").setValue("PAUSE"); _uiState.update { it.copy(audioEstado = "PAUSE") } }
-    fun detenerAudio() { if (_uiState.value.reproduccionLocal) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = null; _uiState.update { it.copy(audioPosicionActual = 0, audioDuracionTotal = 0) } } else com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("ESTADO").setValue("STOP"); _uiState.update { it.copy(audioEstado = "STOP") } }
+    fun detenerAudio() {
+        viewModelScope.launch(Dispatchers.Main) {
+            // Detiene Música
+            musicPlayer?.stop()
+            musicPlayer?.release()
+            musicPlayer = null
+
+            // Detiene FX (¡Importante!)
+            fxPlayer?.stop()
+            fxPlayer?.release()
+            fxPlayer = null
+
+            _uiState.update { it.copy(
+                audioEstado = "STOP",
+                audioPosicionActual = 0,
+                audioDuracionTotal = 0,
+                idAudioActual = null
+            ) }
+
+            // Si no es local, avisar a la nube
+            if (!_uiState.value.reproduccionLocal) {
+                com.google.firebase.database.FirebaseDatabase.getInstance()
+                    .getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("ESTADO").setValue("STOP")
+            }
+        }
+    }
+
     fun cambiarVolumen(v: Int) { val vol = v.coerceIn(0, 100); if (_uiState.value.reproduccionLocal) musicPlayer?.setVolume(vol / 100f, vol / 100f) else com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("VOLUMEN").setValue(vol); _uiState.update { it.copy(volumenAudio = vol) } }
     private fun iniciarSeguimientoProgreso() { progressJob?.cancel(); progressJob = viewModelScope.launch { while (true) { musicPlayer?.let { p -> if (p.isPlaying) _uiState.update { it.copy(audioPosicionActual = p.currentPosition.toLong(), audioDuracionTotal = p.duration.toLong()) } }; delay(500) } } }
 
@@ -1034,34 +1132,62 @@ class TiempoRealViewModel(
 
     fun toggleMarcadorFutbol_Basquet(m: Boolean) { _uiState.update { it.copy(marcadorFutbolVisible = m) }; viewModelScope.launch { try { com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child(if (_uiState.value.partido?.DEPORTE == "BASQUET") "MARCADOR_BASQUET" else "MARCADOR_FUTBOL").setValue(m).await() } catch (e: Exception) {} } }
     private fun observarSoloTercio() { viewModelScope.launch { val ref = com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("MOSTRAR_TERCIO"); ref.addValueEventListener(object : com.google.firebase.database.ValueEventListener { override fun onDataChange(s: com.google.firebase.database.DataSnapshot) { _uiState.update { it.copy(lowerThirdVisible = s.getValue(Boolean::class.java) ?: false) } }; override fun onCancelled(e: com.google.firebase.database.DatabaseError) {} }) } }
+    
     fun togglePortada() { viewModelScope.launch { try { com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("MOSTRAR_PORTADA").setValue(!_uiState.value.mostrarPortada).await() } catch (e: Exception) {} } }
     private fun observarPortada() { viewModelScope.launch { val ref = com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("MOSTRAR_PORTADA"); ref.addValueEventListener(object : com.google.firebase.database.ValueEventListener { override fun onDataChange(s: com.google.firebase.database.DataSnapshot) { _uiState.update { it.copy(mostrarPortada = s.getValue(Boolean::class.java) ?: false) } }; override fun onCancelled(e: com.google.firebase.database.DatabaseError) {} }) } }
+
+    fun toggleMostrarRedes(v: Boolean) { viewModelScope.launch { try { com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("Mostrar_Redes").setValue(v).await() } catch (e: Exception) {} } }
+    private fun observarRedes() { viewModelScope.launch { val ref = com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("Mostrar_Redes"); ref.addValueEventListener(object : com.google.firebase.database.ValueEventListener { override fun onDataChange(s: com.google.firebase.database.DataSnapshot) { _uiState.update { it.copy(mostrarRedes = s.getValue(Boolean::class.java) ?: false) } }; override fun onCancelled(e: com.google.firebase.database.DatabaseError) {} }) } }
+
     fun toggleReproduccionLocal(a: Boolean) { _uiState.update { it.copy(reproduccionLocal = a) }; if (!a) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = null } }
 
 
-    private fun playLocalAudio_viejo(u: String, m: Boolean) { if (u.isBlank()) return; viewModelScope.launch(Dispatchers.IO) { try { if (m) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = MediaPlayer().apply { setDataSource(u); prepare(); start(); isLooping = true; setVolume(_uiState.value.volumenAudio/100f, _uiState.value.volumenAudio/100f) } } else MediaPlayer().apply { setDataSource(u); prepare(); start(); setOnCompletionListener { it.release() } } } catch (e: Exception) {} } }
-
-    private fun playLocalAudio(u: String, m: Boolean) {
-        if (u.isBlank()) return
-        viewModelScope.launch(Dispatchers.IO) {
+    private fun playLocalAudio(a: AudioResource) {
+        if (a.url.isBlank()) return
+        viewModelScope.launch(Dispatchers.Main) {
             try {
-                val uri = Uri.parse(u)
-                if (m) { // Si es MUSICA
+                val uri = Uri.parse(a.url)
+                val esMusica = a.tipo == "MUSICA"
+
+                // 1. SIEMPRE detenemos y liberamos el FX anterior si existiera para evitar solapamientos
+                fxPlayer?.stop()
+                fxPlayer?.release()
+                fxPlayer = null
+
+                if (esMusica) {
+                    // Detenemos la música anterior antes de empezar la nueva
                     musicPlayer?.stop()
                     musicPlayer?.release()
+
                     musicPlayer = MediaPlayer().apply {
-                        setDataSource(context, uri) // 👈 CORRECCIÓN: Usa el context y el uri
+                        setDataSource(context, uri)
                         prepare()
                         start()
-                        isLooping = true
                         setVolume(_uiState.value.volumenAudio / 100f, _uiState.value.volumenAudio / 100f)
+                        setOnCompletionListener {
+                            if (_uiState.value.modoBucle) it.start() else reproducirSiguiente()
+                        }
                     }
-                } else { // Si es FX
-                    MediaPlayer().apply {
-                        setDataSource(context, uri) // 👈 CORRECCIÓN: Usa el context y el uri
+                } else {
+                    // Si entra un FX, pausamos o detenemos visualmente el estado de la música
+                    musicPlayer?.stop()
+                    musicPlayer?.release()
+                    musicPlayer = null
+                    _uiState.update { it.copy(audioEstado = "STOP") }
+
+                    fxPlayer = MediaPlayer().apply {
+                        setDataSource(context, uri)
                         prepare()
                         start()
-                        setOnCompletionListener { it.release() }
+                        setVolume(_uiState.value.volumenAudio / 100f, _uiState.value.volumenAudio / 100f)
+                        setOnCompletionListener {
+                            it.release()
+                            if (fxPlayer == it) fxPlayer = null
+                            // Limpiamos el resaltado visual si el FX terminó y no hay nada más
+                            if (_uiState.value.idAudioActual == a.id) {
+                                _uiState.update { s -> s.copy(idAudioActual = null) }
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -1069,6 +1195,7 @@ class TiempoRealViewModel(
             }
         }
     }
+
 
     private fun observarTablaPosicionesDesdeOverlay() { viewModelScope.launch { repository.observeTablaPosicionesOverlay().collect { l -> _uiState.update { it.copy(tablaPosiciones = l) } } }; viewModelScope.launch { repository.observeTablaPosicionesVisible().collect { v -> _uiState.update { it.copy(mostrarTablaPosiciones = v) } } }; viewModelScope.launch { repository.observeComparativaVisible().collect { v -> _uiState.update { it.copy(mostrarComparativa = v) } } } }
     fun toggleTablaPosiciones() { viewModelScope.launch { repository.toggleVisibilidadTablaOverlay(!_uiState.value.mostrarTablaPosiciones) } }

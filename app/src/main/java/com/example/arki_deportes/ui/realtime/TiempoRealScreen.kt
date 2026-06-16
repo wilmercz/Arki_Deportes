@@ -29,14 +29,11 @@ fun TiempoRealScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
-// 💡 Estado para controlar el diálogo de confirmación de desincronización
     var showConfirmDesync by remember { mutableStateOf(false) }
     var showConfirmFinalizar by remember { mutableStateOf(false) }
 
-    // 🎯 Estado para el acordeón del Cronómetro
     var isCronometroExpanded by remember { mutableStateOf(true) }
 
-    // 🔄 Efecto: Colapsar cronómetro y cambiar tab al activar penales
     LaunchedEffect(state.penalesActivos) {
         if (state.penalesActivos) {
             isCronometroExpanded = false
@@ -45,20 +42,17 @@ fun TiempoRealScreen(
         }
     }
 
-
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Control de Partido") },
+                title = { Text("Control") },
                 navigationIcon = {
-                    // Ponemos el menú a la izquierda para acceso rápido
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Default.Menu, "Abrir menú")
                     }
                 },
                 actions = {
-                    // 🖼️ NUEVO BOTÓN: PORTADA
                     IconButton(onClick = viewModel::togglePortada) {
                         Icon(
                             imageVector = if (state.mostrarPortada) Icons.Default.CoPresent else Icons.Default.PictureInPicture,
@@ -69,10 +63,9 @@ fun TiempoRealScreen(
 
                     IconButton(
                         onClick = {
-                            if (state.modoTransmision) { // Si está activo, pedimos confirmación
+                            if (state.modoTransmision) {
                                 showConfirmDesync = true
                             } else {
-                                // Si está apagado, lo encendemos directamente
                                 viewModel.toggleModoTransmision()
                             }
                         }
@@ -83,15 +76,13 @@ fun TiempoRealScreen(
                             tint = if (state.modoTransmision) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     }
-                    // ✅ NUEVO BOTÓN: FINALIZAR (Icono de salida)
                     IconButton(onClick = { showConfirmFinalizar = true }) {
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
                             contentDescription = "Finalizar y Liberar",
-                            tint = MaterialTheme.colorScheme.error // Rojo
+                            tint = MaterialTheme.colorScheme.error
                         )
                     }
-                    // Mantenemos el volver como una acción a la derecha
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Volver")
                     }
@@ -107,9 +98,6 @@ fun TiempoRealScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             state.partido?.let { partido ->
-                // ═══════════════════════════════════════════════════════
-                // PANEL 1: CRONÓMETRO (Compacto con Tabs)
-                // ═══════════════════════════════════════════════════════
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -117,29 +105,27 @@ fun TiempoRealScreen(
                     )
                 ) {
                     Column {
-                        // Cabecera del Acordeón
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { isCronometroExpanded = !isCronometroExpanded }
-                                .padding(12.dp),
+                                .padding(8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                 Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(4.dp))
                                 Text("CONTROL DE TIEMPO", fontWeight = FontWeight.Bold)
                             }
 
-                            // 🔥 TIEMPO VISIBLE CUANDO ESTÁ COLAPSADO
                             if (!isCronometroExpanded) {
                                 Text(
                                     text = state.tiempoActual,
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Black,
                                     color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp)
                                 )
                             }
 
@@ -149,7 +135,6 @@ fun TiempoRealScreen(
                             )
                         }
 
-                        // Contenido del Panel (Animado)
                         AnimatedVisibility(
                             visible = isCronometroExpanded,
                             enter = expandVertically(),
@@ -170,10 +155,6 @@ fun TiempoRealScreen(
                     }
                 }
 
-
-                // ═══════════════════════════════════════════════════════
-                // PANEL 2: MARCADOR (Siempre visible, minimalista)
-                // ═══════════════════════════════════════════════════════
                 MarcadorPanel(
                     equipo1 = partido.EQUIPO1,
                     equipo2 = partido.EQUIPO2,
@@ -184,70 +165,65 @@ fun TiempoRealScreen(
                 )
 
                 // ═══════════════════════════════════════════════════════
-                // PANEL 3: TABS COMBINADAS (Resto del espacio)
+                // --- SISTEMA DE TABS DINÁMICO ---
                 // ═══════════════════════════════════════════════════════
-                var selectedTab by remember { mutableStateOf(0) }
+                val isFutbol = partido.DEPORTE.equals("FUTBOL", true)
+                val availableTabs = remember(isFutbol) {
+                    listOfNotNull(
+                        "CONTROLES",
+                        if (isFutbol) "PENALES" else null,
+                        "INFO",
+                        "AUDIO",
+                        "PUB",
+                        "TABLA",
+                        "PRODUCCION",
+                        "PARTIDOS"
+                    )
+                }
+                
+                var selectedTabIndex by remember { mutableIntStateOf(0) }
+                
+                LaunchedEffect(availableTabs) {
+                    if (selectedTabIndex >= availableTabs.size) {
+                        selectedTabIndex = 0
+                    }
+                }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     ScrollableTabRow(
-                        selectedTabIndex = selectedTab,
-                        edgePadding = 8.dp, // Espacio al inicio
+                        selectedTabIndex = selectedTabIndex,
+                        edgePadding = 4.dp,
                         containerColor = MaterialTheme.colorScheme.surface,
-                        divider = {} // Quitamos la línea de fondo si prefieres
+                        divider = {}
                     ) {
-                        Tab(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            text = {
-                                val icon = if (partido.DEPORTE == "BASQUET") "🏀" else "⚽"
-                                val label = if (partido.DEPORTE == "BASQUET") "Puntos" else "Controles"
-                                Text("$icon $label")
-                            }
-                        )
-                        Tab(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            text = { Text("🎯 Penales") }  // ← NUEVO
-                        )
-
-                        Tab(
-                            selected = selectedTab == 2,
-                            onClick = { selectedTab = 2 },
-                            text = { Text("ℹ️ Info") }
-                        )
-                        Tab(
-                            selected = selectedTab == 3,
-                            onClick = { selectedTab = 3 },
-                            text = { Text("🎵 Audio") }
-                        )
-                        Tab(
-                            selected = selectedTab == 4,
-                            onClick = { selectedTab = 4 },
-                            text = { Text("📢 Pub") }
-                        )
-                        Tab(
-                            selected = selectedTab == 5,
-                            onClick = { selectedTab = 5 },
-                            text = { Text("📊 Tabla") }
-                        )
-                        Tab(
-                            selected = selectedTab == 6,
-                            onClick = { selectedTab = 6 },
-                            text = { Text("🎬 Producción") }
-                        )
-                        Tab(
-                            selected = selectedTab == 7,
-                            onClick = { selectedTab = 7 },
-                            text = { Text("⚽ Partidos") }
-                        )
+                        availableTabs.forEachIndexed { index, tabKey ->
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                text = {
+                                    when (tabKey) {
+                                        "CONTROLES" -> {
+                                            val icon = if (partido.DEPORTE == "BASQUET") "🏀" else "⚽"
+                                            val label = if (partido.DEPORTE == "BASQUET") "Puntos" else "Controles"
+                                            Text("$icon $label")
+                                        }
+                                        "PENALES" -> Text("🎯 Penales")
+                                        "INFO" -> Text("ℹ️ Info")
+                                        "AUDIO" -> Text("🎵 Audio")
+                                        "PUB" -> Text("📢 Pub")
+                                        "TABLA" -> Text("📊 Tabla")
+                                        "PRODUCCION" -> Text("🎬 Producción")
+                                        "PARTIDOS" -> Text("⚽ Partidos")
+                                    }
+                                }
+                            )
+                        }
                     }
 
-                    when (selectedTab) {
-                        0 -> ControlPartidoTab(
+                    val currentTab = availableTabs.getOrNull(selectedTabIndex) ?: "CONTROLES"
+                    
+                    when (currentTab) {
+                        "CONTROLES" -> ControlPartidoTab(
                             equipo1 = partido.EQUIPO1,
                             equipo2 = partido.EQUIPO2,
                             deporte = partido.DEPORTE,
@@ -281,50 +257,40 @@ fun TiempoRealScreen(
                             onToggleLowerThird = viewModel::toggleLowerThird,
                             modifier = Modifier.fillMaxSize()
                         )
-                        1 -> PenalesTab(
+                        "PENALES" -> PenalesTab(
                             partido = partido,
-
-                            // Estado de penales
                             penalesActivos = state.penalesActivos,
                             equipoQueInicia = state.equipoQueInicia,
                             equipoEnTurno = state.equipoEnTurno,
                             tandaActual = state.tandaActual,
                             historiaPenales1 = state.historiaPenales1,
                             historiaPenales2 = state.historiaPenales2,
-
-                            // Callbacks de activación/desactivación
-                            onActivarPenales = viewModel::activarPenales,  // ← Recibe equipoInicia: Int
+                            onActivarPenales = viewModel::activarPenales,
                             onDesactivarPenales = viewModel::desactivarPenales,
-
-                            // Callbacks de configuración
                             onCambiarEquipoInicia = viewModel::cambiarEquipoInicia,
                             onCambiarTurno = viewModel::cambiarTurno,
-
-                            // Callbacks de registro de tiros
                             onAnotarGol = viewModel::anotarGolPenal,
                             onAnotarFallo = viewModel::anotarFalloPenal,
-
-                            // Callbacks de corrección manual
                             onAgregarPenalEquipo1 = viewModel::agregarPenalManualEquipo1,
                             onRestarPenalEquipo1 = viewModel::restarPenalManualEquipo1,
                             onAgregarPenalEquipo2 = viewModel::agregarPenalManualEquipo2,
                             onRestarPenalEquipo2 = viewModel::restarPenalManualEquipo2,
-
-                            // Callback de nueva tanda
                             onNuevaTanda = viewModel::nuevaTandaPenales,
                             onFinalizarPenales = viewModel::finalizarYResetearPenales,
                             modifier = Modifier.fillMaxSize()
                         )
-                        2 -> InformacionTab(
+                        "INFO" -> InformacionTab(
                             partido = partido,
                             nombreCampeonato = state.nombreCampeonatoReal,
                             modoTransmision = state.modoTransmision,
                             onToggleTransmision = viewModel::toggleModoTransmision,
                             onSendInfo = { texto -> viewModel.enviarInfoAlOverlay("📍 $texto") },
                             onGenerateSocialText = viewModel::generarTextoSocial,
+                            mostrarRedes = state.mostrarRedes, // 👈 NUEVO
+                            onToggleRedes = viewModel::toggleMostrarRedes, // 👈 NUEVO
                             modifier = Modifier.fillMaxSize()
                         )
-                        3 -> BotoneraTab(
+                        "AUDIO" -> BotoneraTab(
                             audios = state.audios,
                             volumen = state.volumenAudio,
                             estado = state.audioEstado,
@@ -338,9 +304,13 @@ fun TiempoRealScreen(
                             posicionActual = state.audioPosicionActual,
                             duracionTotal = state.audioDuracionTotal,
                             onSeek = viewModel::buscarPosicionAudio,
+                            idAudioActual = state.idAudioActual,
+                            modoBucle = state.modoBucle,
+                            onToggleBucle = viewModel::toggleBucle,
+                            onExplorarCarpeta = viewModel::setCarpetaTemporal,
                             modifier = Modifier.fillMaxSize()
                         )
-                        4 -> PublicidadTab(
+                        "PUB" -> PublicidadTab(
                             banners = state.banners,
                             selectedIds = state.selectedBannerIds,
                             onToggle = viewModel::toggleBannerSelection,
@@ -349,16 +319,16 @@ fun TiempoRealScreen(
                             onHide = viewModel::ocultarPublicidad,
                             modifier = Modifier.fillMaxSize()
                         )
-                        5 -> TablaPosicionesTab(
+                        "TABLA" -> TablaPosicionesTab(
                             tabla = state.tablaPosiciones,
                             mostrarEnWeb = state.mostrarTablaPosiciones,
                             onToggleWeb = viewModel::toggleTablaPosiciones,
                             onSyncData = viewModel::sincronizarTablaManual,
-                            mostrarComparativa = state.mostrarComparativa, // 👈 Pasar estado
-                            onToggleComparativa = viewModel::toggleComparativa, // 👈 Pasar acción
+                            mostrarComparativa = state.mostrarComparativa,
+                            onToggleComparativa = viewModel::toggleComparativa,
                             modifier = Modifier.fillMaxSize()
                         )
-                        6 -> ProduccionTab(
+                        "PRODUCCION" -> ProduccionTab(
                             equipo = state.equipoProduccion,
                             partido = partido,
                             nombreCampeonato = state.nombreCampeonatoReal,
@@ -367,7 +337,7 @@ fun TiempoRealScreen(
                             onForzarGanador = viewModel::forzarCalculoGanador,
                             modifier = Modifier.fillMaxSize()
                         )
-                        7 -> OtrosPartidosTab( // 🏟️ Otros Partidos de la jornada
+                        "PARTIDOS" -> OtrosPartidosTab(
                             otrosPartidos = state.otrosPartidos,
                             onSendMatchResult = viewModel::enviarResultadoOtroPartido,
                             modifier = Modifier.fillMaxSize()
@@ -376,7 +346,6 @@ fun TiempoRealScreen(
                 }
             }
 
-            // Loading/Error
             if (state.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.padding(16.dp))
             }
@@ -390,8 +359,6 @@ fun TiempoRealScreen(
             }
         }
 
-
-        // ⚠️ DIÁLOGO DE CONFIRMACIÓN PARA FINALIZAR/LIBERAR
         if (showConfirmFinalizar) {
             AlertDialog(
                 onDismissRequest = { showConfirmFinalizar = false },
@@ -416,7 +383,6 @@ fun TiempoRealScreen(
             )
         }
 
-        // ⚠️ DIÁLOGO DE CONFIRMACIÓN PARA DESACTIVAR SINCRONIZACIÓN
         if (showConfirmDesync) {
             AlertDialog(
                 onDismissRequest = { showConfirmDesync = false },
@@ -440,6 +406,5 @@ fun TiempoRealScreen(
                 }
             )
         }
-
     }
 }
