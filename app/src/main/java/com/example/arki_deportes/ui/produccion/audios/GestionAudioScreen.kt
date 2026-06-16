@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.documentfile.provider.DocumentFile
 import com.example.arki_deportes.data.model.AudioResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,15 +31,15 @@ fun GestionAudioScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showSelectSportForFolderDialog by remember { mutableStateOf<Uri?>(null) }
 
-    // 📂 Launcher para vincular carpeta local (SAF DocumentTree)
-    // El usuario elige una carpeta (ej: "FUTBOL") y la app guardará el permiso persistente
+    val deportes = listOf("FUTBOL", "BASQUET", "AUTOMOVILISMO", "CICLISMO", "GENERAL")
+
+    // 📂 Launcher para vincular carpeta local persistente
     val folderLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
-        // Aquí podrías abrir otro diálogo para preguntar a qué DEPORTE asociar la carpeta
-        // Por simplicidad, usaremos un diálogo rápido o asumiremos el deporte actual
-        uri?.let { viewModel.vincularCarpetaLocal("FUTBOL", it) } 
+        uri?.let { showSelectSportForFolderDialog = it } 
     }
 
     Scaffold(
@@ -50,7 +52,6 @@ fun GestionAudioScreen(
                     }
                 },
                 actions = {
-                    // 📁 BOTÓN NUEVO: Vincular Carpeta del Dispositivo
                     IconButton(onClick = { folderLauncher.launch(null) }) {
                         Icon(Icons.Default.FolderSpecial, contentDescription = "Vincular Carpeta Local")
                     }
@@ -67,7 +68,6 @@ fun GestionAudioScreen(
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     
-                    // 📁 SECCIÓN NUEVA: Carpetas vinculadas
                     if (uiState.carpetasVinculadas.isNotEmpty()) {
                         item {
                             Surface(color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
@@ -78,13 +78,43 @@ fun GestionAudioScreen(
                                 )
                             }
                         }
-                        items(uiState.carpetasVinculadas.toList()) { (deporte, uri) ->
+                        items(uiState.carpetasVinculadas.toList()) { (deporte, uriString) ->
+                            val uri = Uri.parse(uriString)
                             ListItem(
-                                headlineContent = { Text("Carpeta $deporte") },
-                                supportingContent = { Text(uri, maxLines = 1) },
-                                leadingContent = { Icon(Icons.Default.Folder, null) }
+                                headlineContent = { Text("Deporte: $deporte") },
+                                supportingContent = { Text(uri.path ?: uriString, maxLines = 1) },
+                                leadingContent = { Icon(Icons.Default.Folder, null, tint = MaterialTheme.colorScheme.primary) },
+                                trailingContent = {
+                                    Row {
+                                        // Selector de deporte para cambiar vinculación rápida
+                                        var expanded by remember { mutableStateOf(false) }
+                                        Box {
+                                            IconButton(onClick = { expanded = true }) {
+                                                Icon(Icons.Default.SwapHoriz, contentDescription = "Cambiar Deporte")
+                                            }
+                                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                                deportes.forEach { d ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(d) },
+                                                        onClick = {
+                                                            viewModel.vincularCarpetaLocal(d, uri)
+                                                            if (d != deporte) {
+                                                                viewModel.desvincularCarpetaLocal(deporte)
+                                                            }
+                                                            expanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        IconButton(onClick = { viewModel.desvincularCarpetaLocal(deporte) }) {
+                                            Icon(Icons.Default.LinkOff, contentDescription = "Desvincular", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
                             )
                         }
+                        item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
                     }
 
                     val grouped = uiState.audios.groupBy { it.tipo }
@@ -115,7 +145,7 @@ fun GestionAudioScreen(
             if (uiState.isUploading) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -123,12 +153,41 @@ fun GestionAudioScreen(
                     ) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
-                        // 🎯 Mostramos el progreso masivo
-                        Text("Subiendo archivos (${uiState.uploadProgress})...")
+                        Text("Subiendo archivos (${uiState.uploadProgress})...", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
+    }
+
+    // Dialogo para elegir deporte al vincular nueva carpeta
+    showSelectSportForFolderDialog?.let { uri ->
+        var selectedDep by remember { mutableStateOf("GENERAL") }
+        AlertDialog(
+            onDismissRequest = { showSelectSportForFolderDialog = null },
+            title = { Text("Vincular Carpeta") },
+            text = {
+                Column {
+                    Text("Selecciona el deporte para esta carpeta:")
+                    Spacer(Modifier.height(8.dp))
+                    deportes.forEach { dep ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = selectedDep == dep, onClick = { selectedDep = dep })
+                            Text(dep)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.vincularCarpetaLocal(selectedDep, uri)
+                    showSelectSportForFolderDialog = null
+                }) { Text("Vincular") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSelectSportForFolderDialog = null }) { Text("Cancelar") }
+            }
+        )
     }
 
     if (showAddDialog) {
@@ -192,7 +251,6 @@ fun AddAudioDialog(
     var deporte by remember { mutableStateOf("FUTBOL") }
     var customId by remember { mutableStateOf<String?>(null) }
 
-    // Catálogo de FX sugeridos por deporte
     val sugerenciasFX = mapOf(
         "FUTBOL" to listOf(
             "ESQUINA" to "FUTBOL_FX_ESQUINA",
@@ -213,37 +271,47 @@ fun AddAudioDialog(
         )
     )
 
-    // 🎯 CAMBIADO A: GetMultipleContents() para subida masiva
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
+    val fileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
         selectedUris = uris
         if (uris.size == 1) {
-            // Lógica de nombre inteligente para un solo archivo
             val cursor = context.contentResolver.query(uris[0], null, null, null, null)
             cursor?.use { c ->
                 val nameIndex = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (c.moveToFirst()) {
-                    val fullPath = c.getString(nameIndex)
-                    val realFileName = fullPath.substringBeforeLast(".")
-                    if (categoria.isBlank() || (tipo == "MUSICA" && categoria.startsWith("MUSICA_"))) {
-                        categoria = realFileName
-                    }
+                    val realFileName = c.getString(nameIndex).substringBeforeLast(".")
+                    if (categoria.isBlank()) categoria = realFileName
                 }
             }
         }
     }
 
+    val folderUploadLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { treeUri ->
+            val folderFiles = mutableListOf<Uri>()
+            val rootDoc = DocumentFile.fromTreeUri(context, treeUri)
+            rootDoc?.listFiles()?.forEach { file ->
+                val name = file.name?.lowercase() ?: ""
+                if (file.isFile && (name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".m4a") || name.endsWith(".ogg"))) {
+                    folderFiles.add(file.uri)
+                }
+            }
+            selectedUris = folderFiles
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Subir Audios") },
+        title = { Text("Preparar Subida") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 1. Selección de Deporte
-                Text("Deporte:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text("Deporte:", style = MaterialTheme.typography.labelLarge)
                 val deportes = listOf("FUTBOL", "BASQUET", "AUTOMOVILISMO", "CICLISMO", "GENERAL")
                 var expandedDep by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
@@ -267,30 +335,21 @@ fun AddAudioDialog(
                     }
                 }
 
-                // 2. Selección de Tipo
-                Text("Tipo:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = tipo == "FX", onClick = { tipo = "FX"; customId = null; categoria = "" })
-                    Text("FX")
+                    Text("Efecto (FX)")
                     Spacer(modifier = Modifier.width(16.dp))
                     RadioButton(selected = tipo == "MUSICA", onClick = { tipo = "MUSICA"; customId = null; categoria = "" })
                     Text("Música")
                 }
 
-                // 3. Botones Rápidos si es FX y solo un archivo
                 if (tipo == "FX" && selectedUris.size <= 1) {
                     Text("Acciones Rápidas:", style = MaterialTheme.typography.labelMedium)
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         sugerenciasFX[deporte]?.forEach { (label, id) ->
                             FilterChip(
                                 selected = customId == id,
-                                onClick = { 
-                                    customId = id
-                                    categoria = label
-                                },
+                                onClick = { customId = id; categoria = label },
                                 label = { Text(label) }
                             )
                         }
@@ -300,34 +359,44 @@ fun AddAudioDialog(
                 OutlinedTextField(
                     value = categoria,
                     onValueChange = { categoria = it },
-                    label = { Text(if(selectedUris.size > 1) "Categoría para el lote" else "Nombre / Categoría") },
-                    placeholder = { Text("Ej: Musica de Ambiente") },
+                    label = { Text(if(selectedUris.size > 1) "Categoría (para el lote)" else "Nombre / Categoría") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 4. Selección de Archivos
                 Divider()
-                Button(
-                    onClick = { launcher.launch("audio/*") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                ) {
-                    Icon(Icons.Default.AudioFile, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (selectedUris.isEmpty()) "Seleccionar Archivos" else "${selectedUris.size} archivos elegidos")
+                Text("Seleccionar Origen:", style = MaterialTheme.typography.labelLarge)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { fileLauncher.launch(arrayOf("audio/*")) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.AudioFile, null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Archivos")
+                    }
+                    Button(
+                        onClick = { folderUploadLauncher.launch(null) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.DriveFolderUpload, null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Carpeta")
+                    }
+                }
+
+                if (selectedUris.isNotEmpty()) {
+                    Text("${selectedUris.size} archivos seleccionados", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         },
         confirmButton = {
-            TextButton(
-                enabled = selectedUris.isNotEmpty() && (categoria.isNotBlank() || selectedUris.size > 1),
-                onClick = { onConfirm(selectedUris, tipo, categoria, deporte, customId) }
-            ) {
-                Text("SUBIR TODO", fontWeight = FontWeight.Bold)
-            }
+            Button(
+                onClick = { onConfirm(selectedUris, tipo, categoria, deporte, customId) },
+                enabled = selectedUris.isNotEmpty() && categoria.isNotBlank()
+            ) { Text("Subir Todo") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("CANCELAR") }
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
 }

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import android.provider.OpenableColumns
 import android.util.Log
+
 data class AudioUiState(
     val audios: List<AudioResource> = emptyList(),
     val isLoading: Boolean = false,
@@ -48,11 +49,9 @@ class GestionAudioViewModel(
     }
 
     private fun cargarConfiguracionCarpetas() {
-        // En el futuro esto puede venir de Firebase por usuario, 
-        // por ahora usamos SharedPreferences para persistencia local
         val prefs = context.getSharedPreferences("ConfigAudio", Context.MODE_PRIVATE)
         val vinculados = mutableMapOf<String, String>()
-        listOf("FUTBOL", "BASQUET", "AUTOMOVILISMO", "GENERAL").forEach { dep ->
+        listOf("FUTBOL", "BASQUET", "AUTOMOVILISMO", "CICLISMO", "GENERAL").forEach { dep ->
             prefs.getString("folder_$dep", null)?.let { uri ->
                 vinculados[dep] = uri
             }
@@ -62,14 +61,26 @@ class GestionAudioViewModel(
 
     fun vincularCarpetaLocal(deporte: String, uri: Uri) {
         viewModelScope.launch {
-            // Persistir permiso de acceso a la carpeta
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            
+            try {
+                // Persistir permiso de acceso a la carpeta
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                
+                val prefs = context.getSharedPreferences("ConfigAudio", Context.MODE_PRIVATE)
+                prefs.edit().putString("folder_$deporte", uri.toString()).apply()
+                cargarConfiguracionCarpetas()
+            } catch (e: Exception) {
+                Log.e("GestionAudioVM", "Error al vincular carpeta: ${e.message}")
+            }
+        }
+    }
+
+    fun desvincularCarpetaLocal(deporte: String) {
+        viewModelScope.launch {
             val prefs = context.getSharedPreferences("ConfigAudio", Context.MODE_PRIVATE)
-            prefs.edit().putString("folder_$deporte", uri.toString()).apply()
+            prefs.edit().remove("folder_$deporte").apply()
             cargarConfiguracionCarpetas()
         }
     }
@@ -86,11 +97,9 @@ class GestionAudioViewModel(
                 try {
                     _uiState.update { it.copy(uploadProgress = "${index + 1}/${uris.size}") }
                     
-                    // Obtener nombre del archivo y limpiarlo
                     val rawName = getFileNameFromUri(uri) ?: "Audio_${System.currentTimeMillis()}"
                     val cleanName = cleanAudioName(rawName)
                     
-                    // Si es lote, la categoría es el nombre del archivo si categoriaBase está vacía
                     val finalCat = if (uris.size > 1 && categoriaBase.isBlank()) cleanName else categoriaBase
 
                     val downloadUrl = cloudinaryUploader.uploadAudioFile(uri, cleanName)
@@ -122,14 +131,7 @@ class GestionAudioViewModel(
     }
 
     private fun cleanAudioName(name: String): String {
-        // Quita números iniciales tipo "01 ", "12.", etc y espacios
         return name.replace(Regex("^[0-9\\s._-]+"), "").trim().uppercase()
-    }
-
-    // --- MANTENEMOS FUNCIONES ORIGINALES ---
-
-    fun uploadAudio(uri: Uri, fileName: String, tipo: String, categoria: String, deporte: String, customId: String? = null) {
-        uploadAudiosMasivo(listOf(uri), tipo, categoria, deporte, customId)
     }
 
     fun deleteAudio(audioId: String) {
