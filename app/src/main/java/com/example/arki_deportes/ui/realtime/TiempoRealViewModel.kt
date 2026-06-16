@@ -10,11 +10,7 @@ import com.example.arki_deportes.data.model.*
 import com.example.arki_deportes.data.repository.FirebaseCatalogRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.example.arki_deportes.data.context.UsuarioContext
 import kotlinx.coroutines.Dispatchers
@@ -27,15 +23,6 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
 
-
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * TIEMPO REAL VIEW MODEL
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * ViewModel para control de partido en tiempo real
- * Replica la funcionalidad de VB.NET FrmControl
- */
 data class TiempoRealUiState(
     val marcadorFutbolVisible: Boolean = true,
     val nombreCampeonatoReal: String = "",
@@ -93,7 +80,7 @@ class TiempoRealViewModel(
         observarPartido()
         observarSoloTercio()
         observarBanners()
-        observarAudios()
+        observarAudios() // 👈 Ahora es reactivo al deporte
         observarPortada()
         iniciarActualizadorDeTiempo()
         observarTablaPosicionesDesdeOverlay()
@@ -122,8 +109,6 @@ class TiempoRealViewModel(
 
                         val fPlay = partido.FECHA_PLAY
                         if (fPlay != null && fPlay != "") {
-
-                            // 🔥 CORRECCIÓN CRÍTICA: FECHA_PLAY puede venir como Long (ms) o String (fecha formateada)
                             val inicioMillis = when (fPlay) {
                                 is Long -> fPlay
                                 is Number -> fPlay.toLong()
@@ -351,14 +336,14 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
             _uiState.update { it.copy(actualizandoFirebase = true) }
-            
+
             partido.calcularGanadorFinal()?.let { ganador ->
                 val updates = mapOf(
                     "NOMBREGANADOR" to ganador.nombre,
                     "CODIGOGANADOR" to ganador.codigo,
-                    "ESTADO" to 1 
+                    "ESTADO" to 1
                 )
-                
+
                 repository.updatePartidoFields(campeonatoId, partidoId, updates).onSuccess {
                     prepararTextosProduccionGanador(partido, ganador)
                     repository.publicarEnPartidosJugandose(partido.copy(ESTADO = 1))
@@ -929,7 +914,7 @@ class TiempoRealViewModel(
     fun enviarListaSecuencial() { val ids = _uiState.value.selectedBannerIds; if (ids.isEmpty()) return; viewModelScope.launch { val ads = _uiState.value.banners.filter { it.id in ids }.sortedBy { ids.indexOf(it.id) }.map { b -> AnuncioPublicidad(b.tipo.lowercase(), when (b.tipo.uppercase()) { "VIDEO" -> b.urlVideo; "HTML" -> b.codigoHtml; else -> b.urlImagen }, 10) }; repository.enviarListaAnuncios(ads); _uiState.update { it.copy(selectedBannerIds = emptySet()) } } }
     fun ocultarPublicidad() { viewModelScope.launch { repository.ocultarPublicidad() } }
 
-    private fun observarAudios() {
+    private fun observarAudios_viejo() {
         viewModelScope.launch {
             val partido = _uiState.value.partido
             val deporteActual = partido?.DEPORTE?.uppercase() ?: "GENERAL"
@@ -958,6 +943,37 @@ class TiempoRealViewModel(
             }
         }
     }
+
+    private fun observarAudios() {
+        viewModelScope.launch {
+            // Hacemos que la carga sea reactiva al deporte del partido actual
+            combine(
+                _uiState.map { it.partido?.DEPORTE }.distinctUntilChanged(),
+                repository.observeAudios()
+            ) { deporte, nubeAudios ->
+                val deporteActual = deporte?.uppercase() ?: "GENERAL"
+
+                val prefs = context.getSharedPreferences("ConfigAudio", Context.MODE_PRIVATE)
+                val folderUriString = prefs.getString("folder_$deporteActual", null)
+
+                val localAudios = if (folderUriString != null) {
+                    try {
+                        scanLocalFolder(Uri.parse(folderUriString), deporteActual)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error escaneando carpeta local: ${e.message}")
+                        emptyList()
+                    }
+                } else emptyList()
+
+                // Mezclamos: LOCALES primero + NUBE después.
+                // Evitamos duplicados comparando nombre, deporte y tipo.
+                (localAudios + nubeAudios).distinctBy { "${it.nombre}_${it.deporte}_${it.tipo}" }
+            }.collect { listaHibrida ->
+                _uiState.update { it.copy(audios = listaHibrida) }
+            }
+        }
+    }
+
 
     /**
      * Escanea archivos .mp3 en una carpeta del dispositivo usando SAF
@@ -991,12 +1007,12 @@ class TiempoRealViewModel(
     fun detenerAudio() { if (_uiState.value.reproduccionLocal) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = null; _uiState.update { it.copy(audioPosicionActual = 0, audioDuracionTotal = 0) } } else com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("ESTADO").setValue("STOP"); _uiState.update { it.copy(audioEstado = "STOP") } }
     fun cambiarVolumen(v: Int) { val vol = v.coerceIn(0, 100); if (_uiState.value.reproduccionLocal) musicPlayer?.setVolume(vol / 100f, vol / 100f) else com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("VOLUMEN").setValue(vol); _uiState.update { it.copy(volumenAudio = vol) } }
     private fun iniciarSeguimientoProgreso() { progressJob?.cancel(); progressJob = viewModelScope.launch { while (true) { musicPlayer?.let { p -> if (p.isPlaying) _uiState.update { it.copy(audioPosicionActual = p.currentPosition.toLong(), audioDuracionTotal = p.duration.toLong()) } }; delay(500) } } }
-    
+
     fun enviarInfoAlOverlay(txt: String) {
         if (txt.isBlank()) return
         viewModelScope.launch {
             _uiState.update { it.copy(ultimaAccionTexto = txt, lowerThirdVisible = true) }
-            
+
             // Separamos por "|" para enviar a Firebase en los campos correctos si es posible
             val partes = txt.split("|").map { it.trim() }
             val l1 = partes.getOrNull(0) ?: ""
@@ -1021,7 +1037,39 @@ class TiempoRealViewModel(
     fun togglePortada() { viewModelScope.launch { try { com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("MOSTRAR_PORTADA").setValue(!_uiState.value.mostrarPortada).await() } catch (e: Exception) {} } }
     private fun observarPortada() { viewModelScope.launch { val ref = com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("MOSTRAR_PORTADA"); ref.addValueEventListener(object : com.google.firebase.database.ValueEventListener { override fun onDataChange(s: com.google.firebase.database.DataSnapshot) { _uiState.update { it.copy(mostrarPortada = s.getValue(Boolean::class.java) ?: false) } }; override fun onCancelled(e: com.google.firebase.database.DatabaseError) {} }) } }
     fun toggleReproduccionLocal(a: Boolean) { _uiState.update { it.copy(reproduccionLocal = a) }; if (!a) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = null } }
-    private fun playLocalAudio(u: String, m: Boolean) { if (u.isBlank()) return; viewModelScope.launch(Dispatchers.IO) { try { if (m) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = MediaPlayer().apply { setDataSource(u); prepare(); start(); isLooping = true; setVolume(_uiState.value.volumenAudio/100f, _uiState.value.volumenAudio/100f) } } else MediaPlayer().apply { setDataSource(u); prepare(); start(); setOnCompletionListener { it.release() } } } catch (e: Exception) {} } }
+
+
+    private fun playLocalAudio_viejo(u: String, m: Boolean) { if (u.isBlank()) return; viewModelScope.launch(Dispatchers.IO) { try { if (m) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = MediaPlayer().apply { setDataSource(u); prepare(); start(); isLooping = true; setVolume(_uiState.value.volumenAudio/100f, _uiState.value.volumenAudio/100f) } } else MediaPlayer().apply { setDataSource(u); prepare(); start(); setOnCompletionListener { it.release() } } } catch (e: Exception) {} } }
+
+    private fun playLocalAudio(u: String, m: Boolean) {
+        if (u.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val uri = Uri.parse(u)
+                if (m) { // Si es MUSICA
+                    musicPlayer?.stop()
+                    musicPlayer?.release()
+                    musicPlayer = MediaPlayer().apply {
+                        setDataSource(context, uri) // 👈 CORRECCIÓN: Usa el context y el uri
+                        prepare()
+                        start()
+                        isLooping = true
+                        setVolume(_uiState.value.volumenAudio / 100f, _uiState.value.volumenAudio / 100f)
+                    }
+                } else { // Si es FX
+                    MediaPlayer().apply {
+                        setDataSource(context, uri) // 👈 CORRECCIÓN: Usa el context y el uri
+                        prepare()
+                        start()
+                        setOnCompletionListener { it.release() }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error playLocal: ${e.message}")
+            }
+        }
+    }
+
     private fun observarTablaPosicionesDesdeOverlay() { viewModelScope.launch { repository.observeTablaPosicionesOverlay().collect { l -> _uiState.update { it.copy(tablaPosiciones = l) } } }; viewModelScope.launch { repository.observeTablaPosicionesVisible().collect { v -> _uiState.update { it.copy(mostrarTablaPosiciones = v) } } }; viewModelScope.launch { repository.observeComparativaVisible().collect { v -> _uiState.update { it.copy(mostrarComparativa = v) } } } }
     fun toggleTablaPosiciones() { viewModelScope.launch { repository.toggleVisibilidadTablaOverlay(!_uiState.value.mostrarTablaPosiciones) } }
     fun sincronizarTablaManual() { viewModelScope.launch { repository.sincronizarTablaAOverlay(campeonatoId, _uiState.value.mostrarTablaPosiciones) } }
@@ -1060,7 +1108,7 @@ class TiempoRealViewModel(
             
             #${campNombre.replace(" ", "")} #${p.EQUIPO1.replace(" ", "")} #${p.EQUIPO2.replace(" ", "")} #ArkiDeportes #FutbolEnVivo
         """.trimIndent()
-        
+
         viewModelScope.launch {
             repository.updatePartidoFields(campeonatoId, partidoId, mapOf("TEXTOFACEBOOK" to texto))
         }

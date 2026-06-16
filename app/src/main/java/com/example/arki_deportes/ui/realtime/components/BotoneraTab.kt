@@ -4,14 +4,13 @@ package com.example.arki_deportes.ui.realtime.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,38 +18,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.arki_deportes.data.model.AudioResource
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.foundation.lazy.items // Para el LazyRow (Música)
-import androidx.compose.foundation.lazy.grid.items // Para el LazyVerticalGrid (FX) - ESTE ES EL QUE TE FALTA
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * BOTONERA TAB
+ * BOTONERA TAB - SISTEMA HÍBRIDO (LOCAL / NUBE)
  * ═══════════════════════════════════════════════════════════════════════════
- *
- * Tab con botonera de audios organizados en grid de 6 columnas
- *
- * VB.NET Equivalente: Botonera de audios de FrmControl
- *
- * ESTRUCTURA:
- * - 6 columnas (botones por fila)
- * - N filas (escalable)
- * - Fila 1: Audios principales
- * - Fila 2: Avances 1-6
- * - Fila 3+: Libres para futuro
- *
- * NOTA: Las funciones de reproducción están vacías por ahora.
- * En el futuro leerán desde Firebase Storage.
  */
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BotoneraTab(
     audios: List<AudioResource>,
@@ -68,7 +43,7 @@ fun BotoneraTab(
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 🔍 Filtramos por deporte y tipo
+    // 🔍 Filtramos por deporte y tipo "GENERAL"
     val audiosDelDeporte = audios.filter {
         it.deporte.equals(deporteActual, ignoreCase = true) || it.deporte == "GENERAL"
     }
@@ -76,9 +51,23 @@ fun BotoneraTab(
     val fxAudios = audiosDelDeporte.filter { it.tipo == "FX" }
     val musicaAudios = audiosDelDeporte.filter { it.tipo == "MUSICA" }
 
+    // Determinar si hay audios locales disponibles (vienen de la carpeta vinculada con content://)
+    val tieneMusicaLocal = musicaAudios.any { it.url.startsWith("content://") }
+
+    // Estado para el selector LOCAL/NUBE.
+    // Por defecto elige LOCAL si hay archivos disponibles, si no, elige NUBE.
+    var origenMusicaSeleccionado by remember(tieneMusicaLocal) {
+        mutableStateOf(if (tieneMusicaLocal) "LOCAL" else "NUBE")
+    }
+
+    // Filtrar la música a mostrar según la elección del usuario
+    val musicaFiltrada = musicaAudios.filter {
+        if (origenMusicaSeleccionado == "LOCAL") it.url.startsWith("content://")
+        else !it.url.startsWith("content://")
+    }
+
     var selectedSubTab by remember { mutableIntStateOf(0) }
 
-    // Función auxiliar para formatear ms a 00:00
     fun formatTime(ms: Long): String {
         val totalSeconds = ms / 1000
         val minutes = totalSeconds / 60
@@ -86,13 +75,9 @@ fun BotoneraTab(
         return String.format("%02d:%02d", minutes, seconds)
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(8.dp)
-    ) {
+    Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
 
-        // --- SECCIÓN SUPERIOR: TABS DE CONTROL ---
+        // --- TABS DE CONTROL (MANDO / AJUSTES) ---
         TabRow(
             selectedTabIndex = selectedSubTab,
             containerColor = Color.Transparent,
@@ -107,12 +92,8 @@ fun BotoneraTab(
             }
         }
 
-
-        // --- CONTENIDO VARIABLE DE LAS TABS ---
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ) {
             when (selectedSubTab) {
@@ -123,19 +104,16 @@ fun BotoneraTab(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            IconButton(onClick = onStop) {
-                                Icon(Icons.Default.Stop, "Stop", tint = Color.Red)
-                            }
+                            IconButton(onClick = onStop) { Icon(Icons.Default.Stop, "Stop", tint = Color.Red) }
                             IconButton(onClick = {
                                 if (estado == "PLAY") onPause()
-                                else if (musicaAudios.isNotEmpty()) onPlay(musicaAudios.first())
+                                else if (musicaFiltrada.isNotEmpty()) onPlay(musicaFiltrada.first())
                             }) {
                                 Icon(
                                     imageVector = if (estado == "PLAY") Icons.Default.Pause else Icons.Default.PlayArrow,
                                     contentDescription = "Play/Pause"
                                 )
                             }
-                            // Control de Volumen
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                 Icon(Icons.Default.VolumeUp, null, modifier = Modifier.size(16.dp))
                                 Slider(
@@ -148,7 +126,6 @@ fun BotoneraTab(
                             }
                         }
 
-                        // SeekBar Gris (Solo si es local)
                         if (reproduccionLocal && duracionTotal > 0) {
                             Column(modifier = Modifier.padding(horizontal = 8.dp)) {
                                 Slider(
@@ -158,8 +135,7 @@ fun BotoneraTab(
                                     modifier = Modifier.height(20.dp),
                                     colors = SliderDefaults.colors(
                                         thumbColor = MaterialTheme.colorScheme.outline,
-                                        activeTrackColor = MaterialTheme.colorScheme.outline,
-                                        inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                                        activeTrackColor = MaterialTheme.colorScheme.outline
                                     )
                                 )
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -172,9 +148,7 @@ fun BotoneraTab(
                 }
                 1 -> { // PESTAÑA AJUSTES
                     Row(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .fillMaxWidth(),
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -193,29 +167,75 @@ fun BotoneraTab(
 
         Spacer(Modifier.height(8.dp))
 
-        // --- SECCIÓN FIJA: LISTAS DE AUDIO ---
-        Text(
-            text = "🎵 MÚSICA ($deporteActual)",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.primary
-        )
+        // --- SECCIÓN MÚSICA CON SELECTOR HÍBRIDO ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "🎵 MÚSICA ($deporteActual)",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            // Selector LOCAL / NUBE (Chips)
+            Row {
+                FilterChip(
+                    selected = origenMusicaSeleccionado == "LOCAL",
+                    onClick = { origenMusicaSeleccionado = "LOCAL" },
+                    label = { Text("LOCAL", style = MaterialTheme.typography.labelSmall) },
+                    leadingIcon = if (origenMusicaSeleccionado == "LOCAL") {
+                        { Icon(Icons.Default.Folder, null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+                Spacer(Modifier.width(4.dp))
+                FilterChip(
+                    selected = origenMusicaSeleccionado == "NUBE",
+                    onClick = { origenMusicaSeleccionado = "NUBE" },
+                    label = { Text("NUBE", style = MaterialTheme.typography.labelSmall) },
+                    leadingIcon = if (origenMusicaSeleccionado == "NUBE") {
+                        { Icon(Icons.Default.Cloud, null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+            }
+        }
+
+        // Advertencia si intenta usar local sin modo local activo
+        if (origenMusicaSeleccionado == "LOCAL" && !reproduccionLocal) {
+            Text(
+                "⚠️ Activa 'Modo Local' en Ajustes para reproducir",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            modifier = Modifier.heightIn(max = 150.dp),
-            contentPadding = PaddingValues(vertical = 8.dp),
+            modifier = Modifier.heightIn(max = 180.dp),
+            contentPadding = PaddingValues(vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(musicaAudios) { musica ->
+            if (musicaFiltrada.isEmpty()) {
+                item {
+                    Text(
+                        "No hay audios en ${origenMusicaSeleccionado.lowercase()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+            items(musicaFiltrada) { musica ->
                 val isLocal = musica.url.startsWith("content://")
                 OutlinedButton(
                     onClick = { onPlay(musica) },
                     modifier = Modifier.fillMaxWidth(),
                     border = BorderStroke(1.dp, if(isLocal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline)
                 ) {
-                    // 📂 Icono dinámico según origen
                     Icon(
                         imageVector = if (isLocal) Icons.Default.Folder else Icons.Default.Cloud,
                         contentDescription = null,
@@ -230,6 +250,7 @@ fun BotoneraTab(
 
         Divider(modifier = Modifier.padding(vertical = 12.dp))
 
+        // --- SECCIÓN FX (EFECTOS) ---
         Text(
             text = "🎹 EFECTOS (FX)",
             style = MaterialTheme.typography.titleSmall,
@@ -240,9 +261,7 @@ fun BotoneraTab(
             columns = GridCells.Fixed(3),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .weight(1f)
-                .padding(top = 8.dp)
+            modifier = Modifier.weight(1f).padding(top = 8.dp)
         ) {
             items(items = fxAudios) { fx ->
                 val esSistema = fx.id.startsWith("${deporteActual}_FX_") || fx.id.startsWith("FX_")
@@ -411,12 +430,4 @@ private fun reproducirAvance5() {
  */
 private fun reproducirAvance6() {
     println("🎵 Reproduciendo: Avance 6")
-}
-
-/**
- * Botón libre (sin funcionalidad por ahora)
- * TODO: Asignar funcionalidad según necesidad
- */
-private fun botonLibre() {
-    println("🔘 Botón libre presionado")
 }
