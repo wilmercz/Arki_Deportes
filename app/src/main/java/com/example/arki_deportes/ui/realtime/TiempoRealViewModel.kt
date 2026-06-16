@@ -400,7 +400,7 @@ class TiempoRealViewModel(
         }
     }
 
-    fun agregarGolEquipo1() {
+    fun agregarGolEquipo1_() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
             if (!partido.estaEnCurso()) return@launch
@@ -418,7 +418,7 @@ class TiempoRealViewModel(
         }
     }
 
-    fun agregarGolEquipo2() {
+    fun agregarGolEquipo2_() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
             if (!partido.estaEnCurso()) return@launch
@@ -435,6 +435,53 @@ class TiempoRealViewModel(
             if (_uiState.value.modoTransmision) sincronizarConOverlay()
         }
     }
+
+    fun agregarGolEquipo1() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val dep = partido.DEPORTE.uppercase()
+            val nuevos = partido.GOLES1 + 1
+
+            // 🎯 Lógica Dinámica de Sonido
+            val audioId = if (dep == "BASQUET") "BASQUET_FX_CANASTA" else "FUTBOL_FX_GOL"
+            val audioUrl = _uiState.value.audios.find { it.id == audioId }?.url ?: ""
+
+            // 📺 Lógica de Texto en Overlay: Solo para FÚTBOL
+            if (dep == "FUTBOL") {
+                enviarAccionJugada("⚽ ${partido.calcularTiempoActualSegundos() / 60}' ¡GOOOOOL! ${partido.EQUIPO1.uppercase()} $nuevos-${partido.GOLES2}", audioUrl)
+            } else {
+                // En Básquet solo disparamos el sonido (vía enviarAccionJugada con texto vacío)
+                enviarAccionJugada("", audioUrl)
+            }
+
+            // ✅ Actualización persistente del marcador
+            repository.updatePartidoFields(campeonatoId, partidoId, mapOf("GOLES1" to nuevos))
+        }
+    }
+
+    fun agregarGolEquipo2() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val dep = partido.DEPORTE.uppercase()
+            val nuevos = partido.GOLES2 + 1
+
+            val audioId = if (dep == "BASQUET") "BASQUET_FX_CANASTA" else "FUTBOL_FX_GOL"
+            val audioUrl = _uiState.value.audios.find { it.id == audioId }?.url ?: ""
+
+            if (dep == "FUTBOL") {
+                enviarAccionJugada("⚽ ${partido.calcularTiempoActualSegundos() / 60}' ¡GOOOOOL! ${partido.EQUIPO2.uppercase()} $nuevos-${partido.GOLES1}", audioUrl)
+            } else {
+                enviarAccionJugada("", audioUrl)
+            }
+
+            repository.updatePartidoFields(campeonatoId, partidoId, mapOf("GOLES2" to nuevos))
+        }
+    }
+
 
     fun agregarAmarillaEquipo1() {
         viewModelScope.launch {
@@ -504,11 +551,59 @@ class TiempoRealViewModel(
         }
     }
 
+    fun agregarEsquinaEquipo1_() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val dep = partido.DEPORTE.uppercase()
+            // 🎯 Busca dinámicamente: "FUTBOL_FX_ESQUINA" o "BASQUET_FX_ESQUINA"
+            val audioId = "${dep}_FX_ESQUINA"
+            val audioUrl = _uiState.value.audios.find { it.id == audioId }?.url ?: ""
+
+            val etiqueta = if (dep == "BASQUET") "FALTA" else "ESQUINA"
+            val icono = if (dep == "BASQUET") "🚫" else "🚩"
+
+            enviarAccionJugada("$icono $etiqueta - ${partido.EQUIPO1.uppercase()}", audioUrl)
+
+            // ✅ SÍ es necesario: actualiza el marcador persistente en Firebase
+            repository.updatePartidoFields(campeonatoId, partidoId, mapOf("ESQUINAS1" to partido.ESQUINAS1 + 1))
+        }
+    }
+
+    fun agregarEsquinaEquipo2_() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            if (!partido.estaEnCurso()) return@launch
+
+            val dep = partido.DEPORTE.uppercase()
+            val audioId = "${dep}_FX_ESQUINA"
+            val audioUrl = _uiState.value.audios.find { it.id == audioId }?.url ?: ""
+
+            val etiqueta = if (dep == "BASQUET") "FALTA" else "ESQUINA"
+            val icono = if (dep == "BASQUET") "🚫" else "🚩"
+
+            enviarAccionJugada("$icono $etiqueta - ${partido.EQUIPO2.uppercase()}", audioUrl)
+
+            // ✅ SÍ es necesario: actualiza el marcador persistente en Firebase
+            repository.updatePartidoFields(campeonatoId, partidoId, mapOf("ESQUINAS2" to partido.ESQUINAS2 + 1))
+        }
+    }
+
     fun agregarEsquinaEquipo1() {
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
             if (!partido.estaEnCurso()) return@launch
-            enviarAccionJugada("🚩 ESQUINA - ${partido.EQUIPO1.uppercase()}", _uiState.value.audios.find { it.id == "FUTBOL_FX_ESQUINA" }?.url ?: "")
+
+            val dep = partido.DEPORTE.uppercase()
+            val audioId = "${dep}_FX_ESQUINA"
+            val audioUrl = _uiState.value.audios.find { it.id == audioId }?.url ?: ""
+
+            val etiqueta = if (dep == "BASQUET") "FALTA" else "ESQUINA"
+            val icono = if (dep == "BASQUET") "🚫" else "🚩"
+
+            // En Esquinas/Faltas sí mandamos texto en ambos porque no son tan seguidas como las canastas
+            enviarAccionJugada("$icono $etiqueta - ${partido.EQUIPO1.uppercase()}", audioUrl)
             repository.updatePartidoFields(campeonatoId, partidoId, mapOf("ESQUINAS1" to partido.ESQUINAS1 + 1))
         }
     }
@@ -517,10 +612,19 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             val partido = _uiState.value.partido ?: return@launch
             if (!partido.estaEnCurso()) return@launch
-            enviarAccionJugada("🚩 ESQUINA - ${partido.EQUIPO2.uppercase()}", _uiState.value.audios.find { it.id == "FUTBOL_FX_ESQUINA" }?.url ?: "")
+
+            val dep = partido.DEPORTE.uppercase()
+            val audioId = "${dep}_FX_ESQUINA"
+            val audioUrl = _uiState.value.audios.find { it.id == audioId }?.url ?: ""
+
+            val etiqueta = if (dep == "BASQUET") "FALTA" else "ESQUINA"
+            val icono = if (dep == "BASQUET") "🚫" else "🚩"
+
+            enviarAccionJugada("$icono $etiqueta - ${partido.EQUIPO2.uppercase()}", audioUrl)
             repository.updatePartidoFields(campeonatoId, partidoId, mapOf("ESQUINAS2" to partido.ESQUINAS2 + 1))
         }
     }
+
 
     fun restarEsquinaEquipo1() {
         viewModelScope.launch {

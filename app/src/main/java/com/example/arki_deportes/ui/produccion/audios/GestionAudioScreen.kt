@@ -194,11 +194,14 @@ fun AddAudioDialog(
                 val nameIndex = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (c.moveToFirst()) {
                     val fullPath = c.getString(nameIndex)
-                    // Quitamos la extensión (ej: "Cancion.mp3" -> "Cancion")
-                    fileName = fullPath.substringBeforeLast(".") 
-                    // Si es música y no hay categoría, auto-llenar
-                    if (tipo == "MUSICA" && categoria.startsWith("MUSICA_")) {
-                        categoria = fileName
+                    val realFileName = fullPath.substringBeforeLast(".")
+                    // 🎯 LA CLAVE: Guardamos el nombre del archivo físico para mostrarlo abajo
+                    fileName = realFileName
+
+                    // 🎯 SOLO auto-llenamos la caja de texto (categoria) si está vacía
+                    // o si es música y tiene el prefijo por defecto
+                    if (categoria.isBlank() || (tipo == "MUSICA" && categoria.startsWith("MUSICA_"))) {
+                        categoria = realFileName
                     }
                 }
             } ?: run {
@@ -319,7 +322,12 @@ fun AddAudioDialog(
         confirmButton = {
             TextButton(
                 enabled = selectedUri != null && categoria.isNotBlank(),
-                onClick = { selectedUri?.let { onConfirm(it, categoria, tipo, categoria, deporte, customId) } }
+                onClick = {
+                    selectedUri?.let {
+                        // 🎯 Usamos 'categoria' para el nombre mostrado en la App
+                        onConfirm(it, categoria, tipo, categoria, deporte, customId)
+                    }
+                }
             ) {
                 Text("SUBIR A LA NUBE", fontWeight = FontWeight.Bold)
             }

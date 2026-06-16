@@ -72,8 +72,8 @@ fun BotoneraTab(
         it.deporte.equals(deporteActual, ignoreCase = true) || it.deporte == "GENERAL"
     }
 
-    val fxAudios = audios.filter { it.tipo == "FX" }
-    val musicaAudios = audios.filter { it.tipo == "MUSICA" }
+    val fxAudios = audiosDelDeporte.filter { it.tipo == "FX" }
+    val musicaAudios = audiosDelDeporte.filter { it.tipo == "MUSICA" }
 
     var selectedSubTab by remember { mutableIntStateOf(0) }
 
