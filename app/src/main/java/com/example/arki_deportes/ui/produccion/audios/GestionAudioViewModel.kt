@@ -13,17 +13,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
+import android.provider.OpenableColumns
+import android.util.Log
 data class AudioUiState(
     val audios: List<AudioResource> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isUploading: Boolean = false
+    val isUploading: Boolean = false,
+    val uploadProgress: String = "",
+    val carpetasVinculadas: Map<String, String> = emptyMap() // Deporte -> URI de Carpeta
 )
 
 class GestionAudioViewModel(
     private val repository: FirebaseCatalogRepository,
-    private val cloudinaryUploader: CloudinaryUploader
+    private val cloudinaryUploader: CloudinaryUploader,
+    private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AudioUiState())
@@ -31,6 +35,7 @@ class GestionAudioViewModel(
 
     init {
         loadAudios()
+        cargarConfiguracionCarpetas()
     }
 
     private fun loadAudios() {
@@ -42,32 +47,89 @@ class GestionAudioViewModel(
         }
     }
 
-    /**
-     * Sube un audio a Cloudinary y guarda la referencia en Firebase.
-     * @param customId Si se proporciona, se usará como ID fijo (ej: FUTBOL_FX_ESQUINA). 
-     *                 Si es null, Firebase generará un ID aleatorio.
-     */
-    fun uploadAudio(uri: Uri, fileName: String, tipo: String, categoria: String, deporte: String, customId: String? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isUploading = true) }
-            try {
-                // Subida exclusiva a Cloudinary
-                val downloadUrl = cloudinaryUploader.uploadAudioFile(uri, fileName)
-
-                val audio = AudioResource(
-                    id = customId ?: "", // El repositorio usará push() si esto es vacío
-                    nombre = fileName,
-                    url = downloadUrl,
-                    tipo = tipo,
-                    categoria = categoria,
-                    deporte = deporte
-                )
-                repository.saveAudio(audio)
-                _uiState.update { it.copy(isUploading = false) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isUploading = false, error = e.message) }
+    private fun cargarConfiguracionCarpetas() {
+        // En el futuro esto puede venir de Firebase por usuario, 
+        // por ahora usamos SharedPreferences para persistencia local
+        val prefs = context.getSharedPreferences("ConfigAudio", Context.MODE_PRIVATE)
+        val vinculados = mutableMapOf<String, String>()
+        listOf("FUTBOL", "BASQUET", "AUTOMOVILISMO", "GENERAL").forEach { dep ->
+            prefs.getString("folder_$dep", null)?.let { uri ->
+                vinculados[dep] = uri
             }
         }
+        _uiState.update { it.copy(carpetasVinculadas = vinculados) }
+    }
+
+    fun vincularCarpetaLocal(deporte: String, uri: Uri) {
+        viewModelScope.launch {
+            // Persistir permiso de acceso a la carpeta
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            
+            val prefs = context.getSharedPreferences("ConfigAudio", Context.MODE_PRIVATE)
+            prefs.edit().putString("folder_$deporte", uri.toString()).apply()
+            cargarConfiguracionCarpetas()
+        }
+    }
+
+    /**
+     * Sube múltiples archivos a Cloudinary y los registra en Firebase.
+     */
+    fun uploadAudiosMasivo(uris: List<Uri>, tipo: String, categoriaBase: String, deporte: String, customId: String? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploading = true) }
+            var exitos = 0
+            
+            uris.forEachIndexed { index, uri ->
+                try {
+                    _uiState.update { it.copy(uploadProgress = "${index + 1}/${uris.size}") }
+                    
+                    // Obtener nombre del archivo y limpiarlo
+                    val rawName = getFileNameFromUri(uri) ?: "Audio_${System.currentTimeMillis()}"
+                    val cleanName = cleanAudioName(rawName)
+                    
+                    // Si es lote, la categoría es el nombre del archivo si categoriaBase está vacía
+                    val finalCat = if (uris.size > 1 && categoriaBase.isBlank()) cleanName else categoriaBase
+
+                    val downloadUrl = cloudinaryUploader.uploadAudioFile(uri, cleanName)
+
+                    val audio = AudioResource(
+                        id = if (uris.size == 1) (customId ?: "") else "", 
+                        nombre = cleanName,
+                        url = downloadUrl,
+                        tipo = tipo,
+                        categoria = finalCat,
+                        deporte = deporte
+                    )
+                    repository.saveAudio(audio)
+                    exitos++
+                } catch (e: Exception) {
+                    Log.e("GestionAudioVM", "Error subiendo $uri: ${e.message}")
+                }
+            }
+            
+            _uiState.update { it.copy(isUploading = false, uploadProgress = "") }
+        }
+    }
+
+    private fun getFileNameFromUri(uri: Uri): String? {
+        return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst()) cursor.getString(nameIndex).substringBeforeLast(".") else null
+        }
+    }
+
+    private fun cleanAudioName(name: String): String {
+        // Quita números iniciales tipo "01 ", "12.", etc y espacios
+        return name.replace(Regex("^[0-9\\s._-]+"), "").trim().uppercase()
+    }
+
+    // --- MANTENEMOS FUNCIONES ORIGINALES ---
+
+    fun uploadAudio(uri: Uri, fileName: String, tipo: String, categoria: String, deporte: String, customId: String? = null) {
+        uploadAudiosMasivo(listOf(uri), tipo, categoria, deporte, customId)
     }
 
     fun deleteAudio(audioId: String) {
@@ -104,7 +166,8 @@ class GestionAudioViewModelFactory(
             @Suppress("UNCHECKED_CAST")
             return GestionAudioViewModel(
                 repository = repository,
-                cloudinaryUploader = CloudinaryUploader(context)
+                cloudinaryUploader = CloudinaryUploader(context),
+                context = context
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

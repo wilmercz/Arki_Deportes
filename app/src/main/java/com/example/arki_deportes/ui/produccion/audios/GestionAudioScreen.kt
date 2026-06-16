@@ -30,6 +30,16 @@ fun GestionAudioScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
 
+    // 📂 Launcher para vincular carpeta local (SAF DocumentTree)
+    // El usuario elige una carpeta (ej: "FUTBOL") y la app guardará el permiso persistente
+    val folderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        // Aquí podrías abrir otro diálogo para preguntar a qué DEPORTE asociar la carpeta
+        // Por simplicidad, usaremos un diálogo rápido o asumiremos el deporte actual
+        uri?.let { viewModel.vincularCarpetaLocal("FUTBOL", it) } 
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -40,6 +50,10 @@ fun GestionAudioScreen(
                     }
                 },
                 actions = {
+                    // 📁 BOTÓN NUEVO: Vincular Carpeta del Dispositivo
+                    IconButton(onClick = { folderLauncher.launch(null) }) {
+                        Icon(Icons.Default.FolderSpecial, contentDescription = "Vincular Carpeta Local")
+                    }
                     IconButton(onClick = { showAddDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Agregar Audio")
                     }
@@ -50,13 +64,29 @@ fun GestionAudioScreen(
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (uiState.audios.isEmpty()) {
-                Text(
-                    text = "No hay audios registrados",
-                    modifier = Modifier.align(Alignment.Center)
-                )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    
+                    // 📁 SECCIÓN NUEVA: Carpetas vinculadas
+                    if (uiState.carpetasVinculadas.isNotEmpty()) {
+                        item {
+                            Surface(color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    "Carpetas Locales Vinculadas",
+                                    modifier = Modifier.padding(8.dp),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                        items(uiState.carpetasVinculadas.toList()) { (deporte, uri) ->
+                            ListItem(
+                                headlineContent = { Text("Carpeta $deporte") },
+                                supportingContent = { Text(uri, maxLines = 1) },
+                                leadingContent = { Icon(Icons.Default.Folder, null) }
+                            )
+                        }
+                    }
+
                     val grouped = uiState.audios.groupBy { it.tipo }
                     grouped.forEach { (tipo, audios) ->
                         item {
@@ -93,7 +123,8 @@ fun GestionAudioScreen(
                     ) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Subiendo archivo...")
+                        // 🎯 Mostramos el progreso masivo
+                        Text("Subiendo archivos (${uiState.uploadProgress})...")
                     }
                 }
             }
@@ -103,8 +134,8 @@ fun GestionAudioScreen(
     if (showAddDialog) {
         AddAudioDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { uri, name, tipo, cat, dep, customId ->
-                viewModel.uploadAudio(uri, name, tipo, cat, dep, customId)
+            onConfirm = { uris, tipo, cat, dep, customId ->
+                viewModel.uploadAudiosMasivo(uris, tipo, cat, dep, customId)
                 showAddDialog = false
             }
         )
@@ -152,11 +183,10 @@ fun AudioItem(audio: AudioResource, onDelete: () -> Unit, onTransmit: () -> Unit
 @Composable
 fun AddAudioDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Uri, String, String, String, String, String?) -> Unit
+    onConfirm: (List<Uri>, String, String, String, String?) -> Unit
 ) {
     val context = LocalContext.current
-    var selectedUri by remember { mutableStateOf<Uri?>(null) }
-    var fileName by remember { mutableStateOf("") }
+    var selectedUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var tipo by remember { mutableStateOf("FX") }
     var categoria by remember { mutableStateOf("") }
     var deporte by remember { mutableStateOf("FUTBOL") }
@@ -183,36 +213,30 @@ fun AddAudioDialog(
         )
     )
 
+    // 🎯 CAMBIADO A: GetMultipleContents() para subida masiva
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        selectedUri = uri
-        uri?.let {
-            // 🎯 OBTENER NOMBRE REAL DESDE EL CONTENT RESOLVER
-            val cursor = context.contentResolver.query(it, null, null, null, null)
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        selectedUris = uris
+        if (uris.size == 1) {
+            // Lógica de nombre inteligente para un solo archivo
+            val cursor = context.contentResolver.query(uris[0], null, null, null, null)
             cursor?.use { c ->
                 val nameIndex = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (c.moveToFirst()) {
                     val fullPath = c.getString(nameIndex)
                     val realFileName = fullPath.substringBeforeLast(".")
-                    // 🎯 LA CLAVE: Guardamos el nombre del archivo físico para mostrarlo abajo
-                    fileName = realFileName
-
-                    // 🎯 SOLO auto-llenamos la caja de texto (categoria) si está vacía
-                    // o si es música y tiene el prefijo por defecto
                     if (categoria.isBlank() || (tipo == "MUSICA" && categoria.startsWith("MUSICA_"))) {
                         categoria = realFileName
                     }
                 }
-            } ?: run {
-                fileName = it.lastPathSegment ?: "audio_file"
             }
         }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Subir Nuevo Audio") },
+        title = { Text("Subir Audios") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -237,7 +261,6 @@ fun AddAudioDialog(
                         deportes.forEach { d ->
                             DropdownMenuItem(text = { Text(d) }, onClick = { 
                                 deporte = d
-                                if (tipo == "MUSICA") categoria = "MUSICA_$d"
                                 expandedDep = false 
                             })
                         }
@@ -248,15 +271,15 @@ fun AddAudioDialog(
                 Text("Tipo:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = tipo == "FX", onClick = { tipo = "FX"; customId = null; categoria = "" })
-                    Text("FX (Efecto)")
+                    Text("FX")
                     Spacer(modifier = Modifier.width(16.dp))
-                    RadioButton(selected = tipo == "MUSICA", onClick = { tipo = "MUSICA"; customId = null; categoria = if(fileName.isNotBlank()) fileName else "MUSICA_$deporte" })
+                    RadioButton(selected = tipo == "MUSICA", onClick = { tipo = "MUSICA"; customId = null; categoria = "" })
                     Text("Música")
                 }
 
-                // 3. Botones Rápidos si es FX
-                if (tipo == "FX") {
-                    Text("Acciones Rápidas (Sugerencias):", style = MaterialTheme.typography.labelMedium)
+                // 3. Botones Rápidos si es FX y solo un archivo
+                if (tipo == "FX" && selectedUris.size <= 1) {
+                    Text("Acciones Rápidas:", style = MaterialTheme.typography.labelMedium)
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -271,65 +294,36 @@ fun AddAudioDialog(
                                 label = { Text(label) }
                             )
                         }
-                        FilterChip(
-                            selected = customId == null && categoria.isNotEmpty() && !sugerenciasFX[deporte]?.any { it.first == categoria }!!,
-                            onClick = { customId = null; categoria = "" },
-                            label = { Text("OTRO") }
-                        )
                     }
                 }
 
                 OutlinedTextField(
                     value = categoria,
-                    onValueChange = { 
-                        categoria = it
-                        if (tipo == "FX" && sugerenciasFX[deporte]?.any { s -> s.first == it } == false) {
-                            customId = null
-                        }
-                    },
-                    label = { Text(if(tipo == "FX") "Nombre / Categoría" else "Nombre de la Canción") },
-                    placeholder = { Text(if(tipo == "FX") "Ej: Tiro de Esquina" else "Ej: Himno Nacional") },
-                    modifier = Modifier.fillMaxWidth(),
-                    supportingText = { 
-                        if (customId != null) Text("ID de Sistema: $customId", color = MaterialTheme.colorScheme.secondary)
-                    }
+                    onValueChange = { categoria = it },
+                    label = { Text(if(selectedUris.size > 1) "Categoría para el lote" else "Nombre / Categoría") },
+                    placeholder = { Text("Ej: Musica de Ambiente") },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
-                // 4. Selección de Archivo
+                // 4. Selección de Archivos
                 Divider()
                 Button(
                     onClick = { launcher.launch("audio/*") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                 ) {
-                    Icon(Icons.Default.UploadFile, null)
+                    Icon(Icons.Default.AudioFile, null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (selectedUri == null) "Seleccionar Archivo MP3" else "Cambiar Archivo")
-                }
-                if (selectedUri != null) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.AudioFile, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(fileName, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                        }
-                    }
+                    Text(if (selectedUris.isEmpty()) "Seleccionar Archivos" else "${selectedUris.size} archivos elegidos")
                 }
             }
         },
         confirmButton = {
             TextButton(
-                enabled = selectedUri != null && categoria.isNotBlank(),
-                onClick = {
-                    selectedUri?.let {
-                        // 🎯 Usamos 'categoria' para el nombre mostrado en la App
-                        onConfirm(it, categoria, tipo, categoria, deporte, customId)
-                    }
-                }
+                enabled = selectedUris.isNotEmpty() && (categoria.isNotBlank() || selectedUris.size > 1),
+                onClick = { onConfirm(selectedUris, tipo, categoria, deporte, customId) }
             ) {
-                Text("SUBIR A LA NUBE", fontWeight = FontWeight.Bold)
+                Text("SUBIR TODO", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
