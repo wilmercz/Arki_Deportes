@@ -364,6 +364,7 @@ fun TiempoRealScreen(
                             nombreCampeonato = state.nombreCampeonatoReal,
                             onUpdateProduccion = viewModel::actualizarCampoProduccion,
                             onSendText = viewModel::enviarInfoAlOverlay,
+                            onForzarGanador = viewModel::forzarCalculoGanador,
                             modifier = Modifier.fillMaxSize()
                         )
                         7 -> OtrosPartidosTab( // 🏟️ Otros Partidos de la jornada

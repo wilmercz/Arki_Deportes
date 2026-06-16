@@ -295,33 +295,39 @@ class TiempoRealViewModel(
         }
     }
 
-    private fun prepararTextosProduccionGanador(partido: Partido, ganador: GanadorInfo) {
+    private fun prepararTextosProduccionGanador(partido: Partido, ganador: GanadorInfo) {// 1. Construir el marcador exacto (Goles + Penales si hubo)
         val marcadorTxt = if (ganador.p1 > 0 || ganador.p2 > 0) {
             "${partido.EQUIPO1} ${ganador.g1} (${ganador.p1}) - ${ganador.g2} (${ganador.p2}) ${partido.EQUIPO2}"
         } else {
             "${partido.EQUIPO1} ${ganador.g1} - ${ganador.g2} ${partido.EQUIPO2}"
         }
 
-        val linea1 = if (partido.ETAPA == 3) "¡FELICIDADES CAMPEÓN!: ${ganador.nombre.uppercase()}"
-        else "¡FELICIDADES ${ganador.nombre.uppercase()}!"
-        val linea2 = marcadorTxt
+        // 2. Determinar texto de felicitación según la Etapa
+        val lineaFelicidades = if (partido.ETAPA == 3) {
+            "¡FELICIDADES CAMPEÓN!: ${ganador.nombre.uppercase()}"
+        } else {
+            "¡FELICIDADES ${ganador.nombre.uppercase()}!"
+        }
 
-        val textoFinal = "$linea1 | $linea2"
-        agregarTextoAlHistorial(textoFinal)
+        // 3. Guardar AMBOS textos en el historial para que el usuario los tenga a mano
+        // Primero el de protagonistas y luego el de felicitaciones (para que el más importante quede arriba)
+        agregarTextoAlHistorial("PROTAGONISTAS DEL ENCUENTRO | $marcadorTxt")
+        agregarTextoAlHistorial("$lineaFelicidades | $marcadorTxt")
 
-        // También actualizamos PARTIDOACTUAL para que se vea de una vez
+        // 4. Actualizar PARTIDOACTUAL para lanzar uno al aire inmediatamente (como hacía VB.NET)
         viewModelScope.launch {
             try {
                 com.google.firebase.database.FirebaseDatabase.getInstance().reference
                     .child("ARKI_DEPORTES").child("PARTIDOACTUAL").updateChildren(mapOf(
-                        "ENTREVISTA_INVITADO" to linea1,
-                        "ENTREVISTA_ROL" to linea2,
-                        "ENTREVISTA_TEMA" to "PROTAGONISTAS DEL PARTIDO",
+                        "ENTREVISTA_INVITADO" to lineaFelicidades,
+                        "ENTREVISTA_ROL" to marcadorTxt,
+                        "ENTREVISTA_TEMA" to "FINAL DEL PARTIDO",
                         "MOSTRAR_TERCIO" to true
                     )).await()
             } catch (e: Exception) {}
         }
     }
+
 
     fun agregarTextoAlHistorial(texto: String) {
         if (texto.isBlank()) return
@@ -332,6 +338,28 @@ class TiempoRealViewModel(
                 nuevoHistorial.add(0, texto) // Más nuevo arriba
                 repository.updatePartidoFields(campeonatoId, partidoId, mapOf("HISTORIAL_TEXTOS" to nuevoHistorial))
             }
+        }
+    }
+
+    fun forzarCalculoGanador() {
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            _uiState.update { it.copy(actualizandoFirebase = true) }
+            
+            partido.calcularGanadorFinal()?.let { ganador ->
+                val updates = mapOf(
+                    "NOMBREGANADOR" to ganador.nombre,
+                    "CODIGOGANADOR" to ganador.codigo,
+                    "ESTADO" to 1 
+                )
+                
+                repository.updatePartidoFields(campeonatoId, partidoId, updates).onSuccess {
+                    prepararTextosProduccionGanador(partido, ganador)
+                    repository.publicarEnPartidosJugandose(partido.copy(ESTADO = 1))
+                    if (_uiState.value.modoTransmision) sincronizarConOverlay()
+                }
+            }
+            _uiState.update { it.copy(actualizandoFirebase = false) }
         }
     }
 
@@ -832,11 +860,23 @@ class TiempoRealViewModel(
     fun toggleTablaPosiciones() { viewModelScope.launch { repository.toggleVisibilidadTablaOverlay(!_uiState.value.mostrarTablaPosiciones) } }
     fun sincronizarTablaManual() { viewModelScope.launch { repository.sincronizarTablaAOverlay(campeonatoId, _uiState.value.mostrarTablaPosiciones) } }
     fun toggleComparativa() { viewModelScope.launch { repository.toggleComparativaOverlay(!_uiState.value.mostrarComparativa) } }
-    private fun observarEquipoProduccion() { viewModelScope.launch { repository.observeEquipoProduccion(campeonatoId).collect { e -> _uiState.update { it.copy(equipoProduccion = e) } } } }
+
+    private fun observarEquipoProduccion() {
+        viewModelScope.launch {
+            repository.observeEquipoProduccion().collect { e ->
+                _uiState.update { it.copy(equipoProduccion = e) }
+            }
+        }
+    }
     private fun observarOtrosPartidos() { viewModelScope.launch { repository.observePartidos(campeonatoId).collect { p -> _uiState.update { it.copy(otrosPartidos = p.filter { it.CODIGOPARTIDO != partidoId }) } } } }
     fun enviarResultadoOtroPartido(p: Partido) { enviarInfoAlOverlay("RESULTADO: ${p.EQUIPO1} ${p.GOLES1} - ${p.GOLES2} ${p.EQUIPO2}") }
-    fun actualizarCampoProduccion(c: String, v: String) { viewModelScope.launch { repository.actualizarEquipoProduccion(campeonatoId, c, v) } }
-    private fun cargarTextosPredefinidos() { viewModelScope.launch { repository.observeTextosPredefinidos(campeonatoId).collect { t -> _uiState.update { it.copy(textosPredefinidos = t) } } } }
+
+    fun actualizarCampoProduccion(c: String, v: String) {
+        viewModelScope.launch {
+            repository.actualizarEquipoProduccion(c, v)
+        }
+    }
+     private fun cargarTextosPredefinidos() { viewModelScope.launch { repository.observeTextosPredefinidos(campeonatoId).collect { t -> _uiState.update { it.copy(textosPredefinidos = t) } } } }
 
     fun generarTextoSocial() {
         val p = _uiState.value.partido ?: return

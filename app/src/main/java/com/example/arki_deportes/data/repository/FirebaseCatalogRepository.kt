@@ -1288,8 +1288,9 @@ class FirebaseCatalogRepository(
     /**
      * Observa el equipo de producción asignado a un campeonato
      */
-    fun observeEquipoProduccion(campeonatoId: String): Flow<EquipoProduccion> = callbackFlow {
-        val ref = rootReference.child("EquipoProduccion").child("campeonatos").child(campeonatoId)
+    fun observeEquipoProduccion(): Flow<EquipoProduccion> = callbackFlow {
+        // Cambiado de ...child("campeonatos").child(campeonatoId) a ...child("GLOBAL")
+        val ref = rootReference.child("EquipoProduccion").child("GLOBAL")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val equipo = snapshot.getValue(EquipoProduccion::class.java) ?: EquipoProduccion()
@@ -1304,8 +1305,8 @@ class FirebaseCatalogRepository(
     /**
      * Actualiza un campo específico del equipo de producción
      */
-    suspend fun actualizarEquipoProduccion(campeonatoId: String, campo: String, valor: Any) {
-        val ref = rootReference.child("EquipoProduccion").child("campeonatos").child(campeonatoId)
+    suspend fun actualizarEquipoProduccion(campo: String, valor: Any) {
+        val ref = rootReference.child("EquipoProduccion").child("GLOBAL")
         val updates = mapOf(
             campo to valor,
             "timestamp" to ServerValue.TIMESTAMP
