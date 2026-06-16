@@ -39,7 +39,7 @@ data class Partido(
     /**
      * Ruta de la imagen del escudo (opcional)
      * VB.NET: Ruta local del archivo de imagen
-     * Kotlin: Puede ser URL de Firebase Storage o ruta local
+     * Kotlin: Puede ser URL de Firebase Storage or ruta local
      *
      * Nota: NO es crítico para funcionalidad básica
      */
@@ -228,7 +228,6 @@ data class Partido(
      * 2 = Equipo 2 inicia
      *
      * ✅ Permanente: No cambia durante la tanda
-     * ✅ Se usa para resetear turno en nueva tanda
      * ✅ Permite reconstruir estado si app se cierra
      *
      * Firebase: PENALES_INICIA
@@ -372,6 +371,15 @@ data class Partido(
     var ORIGEN_DESCRIPCION: String = "",
     var MOSTRAR_TERCIO: Boolean = true, // 👈 CAMBIADO A VAR
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // HISTORIAL DE TEXTOS (PRODUCCIÓN)
+    // ═══════════════════════════════════════════════════════════════════════
+    /**
+     * Lista de textos sugeridos o enviados previamente a Producción.
+     * Se guarda en el nodo del partido para persistencia.
+     */
+    val HISTORIAL_TEXTOS: List<String> = emptyList()
+
 ) {
     /**
      * Constructor sin argumentos (requerido por Firebase)
@@ -389,23 +397,33 @@ data class Partido(
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
+     * Determina quién es el ganador basado en el deporte y estado de penales.
+     * Retorna un objeto con los datos o null si es un empate definitivo.
+     */
+    fun calcularGanadorFinal(): GanadorInfo? {
+        val esBasquet = DEPORTE.equals("BASQUET", ignoreCase = true)
+
+        // 1. Si hay penales activos (Fútbol Eliminatorias), ellos mandan
+        if (!esBasquet && MARCADOR_PENALES) {
+            return when {
+                PENALES1 > PENALES2 -> GanadorInfo(EQUIPO1, CODIGOEQUIPO1, GOLES1, GOLES2, PENALES1, PENALES2)
+                PENALES2 > PENALES1 -> GanadorInfo(EQUIPO2, CODIGOEQUIPO2, GOLES1, GOLES2, PENALES1, PENALES2)
+                else -> null
+            }
+        }
+
+        // 2. Marcador normal (Goles o Puntos)
+        return when {
+            GOLES1 > GOLES2 -> GanadorInfo(EQUIPO1, CODIGOEQUIPO1, GOLES1, GOLES2)
+            GOLES2 > GOLES1 -> GanadorInfo(EQUIPO2, CODIGOEQUIPO2, GOLES1, GOLES2)
+            else -> null
+        }
+    }
+
+    /**
      * Obtiene el nombre del partido
      */
     fun getNombrePartido(): String = "$EQUIPO1 vs $EQUIPO2"
-
-    /**
-     * Verifica si el partido está finalizado
-     * VB.NET: NumeroDeTiempo = "4T"
-     */
-    /*fun estaFinalizado(): Boolean {
-        val esBasquet = DEPORTE.equals("BASQUET", ignoreCase = true)
-        return if (esBasquet) {
-            // En básquet solo finaliza en periodos pares a partir del 8T (4to periodo normal)
-            listOf("8T", "10T", "12T", "14T").contains(NumeroDeTiempo) || ESTADO == 1
-        } else {
-            NumeroDeTiempo == "4T" || ESTADO == 1
-        }
-    }*/
 
     fun estaFinalizado(): Boolean {
         if (ESTADO == 1) return true
@@ -693,10 +711,26 @@ data class Partido(
             "CRONO_OFFSET" to CRONO_OFFSET,
             "CRONO_EN_PAUSA" to CRONO_EN_PAUSA,
             "CRONO_FINALIZADO" to CRONO_FINALIZADO,
-            "CRONO_INICIO_PAUSA" to CRONO_INICIO_PAUSA
+            "CRONO_INICIO_PAUSA" to CRONO_INICIO_PAUSA,
+            "HISTORIAL_TEXTOS" to HISTORIAL_TEXTOS
         )
     }
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * MODELOS AUXILIARES
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+data class GanadorInfo(
+    val nombre: String,
+    val codigo: String,
+    val g1: Int,
+    val g2: Int,
+    val p1: Int = 0,
+    val p2: Int = 0
+)
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════

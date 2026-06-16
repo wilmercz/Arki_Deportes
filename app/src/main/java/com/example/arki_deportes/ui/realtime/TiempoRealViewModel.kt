@@ -249,18 +249,89 @@ class TiempoRealViewModel(
                 if (partido.NumeroDeTiempo == "1T") "2T" else "4T"
             }
 
-            val estaFinalizado = if (esBasquet) nuevoEstado == "14T" else nuevoEstado == "4T"
+            // ¿Es un final definitivo?
+            var esFinalReal = false
+            if (esBasquet) {
+                // En Básquet es final si no hay empate en los periodos pares (8, 10, 12, 14)
+                if (listOf("8T", "10T", "12T", "14T").contains(nuevoEstado)) {
+                    if (partido.GOLES1 != partido.GOLES2 || nuevoEstado == "14T") esFinalReal = true
+                }
+            } else {
+                // En Fútbol es final en 4T
+                if (nuevoEstado == "4T") {
+                    // Si es fase de grupos (Etapa 0) o no hay empate, termina.
+                    // Si hay empate y es eliminatoria (Etapa > 0), no marcamos final real hasta que terminen los penales.
+                    if (partido.GOLES1 != partido.GOLES2 || partido.ETAPA == 0) esFinalReal = true
+                }
+            }
+
             motorCronometro.finalizar()
 
             if (_uiState.value.reproduccionLocal) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = null }
 
-            val finalUpdates = motorCronometro.toFirebaseMap() + mapOf("NumeroDeTiempo" to nuevoEstado, "ESTADO" to if (estaFinalizado) 1 else 0)
+            val updates = motorCronometro.toFirebaseMap().toMutableMap()
+            updates["NumeroDeTiempo"] = nuevoEstado
 
-            repository.enviarEstadoCronometro(campeonatoId, partidoId, finalUpdates).onSuccess {
-                repository.publicarEnPartidosJugandose(partido.copy(NumeroDeTiempo = nuevoEstado, ESTADO = if (estaFinalizado) 1 else 0))
+            if (esFinalReal) {
+                updates["ESTADO"] = 1
+                // Calcular Ganador
+                partido.copy(NumeroDeTiempo = nuevoEstado).calcularGanadorFinal()?.let { ganador ->
+                    updates["NOMBREGANADOR"] = ganador.nombre
+                    updates["CODIGOGANADOR"] = ganador.codigo
+
+                    // 🔥 GENERAR TEXTOS PARA PESTAÑA PRODUCCIÓN (Equivalent a Poner_EntrevitaAire)
+                    prepararTextosProduccionGanador(partido, ganador)
+                }
+            }
+
+            repository.enviarEstadoCronometro(campeonatoId, partidoId, updates).onSuccess {
+                repository.publicarEnPartidosJugandose(partido.copy(NumeroDeTiempo = nuevoEstado, ESTADO = if (esFinalReal) 1 else 0))
                 _uiState.update { it.copy(cronoPausado = true) }
+                if (esFinalReal && _uiState.value.modoTransmision) {
+                    sincronizarConOverlay()
+                }
             }
             _uiState.update { it.copy(actualizandoFirebase = false) }
+        }
+    }
+
+    private fun prepararTextosProduccionGanador(partido: Partido, ganador: GanadorInfo) {
+        val marcadorTxt = if (ganador.p1 > 0 || ganador.p2 > 0) {
+            "${partido.EQUIPO1} ${ganador.g1} (${ganador.p1}) - ${ganador.g2} (${ganador.p2}) ${partido.EQUIPO2}"
+        } else {
+            "${partido.EQUIPO1} ${ganador.g1} - ${ganador.g2} ${partido.EQUIPO2}"
+        }
+
+        val linea1 = if (partido.ETAPA == 3) "¡FELICIDADES CAMPEÓN!: ${ganador.nombre.uppercase()}"
+        else "¡FELICIDADES ${ganador.nombre.uppercase()}!"
+        val linea2 = marcadorTxt
+
+        val textoFinal = "$linea1 | $linea2"
+        agregarTextoAlHistorial(textoFinal)
+
+        // También actualizamos PARTIDOACTUAL para que se vea de una vez
+        viewModelScope.launch {
+            try {
+                com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                    .child("ARKI_DEPORTES").child("PARTIDOACTUAL").updateChildren(mapOf(
+                        "ENTREVISTA_INVITADO" to linea1,
+                        "ENTREVISTA_ROL" to linea2,
+                        "ENTREVISTA_TEMA" to "PROTAGONISTAS DEL PARTIDO",
+                        "MOSTRAR_TERCIO" to true
+                    )).await()
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun agregarTextoAlHistorial(texto: String) {
+        if (texto.isBlank()) return
+        viewModelScope.launch {
+            val partido = _uiState.value.partido ?: return@launch
+            val nuevoHistorial = partido.HISTORIAL_TEXTOS.toMutableList()
+            if (!nuevoHistorial.contains(texto)) {
+                nuevoHistorial.add(0, texto) // Más nuevo arriba
+                repository.updatePartidoFields(campeonatoId, partidoId, mapOf("HISTORIAL_TEXTOS" to nuevoHistorial))
+            }
         }
     }
 
@@ -726,7 +797,31 @@ class TiempoRealViewModel(
     fun detenerAudio() { if (_uiState.value.reproduccionLocal) { musicPlayer?.stop(); musicPlayer?.release(); musicPlayer = null; _uiState.update { it.copy(audioPosicionActual = 0, audioDuracionTotal = 0) } } else com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("ESTADO").setValue("STOP"); _uiState.update { it.copy(audioEstado = "STOP") } }
     fun cambiarVolumen(v: Int) { val vol = v.coerceIn(0, 100); if (_uiState.value.reproduccionLocal) musicPlayer?.setVolume(vol / 100f, vol / 100f) else com.google.firebase.database.FirebaseDatabase.getInstance().getReference("/ARKI_DEPORTES/CONTROL_AUDIO").child("VOLUMEN").setValue(vol); _uiState.update { it.copy(volumenAudio = vol) } }
     private fun iniciarSeguimientoProgreso() { progressJob?.cancel(); progressJob = viewModelScope.launch { while (true) { musicPlayer?.let { p -> if (p.isPlaying) _uiState.update { it.copy(audioPosicionActual = p.currentPosition.toLong(), audioDuracionTotal = p.duration.toLong()) } }; delay(500) } } }
-    fun enviarInfoAlOverlay(txt: String) { if (txt.isBlank()) return; viewModelScope.launch { _uiState.update { it.copy(ultimaAccionTexto = txt, lowerThirdVisible = true) }; actualizarPartidoActualAccion(txt, "", true); if (_uiState.value.modoTransmision) sincronizarConOverlay() } }
+    
+    fun enviarInfoAlOverlay(txt: String) {
+        if (txt.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(ultimaAccionTexto = txt, lowerThirdVisible = true) }
+            
+            // Separamos por "|" para enviar a Firebase en los campos correctos si es posible
+            val partes = txt.split("|").map { it.trim() }
+            val l1 = partes.getOrNull(0) ?: ""
+            val l2 = partes.getOrNull(1) ?: ""
+
+            try {
+                com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                    .child("ARKI_DEPORTES").child("PARTIDOACTUAL").updateChildren(mapOf(
+                        "ENTREVISTA_INVITADO" to l1,
+                        "ENTREVISTA_ROL" to l2,
+                        "MOSTRAR_TERCIO" to true
+                    )).await()
+            } catch (e: Exception) {}
+
+            agregarTextoAlHistorial(txt)
+            if (_uiState.value.modoTransmision) sincronizarConOverlay()
+        }
+    }
+
     fun toggleMarcadorFutbol_Basquet(m: Boolean) { _uiState.update { it.copy(marcadorFutbolVisible = m) }; viewModelScope.launch { try { com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child(if (_uiState.value.partido?.DEPORTE == "BASQUET") "MARCADOR_BASQUET" else "MARCADOR_FUTBOL").setValue(m).await() } catch (e: Exception) {} } }
     private fun observarSoloTercio() { viewModelScope.launch { val ref = com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("MOSTRAR_TERCIO"); ref.addValueEventListener(object : com.google.firebase.database.ValueEventListener { override fun onDataChange(s: com.google.firebase.database.DataSnapshot) { _uiState.update { it.copy(lowerThirdVisible = s.getValue(Boolean::class.java) ?: false) } }; override fun onCancelled(e: com.google.firebase.database.DatabaseError) {} }) } }
     fun togglePortada() { viewModelScope.launch { try { com.google.firebase.database.FirebaseDatabase.getInstance().reference.child("ARKI_DEPORTES").child("PARTIDOACTUAL").child("MOSTRAR_PORTADA").setValue(!_uiState.value.mostrarPortada).await() } catch (e: Exception) {} } }
