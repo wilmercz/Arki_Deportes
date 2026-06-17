@@ -84,11 +84,14 @@ object Constants {
         const val CUARTOS = 1
         const val SEMIFINAL = 2
         const val FINAL = 3
+        const val TERCER_LUGAR = 4
+        
         fun getTexto(etapa: Int): String {
             return when (etapa) {
                 CUARTOS -> "Cuartos de Final"
                 SEMIFINAL -> "Semifinal"
                 FINAL -> "Final"
+                TERCER_LUGAR -> "Tercer Lugar"
                 else -> "Fase de Grupos"
             }
         }

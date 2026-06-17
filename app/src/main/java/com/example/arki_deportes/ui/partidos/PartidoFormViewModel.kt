@@ -139,27 +139,50 @@ class PartidoFormViewModel(
         val estadio = form.estadio
         val lugar = form.lugar
         val provincia = form.provincia
+        val etapa = form.etapa
+
+        // --- Lógica Titular (VB.NET: Obtener_Titular_Facebook) ---
+        val prefix = when (etapa) {
+            Constants.EtapasPartido.SEMIFINAL -> "🔴SEMIFINAL | "
+            Constants.EtapasPartido.FINAL -> "🔴FINAL | "
+            Constants.EtapasPartido.TERCER_LUGAR -> "🔴TERCER LUGAR | "
+            else -> "🔴 | "
+        }
+        val titular = "$prefix${e1.uppercase()} VS ${e2.uppercase()}\n"
+
+        // --- Lógica Cuerpo (VB.NET: Obtener_Cuerpo_Facebook) ---
+        var cuerpo = when (etapa) {
+            Constants.EtapasPartido.CUARTOS -> "🏆 Cuartos de final del $campNombre ⚽\n"
+            Constants.EtapasPartido.SEMIFINAL -> "🏆 Semifinal del $campNombre ⚽\n"
+            Constants.EtapasPartido.FINAL -> "🏆 Final del $campNombre ⚽\n"
+            Constants.EtapasPartido.TERCER_LUGAR -> "🏆 Por el Tercer Lugar del $campNombre ⚽\n"
+            else -> "🏆 $campNombre ⚽\n"
+        }
+
+        cuerpo += "\n"
+
+        if (fecha.isNotBlank() && hora.isNotBlank()) {
+            cuerpo += "📅 $fecha\n"
+            cuerpo += "🕐 $hora\n\n"
+        }
+
+        if (estadio.isNotBlank()) cuerpo += "🏟️ $estadio\n"
+        if (lugar.isNotBlank()) {
+            cuerpo += "📍 $lugar"
+            if (provincia.isNotBlank()) cuerpo += ", $provincia"
+            cuerpo += "\n"
+        }
+
+        cuerpo += "\n"
 
         val hashtagCamp = "#${campNombre.replace(" ", "")}"
         val hashtagE1 = "#${e1.replace(" ", "")}"
         val hashtagE2 = "#${e2.replace(" ", "")}"
+        val hashtagProv = if (provincia.isNotBlank()) "#${provincia.replace(" ", "")}" else ""
+        
+        val hashtags = "$hashtagE1 $hashtagE2 $hashtagProv $hashtagCamp #ArkiDeportes #FutbolEnVivo"
 
-        val texto = """
-            EN VIVO : $e1 🆚 $e2
-            
-            🏆 $campNombre 🏆
-            ⚽ ¡PARTIDAZO! ⚽
-            
-
-            📅 Fecha: $fecha
-            🕒 Hora: $hora
-            🏟️ Estadio: $estadio
-            📍 Ubicación: $lugar, $provincia
-            
-            $hashtagCamp $hashtagE1 $hashtagE2 #ArkiDeportes #FutbolEnVivo
-        """.trimIndent()
-
-        onTextoFacebookChange(texto)
+        onTextoFacebookChange(titular + cuerpo + hashtags)
     }
 
 

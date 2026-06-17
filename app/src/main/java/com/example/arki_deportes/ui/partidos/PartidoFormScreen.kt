@@ -143,76 +143,77 @@ fun PartidoFormScreen(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
                     )
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SportsFootball,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.size(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Campeonato Seleccionado",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SportsFootball,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
                             )
-                            Text(
-                                text = uiState.formData.campeonatoNombre.ifBlank {
-                                    // Búsqueda de respaldo si el nombre aún no carga en el form
-                                    uiState.campeonatos.firstOrNull { it.CODIGO == uiState.formData.campeonatoCodigo }?.CAMPEONATO ?: "Cargando..."
-                                },
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            // 💡 DATO INFORMATIVO: Deporte heredado
-                            val deporteFirebase = uiState.formData.deporte.uppercase()
-                            val isBasquet = deporteFirebase == "BASQUET" || deporteFirebase == "BALONCESTO"
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (isBasquet) Icons.Default.SportsBasketball else Icons.Default.SportsFootball,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.secondary
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.size(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Deporte: ${if (isBasquet) "Basquet" else "Fútbolw"}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.secondary
+                                    text = "Campeonato Seleccionado",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-                            }
-                        }
-                        // Permitimos cambiar el campeonato solo si es un partido NUEVO.
-                        // En modo EDICIÓN no se debería cambiar el campeonato.
-                        if (!uiState.isEditMode) {
-                            TextButton(onClick = { viewModel.onCampeonatoSelected("") }) {
-                                Text("Cambiar")
-                            }
-                        }
-                    }
+                                Text(
+                                    text = uiState.formData.campeonatoNombre.ifBlank {
+                                        // Búsqueda de respaldo si el nombre aún no carga en el form
+                                        uiState.campeonatos.firstOrNull { it.CODIGO == uiState.formData.campeonatoCodigo }?.CAMPEONATO ?: "Cargando..."
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Group,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.tertiary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "$e1 vs $e2",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                                // 💡 DATO INFORMATIVO: Deporte heredado
+                                val deporteFirebase = uiState.formData.deporte.uppercase()
+                                val isBasquet = deporteFirebase == "BASQUET" || deporteFirebase == "BALONCESTO"
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (isBasquet) Icons.Default.SportsBasketball else Icons.Default.SportsFootball,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.secondary
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Deporte: ${if (isBasquet) "Basquet" else "Fútbol"}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                            }
+                            // Permitimos cambiar el campeonato solo si es un partido NUEVO.
+                            // En modo EDICIÓN no se debería cambiar el campeonato.
+                            if (!uiState.isEditMode) {
+                                TextButton(onClick = { viewModel.onCampeonatoSelected("") }) {
+                                    Text("Cambiar")
+                                }
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Group,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.tertiary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "$e1 vs $e2",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             } else {
@@ -341,8 +342,12 @@ fun PartidoFormScreen(
 
 
             // 3. BOTÓN GENERAR TEXTO
-            OutlinedButton(onClick = { viewModel.generarTextoSocial() }) {
+            OutlinedButton(
+                onClick = { viewModel.generarTextoSocial() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Icon(Icons.Default.AutoFixHigh, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Generar Texto Social")
             }
 
@@ -350,28 +355,9 @@ fun PartidoFormScreen(
                 value = uiState.formData.textoFacebook,
                 onValueChange = viewModel::onTextoFacebookChange,
                 label = { Text("Texto para redes sociales") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 5
             )
-
-            /* DESACTIVADO TEMPORALMENTE
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = uiState.formData.goles1,
-                    onValueChange = viewModel::onGoles1Change,
-                    label = { Text("Goles equipo 1") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = uiState.formData.goles2,
-                    onValueChange = viewModel::onGoles2Change,
-                    label = { Text("Goles equipo 2") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-             */
 
             EtapaDropdown(
                 etapa = uiState.formData.etapa,
@@ -604,48 +590,6 @@ private fun GrupoDropdown(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EquipoDropdown(
-    label: String,
-    equipos: List<Equipo>,
-    selectedCodigo: String,
-    onSelected: (String) -> Unit,
-    showError: Boolean
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selected = equipos.firstOrNull { it.CODIGOEQUIPO == selectedCodigo }
-    val display = selected?.getNombreDisplay() ?: ""
-
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = display,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth(),
-            isError = showError,
-            supportingText = {
-                if (showError) Text(Constants.Mensajes.CAMPO_OBLIGATORIO)
-            }
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            equipos.forEach { equipo ->
-                androidx.compose.material3.DropdownMenuItem(
-                    text = { Text(equipo.getNombreDisplay()) },
-                    onClick = {
-                        onSelected(equipo.CODIGOEQUIPO)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 private fun EtapaDropdown(
     etapa: Int,
     onEtapaChange: (Int) -> Unit
@@ -655,7 +599,8 @@ private fun EtapaDropdown(
         Constants.EtapasPartido.NINGUNO to Constants.EtapasPartido.getTexto(Constants.EtapasPartido.NINGUNO),
         Constants.EtapasPartido.CUARTOS to Constants.EtapasPartido.getTexto(Constants.EtapasPartido.CUARTOS),
         Constants.EtapasPartido.SEMIFINAL to Constants.EtapasPartido.getTexto(Constants.EtapasPartido.SEMIFINAL),
-        Constants.EtapasPartido.FINAL to Constants.EtapasPartido.getTexto(Constants.EtapasPartido.FINAL)
+        Constants.EtapasPartido.FINAL to Constants.EtapasPartido.getTexto(Constants.EtapasPartido.FINAL),
+        Constants.EtapasPartido.TERCER_LUGAR to Constants.EtapasPartido.getTexto(Constants.EtapasPartido.TERCER_LUGAR)
     )
     val selected = etapas.firstOrNull { it.first == etapa }?.second ?: etapas.first().second
 
