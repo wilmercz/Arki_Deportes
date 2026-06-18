@@ -127,31 +127,64 @@ fun CampeonatoFormScreen(
             }
 
             // Selector de Deporte
-            var expanded by remember { mutableStateOf(false) }
+            var expandedDeporte by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded }
+                expanded = expandedDeporte,
+                onExpandedChange = { expandedDeporte = !expandedDeporte }
             ) {
                 OutlinedTextField(
                     value = SportType.fromId(uiState.formData.deporte).displayName,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Tipo de Deporte") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDeporte) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor()
                 )
                 ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    expanded = expandedDeporte,
+                    onDismissRequest = { expandedDeporte = false }
                 ) {
                     SportType.options().forEach { sportType ->
                         DropdownMenuItem(
                             text = { Text(sportType.displayName) },
                             onClick = {
                                 viewModel.onDeporteChange(sportType.id)
-                                expanded = false
+                                expandedDeporte = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Selector de Género
+            var expandedGenero by remember { mutableStateOf(false) }
+            val opcionesGenero = listOf("MASCULINO", "FEMENINO", "MIXTO")
+            ExposedDropdownMenuBox(
+                expanded = expandedGenero,
+                onExpandedChange = { expandedGenero = !expandedGenero }
+            ) {
+                OutlinedTextField(
+                    value = uiState.formData.genero,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Género") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGenero) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedGenero,
+                    onDismissRequest = { expandedGenero = false }
+                ) {
+                    opcionesGenero.forEach { genero ->
+                        DropdownMenuItem(
+                            text = { Text(genero) },
+                            onClick = {
+                                viewModel.onGeneroChange(genero)
+                                expandedGenero = false
                             }
                         )
                     }

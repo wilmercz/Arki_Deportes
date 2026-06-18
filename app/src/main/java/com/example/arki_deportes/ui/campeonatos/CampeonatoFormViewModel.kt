@@ -33,6 +33,7 @@ data class CampeonatoFormData(
     val provincia: String = "",
     val hashtags: String = "",
     val deporte: String = SportType.FUTBOL.id,
+    val genero: String = "MASCULINO",
     val alias: String = "",
     val tiempoJuego: String = "45",
     val duracion: String = "0",
@@ -89,6 +90,7 @@ class CampeonatoFormViewModel(
                                 provincia = campeonato.PROVINCIA,
                                 hashtags = campeonato.HASTAGEXTRAS,
                                 deporte = campeonato.DEPORTE,
+                                genero = campeonato.GENERO.ifBlank { "MASCULINO" },
                                 alias = campeonato.ALIAS,
                                 tiempoJuego = campeonato.getTiempoJuegoStr(),
                                 duracion = campeonato.getDuracionStr(),
@@ -127,6 +129,7 @@ class CampeonatoFormViewModel(
     fun onProvinciaChange(value: String) = updateForm { copy(provincia = value) }
     fun onHashtagsChange(value: String) = updateForm { copy(hashtags = value) }
     fun onDeporteChange(value: String) = updateForm { copy(deporte = value) }
+    fun onGeneroChange(value: String) = updateForm { copy(genero = value) }
     fun onAliasChange(value: String) = updateForm { copy(alias = value) }
     fun onTiempoJuegoChange(value: String) = updateForm { copy(tiempoJuego = value) }
     fun onDuracionChange(value: String) = updateForm { copy(duracion = value) }
@@ -183,6 +186,7 @@ class CampeonatoFormViewModel(
             TIMESTAMP_MODIFICACION = timestamp,
             ORIGEN = Constants.ORIGEN_MOBILE,
             DEPORTE = form.deporte,
+            GENERO = form.genero,
             ALIAS = form.alias,
             TIEMPOJUEGO = if (form.tiempoJuego.isBlank()) "45" else form.tiempoJuego,
             DURACION = form.duracion,

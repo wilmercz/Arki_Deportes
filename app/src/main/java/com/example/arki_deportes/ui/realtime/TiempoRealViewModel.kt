@@ -26,6 +26,7 @@ import androidx.documentfile.provider.DocumentFile
 data class TiempoRealUiState(
     val marcadorFutbolVisible: Boolean = true,
     val nombreCampeonatoReal: String = "",
+    val generoCampeonato: String = "MASCULINO", // 👈 Nuevo campo
     val isLoading: Boolean = true,
     val partido: Partido? = null,
     val tiempoActual: String = "00:00",
@@ -103,7 +104,12 @@ class TiempoRealViewModel(
         viewModelScope.launch {
             try {
                 val camp = repository.getCampeonato(campeonatoId)
-                _uiState.update { it.copy(nombreCampeonatoReal = camp?.CAMPEONATO ?: "Campeonato") }
+                _uiState.update {
+                    it.copy(
+                        nombreCampeonatoReal = camp?.CAMPEONATO ?: "Campeonato",
+                        generoCampeonato = camp?.GENERO ?: "MASCULINO" // 👈 Recuperamos el género real
+                    )
+                }
             } catch (e: Exception) { Log.e(TAG, "Error: ${e.message}") }
         }
     }

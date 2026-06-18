@@ -62,7 +62,10 @@ data class Campeonato(
     var CIRCUITO: String = "",
     
     @get:PropertyName("LUGAR") @set:PropertyName("LUGAR")
-    var LUGAR: String = ""
+    var LUGAR: String = "",
+
+    @get:PropertyName("GENERO") @set:PropertyName("GENERO")
+    var GENERO: String = "MASCULINO"
 ) {
     // Funciones auxiliares para obtener los valores como String de forma segura
     fun getTiempoJuegoStr(): String = TIEMPOJUEGO?.toString() ?: "45"
@@ -90,7 +93,8 @@ data class Campeonato(
             "MANGAS" to MANGAS,
             "VUELTAS" to VUELTAS,
             "CIRCUITO" to CIRCUITO,
-            "LUGAR" to LUGAR
+            "LUGAR" to LUGAR,
+            "GENERO" to GENERO
         )
     }
 

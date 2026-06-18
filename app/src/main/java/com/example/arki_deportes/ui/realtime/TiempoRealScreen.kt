@@ -332,6 +332,7 @@ fun TiempoRealScreen(
                             equipo = state.equipoProduccion,
                             partido = partido,
                             nombreCampeonato = state.nombreCampeonatoReal,
+                            generoCampeonato = state.generoCampeonato,
                             onUpdateProduccion = viewModel::actualizarCampoProduccion,
                             onSendText = viewModel::enviarInfoAlOverlay,
                             onForzarGanador = viewModel::forzarCalculoGanador,

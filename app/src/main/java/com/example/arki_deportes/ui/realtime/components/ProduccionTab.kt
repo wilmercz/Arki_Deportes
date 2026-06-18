@@ -36,6 +36,7 @@ fun ProduccionTab(
     equipo: EquipoProduccion,
     partido: Partido?,
     nombreCampeonato: String,
+    generoCampeonato: String,
     onUpdateProduccion: (String, String) -> Unit,
     onSendText: (String) -> Unit,
     onForzarGanador: () -> Unit, // 👈 NUEVO PARÁMETRO
@@ -46,8 +47,11 @@ fun ProduccionTab(
 
     // Estado para colapsar/expandir el equipo de producción
     var isEquipoExpanded by remember { mutableStateOf(false) }
-// 👩 Estado para cambiar el género de las sugerencias rápidamente
-    var isFemenino by remember { mutableStateOf(false) }
+
+    // 👩 Ahora reacciona al género del campeonato, no al del partido (que suele ser null)
+    var isFemenino by remember(generoCampeonato) {
+        mutableStateOf(generoCampeonato.equals("FEMENINO", true))
+    }
 
     LazyColumn(
         modifier = modifier.padding(16.dp),

@@ -294,10 +294,7 @@ data class Partido(
      */
     val ETAPA: Int = 0,
     val DEPORTE: String = "FUTBOL",
-    // ═══════════════════════════════════════════════════════════════════════
-    // OTROS DATOS (Desde BD, no en clase VB pero sí en Firebase)
-    // ═══════════════════════════════════════════════════════════════════════
-
+    val GENERO: String = "MASCULINO", // 👈 NUEVO: Por defecto Mayúsculas
     val ESTADIO: String = "",
     val LUGAR: String = "",
     val FECHA_PARTIDO: String = "",
@@ -700,14 +697,15 @@ data class Partido(
             "OPERADOR" to OPERADOR,
             "timestampAsignacion" to timestampAsignacion,
             "DEPORTE" to DEPORTE,
-            "TEXTOFACEBOOK" to TEXTOFACEBOOK, // 👈 ¡ESTE ERA EL QUE FALTABA!
-            "PROVINCIA" to PROVINCIA,         // 👈 Agregado
-            "ANIO" to ANIO,                   // 👈 Agregado
-            "TRANSMISION" to TRANSMISION,     // 👈 Agregado
-            "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,       // 👈 Agregado
-            "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION, // 👈 Agregado
-            "ORIGEN" to ORIGEN,               // 👈 Agregado
-            "CRONO_PAUSA_ACUMULADA" to CRONO_PAUSA_ACUMULADA, // 👈 Añadir estos
+            "GENERO" to GENERO,           // 👈 ¡AÑADIDO CORRECTAMENTE!
+            "TEXTOFACEBOOK" to TEXTOFACEBOOK,
+            "PROVINCIA" to PROVINCIA,
+            "ANIO" to ANIO,
+            "TRANSMISION" to TRANSMISION,
+            "TIMESTAMP_CREACION" to TIMESTAMP_CREACION,
+            "TIMESTAMP_MODIFICACION" to TIMESTAMP_MODIFICACION,
+            "ORIGEN" to ORIGEN,
+            "CRONO_PAUSA_ACUMULADA" to CRONO_PAUSA_ACUMULADA,
             "CRONO_OFFSET" to CRONO_OFFSET,
             "CRONO_EN_PAUSA" to CRONO_EN_PAUSA,
             "CRONO_FINALIZADO" to CRONO_FINALIZADO,

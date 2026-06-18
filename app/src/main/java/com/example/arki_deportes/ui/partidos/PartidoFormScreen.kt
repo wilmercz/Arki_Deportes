@@ -364,6 +364,12 @@ fun PartidoFormScreen(
                 onEtapaChange = viewModel::onEtapaChange
             )
 
+            // 🚻 Selector de Género (Heredado de Campeonato)
+            GeneroSelector(
+                genero = uiState.formData.genero,
+                onGeneroChange = viewModel::onGeneroChange
+            )
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -418,6 +424,40 @@ fun PartidoFormScreen(
                     CircularProgressIndicator(modifier = Modifier.size(32.dp))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GeneroSelector(
+    genero: String,
+    onGeneroChange: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("Género:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+        
+        OutlinedButton(
+            onClick = { onGeneroChange("MASCULINO") },
+            colors = if (genero.equals("MASCULINO", true)) 
+                ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary) 
+                else ButtonDefaults.outlinedButtonColors(),
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(if (genero.equals("MASCULINO", true)) "👨 MASCULINO" else "Masc")
+        }
+        
+        OutlinedButton(
+            onClick = { onGeneroChange("FEMENINO") },
+            colors = if (genero.equals("FEMENINO", true)) 
+                ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary) 
+                else ButtonDefaults.outlinedButtonColors(),
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(if (genero.equals("FEMENINO", true)) "👩 FEMENINO" else "Fem")
         }
     }
 }

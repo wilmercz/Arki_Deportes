@@ -49,7 +49,8 @@ data class PartidoFormData(
     val grupoNombre: String = "",
     val serieNombre: String = "",
     val tiempoJuego: String = "45",
-    val deporte: String = "FUTBOL"
+    val deporte: String = "FUTBOL",
+    val genero: String = "MASCULINO" // 👈 NUEVO
 )
 
 data class PartidoFormUiState(
@@ -99,7 +100,13 @@ class PartidoFormViewModel(
         CampeonatoContext.getCampeonatoActual()?.let { camp ->
             onCampeonatoSelected(camp.CODIGO)
             // Forzamos el nombre desde el contexto para que la UI lo muestre de inmediato
-            updateForm { copy(campeonatoNombre = camp.CAMPEONATO, provincia = camp.PROVINCIA) }
+            updateForm { 
+                copy(
+                    campeonatoNombre = camp.CAMPEONATO, 
+                    provincia = camp.PROVINCIA,
+                    genero = camp.GENERO // 👈 Cargar género del contexto
+                ) 
+            }
         }
     }
 
@@ -140,6 +147,7 @@ class PartidoFormViewModel(
         val lugar = form.lugar
         val provincia = form.provincia
         val etapa = form.etapa
+        val esFemenino = form.genero.equals("FEMENINO", true)
 
         // --- Lógica Titular (VB.NET: Obtener_Titular_Facebook) ---
         val prefix = when (etapa) {
@@ -159,6 +167,10 @@ class PartidoFormViewModel(
             else -> "🏆 $campNombre ⚽\n"
         }
 
+        if (esFemenino) {
+            cuerpo = cuerpo.replace("⚽", "👩⚽")
+        }
+
         cuerpo += "\n"
 
         if (fecha.isNotBlank() && hora.isNotBlank()) {
@@ -175,12 +187,14 @@ class PartidoFormViewModel(
 
         cuerpo += "\n"
 
+        // --- Hashtags ---
         val hashtagCamp = "#${campNombre.replace(" ", "")}"
         val hashtagE1 = "#${e1.replace(" ", "")}"
         val hashtagE2 = "#${e2.replace(" ", "")}"
         val hashtagProv = if (provincia.isNotBlank()) "#${provincia.replace(" ", "")}" else ""
+        val hashtagGenero = if (esFemenino) "#FutbolFemenino" else "#FutbolMasculino"
         
-        val hashtags = "$hashtagE1 $hashtagE2 $hashtagProv $hashtagCamp #ArkiDeportes #FutbolEnVivo"
+        val hashtags = "$hashtagE1 $hashtagE2 $hashtagProv $hashtagCamp $hashtagGenero #ArkiDeportes #FutbolEnVivo"
 
         onTextoFacebookChange(titular + cuerpo + hashtags)
     }
@@ -267,7 +281,7 @@ class PartidoFormViewModel(
                 .collect { campeonatos ->
                     _uiState.update { it.copy(campeonatos = campeonatos) }
                     
-                    // 💡 REVALIDAR DEPORTE CUANDO LLEGAN LOS DATOS
+                    // 💡 REVALIDAR DATOS CUANDO LLEGAN LOS CAMPEONATOS
                     val currentId = _uiState.value.formData.campeonatoCodigo
                     if (currentId.isNotBlank()) {
                         campeonatos.firstOrNull { it.CODIGO == currentId }?.let { camp ->
@@ -276,7 +290,8 @@ class PartidoFormViewModel(
                                     campeonatoNombre = camp.CAMPEONATO,
                                     provincia = camp.PROVINCIA,
                                     deporte = camp.DEPORTE.uppercase(),
-                                    tiempoJuego = camp.getTiempoJuegoStr()
+                                    tiempoJuego = camp.getTiempoJuegoStr(),
+                                    genero = camp.GENERO // 👈 HEREDAR GÉNERO
                                 )
                             }
                         }
@@ -349,11 +364,13 @@ class PartidoFormViewModel(
                 provincia = campeonato?.PROVINCIA ?: provincia,
                 deporte = campeonato?.DEPORTE?.uppercase() ?: "FUTBOL",
                 tiempoJuego = campeonato?.getTiempoJuegoStr() ?: "45",
+                genero = campeonato?.GENERO ?: "MASCULINO", // 👈 AUTO-DETECTAR GÉNERO
                 grupoCodigo = "",
                 equipo1Codigo = "",
                 equipo2Codigo = ""
             )
         }
+        generarTextoSocial()
     }
 
     fun onGrupoSelected(codigo: String) {
@@ -382,7 +399,15 @@ class PartidoFormViewModel(
 
     fun onTransmisionChange(value: Boolean) = updateForm { copy(transmision = value) }
 
-    fun onEtapaChange(value: Int) = updateForm { copy(etapa = value) }
+    fun onEtapaChange(value: Int) {
+        updateForm { copy(etapa = value) }
+        generarTextoSocial()
+    }
+
+    fun onGeneroChange(value: String) {
+        updateForm { copy(genero = value) }
+        generarTextoSocial()
+    }
 
     fun onGoles1Change(value: String) =
         updateForm {
