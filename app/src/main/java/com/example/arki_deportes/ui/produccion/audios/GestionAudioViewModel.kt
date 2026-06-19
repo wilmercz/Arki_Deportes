@@ -87,27 +87,49 @@ class GestionAudioViewModel(
 
     /**
      * Sube múltiples archivos a Cloudinary y los registra en Firebase.
+     * Si soloLocal es true, solo guarda la rutaLocal en Firebase sin subir a Cloudinary.
      */
-    fun uploadAudiosMasivo(uris: List<Uri>, tipo: String, categoriaBase: String, deporte: String, customId: String? = null) {
+    fun registrarAudios(uris: List<Uri>, tipo: String, categoriaBase: String, deporte: String, customId: String? = null, soloLocal: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isUploading = true) }
+            if (soloLocal) {
+                _uiState.update { it.copy(isLoading = true) }
+            } else {
+                _uiState.update { it.copy(isUploading = true) }
+            }
+            
             var exitos = 0
             
             uris.forEachIndexed { index, uri ->
                 try {
-                    _uiState.update { it.copy(uploadProgress = "${index + 1}/${uris.size}") }
+                    if (!soloLocal) {
+                        _uiState.update { it.copy(uploadProgress = "${index + 1}/${uris.size}") }
+                    }
                     
                     val rawName = getFileNameFromUri(uri) ?: "Audio_${System.currentTimeMillis()}"
                     val cleanName = cleanAudioName(rawName)
                     
                     val finalCat = if (uris.size > 1 && categoriaBase.isBlank()) cleanName else categoriaBase
 
-                    val downloadUrl = cloudinaryUploader.uploadAudioFile(uri, cleanName)
+                    var downloadUrl = ""
+                    if (!soloLocal) {
+                        downloadUrl = cloudinaryUploader.uploadAudioFile(uri, cleanName)
+                    }
+
+                    // Intentamos persistir el permiso si es posible (solo funciona con ACTION_OPEN_DOCUMENT)
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri,
+                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (e: SecurityException) {
+                        Log.w("GestionAudioVM", "No se pudo persistir permiso para el archivo individual: ${e.message}")
+                    }
 
                     val audio = AudioResource(
                         id = if (uris.size == 1) (customId ?: "") else "", 
                         nombre = cleanName,
                         url = downloadUrl,
+                        rutaLocal = uri.toString(),
                         tipo = tipo,
                         categoria = finalCat,
                         deporte = deporte
@@ -115,11 +137,36 @@ class GestionAudioViewModel(
                     repository.saveAudio(audio)
                     exitos++
                 } catch (e: Exception) {
-                    Log.e("GestionAudioVM", "Error subiendo $uri: ${e.message}")
+                    Log.e("GestionAudioVM", "Error procesando $uri: ${e.message}")
                 }
             }
             
-            _uiState.update { it.copy(isUploading = false, uploadProgress = "") }
+            _uiState.update { it.copy(isUploading = false, isLoading = false, uploadProgress = "") }
+        }
+    }
+
+    /**
+     * Actualiza la ruta local de un audio existente.
+     */
+    fun vincularArchivoLocalAAudio(audio: AudioResource, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                // Intentamos persistir el permiso
+                try {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (e: SecurityException) {
+                    Log.w("GestionAudioVM", "No se pudo persistir permiso para el archivo: ${e.message}")
+                }
+
+                val audioActualizado = audio.copy(rutaLocal = uri.toString())
+                repository.saveAudio(audioActualizado)
+            } catch (e: Exception) {
+                Log.e("GestionAudioVM", "Error al vincular archivo local: ${e.message}")
+                _uiState.update { it.copy(error = "No se pudo vincular el archivo local: ${e.message}") }
+            }
         }
     }
 

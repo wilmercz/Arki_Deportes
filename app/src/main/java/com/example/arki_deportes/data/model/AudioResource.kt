@@ -7,6 +7,7 @@ data class AudioResource(
     val id: String = "",
     val nombre: String = "",
     val url: String = "",
+    val rutaLocal: String = "", // Ruta local del archivo en el dispositivo
     val tipo: String = "", // "FX" o "MUSICA"
     val categoria: String = "", // Para FX: "TIRO_ESQUINA", "CORTINA". Para MUSICA: "FUTBOL", "AUTOMOVILISMO", etc.
     val deporte: String = "" // "FUTBOL", "AUTOMOVILISMO", "CICLISMO", "BASQUET"
@@ -16,6 +17,7 @@ data class AudioResource(
             "id" to id,
             "nombre" to nombre,
             "url" to url,
+            "rutaLocal" to rutaLocal,
             "tipo" to tipo,
             "categoria" to categoria,
             "deporte" to deporte

@@ -32,6 +32,9 @@ fun GestionAudioScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var showSelectSportForFolderDialog by remember { mutableStateOf<Uri?>(null) }
+    
+    // Estado para vincular un archivo local a uno existente
+    var audioParaVincular by remember { mutableStateOf<AudioResource?>(null) }
 
     val deportes = listOf("FUTBOL", "BASQUET", "AUTOMOVILISMO", "CICLISMO", "GENERAL")
 
@@ -40,6 +43,18 @@ fun GestionAudioScreen(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         uri?.let { showSelectSportForFolderDialog = it } 
+    }
+    
+    // 📂 Launcher para vincular un ARCHIVO local a un audio existente
+    val singleFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { fileUri ->
+            audioParaVincular?.let { audio ->
+                viewModel.vincularArchivoLocalAAudio(audio, fileUri)
+            }
+        }
+        audioParaVincular = null
     }
 
     Scaffold(
@@ -135,7 +150,11 @@ fun GestionAudioScreen(
                             AudioItem(
                                 audio = audio,
                                 onDelete = { viewModel.deleteAudio(audio.id) },
-                                onTransmit = { viewModel.playInOverlay(audio) }
+                                onTransmit = { viewModel.playInOverlay(audio) },
+                                onVincularLocal = {
+                                    audioParaVincular = audio
+                                    singleFileLauncher.launch(arrayOf("audio/*"))
+                                }
                             )
                         }
                     }
@@ -193,8 +212,8 @@ fun GestionAudioScreen(
     if (showAddDialog) {
         AddAudioDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { uris, tipo, cat, dep, customId ->
-                viewModel.uploadAudiosMasivo(uris, tipo, cat, dep, customId)
+            onConfirm = { uris, tipo, cat, dep, customId, soloLocal ->
+                viewModel.registrarAudios(uris, tipo, cat, dep, customId, soloLocal)
                 showAddDialog = false
             }
         )
@@ -215,10 +234,33 @@ fun GestionAudioScreen(
 }
 
 @Composable
-fun AudioItem(audio: AudioResource, onDelete: () -> Unit, onTransmit: () -> Unit) {
+fun AudioItem(
+    audio: AudioResource, 
+    onDelete: () -> Unit, 
+    onTransmit: () -> Unit,
+    onVincularLocal: () -> Unit
+) {
     ListItem(
         headlineContent = { Text(audio.nombre) },
-        supportingContent = { Text("${audio.categoria} - ${audio.deporte}") },
+        supportingContent = { 
+            Column {
+                Text("${audio.categoria} - ${audio.deporte}")
+                if (audio.rutaLocal.isNotEmpty()) {
+                    val context = LocalContext.current
+                    val fileName = remember(audio.rutaLocal) {
+                        try {
+                            val uri = Uri.parse(audio.rutaLocal)
+                            if (uri.scheme == "content") {
+                                DocumentFile.fromSingleUri(context, uri)?.name ?: uri.lastPathSegment
+                            } else {
+                                uri.lastPathSegment
+                            }
+                        } catch (e: Exception) { "Archivo vinculado" }
+                    }
+                    Text("Local: $fileName", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                }
+            }
+        },
         leadingContent = {
             Icon(
                 imageVector = if (audio.tipo == "FX") Icons.Default.GraphicEq else Icons.Default.MusicNote,
@@ -227,6 +269,13 @@ fun AudioItem(audio: AudioResource, onDelete: () -> Unit, onTransmit: () -> Unit
         },
         trailingContent = {
             Row {
+                IconButton(onClick = onVincularLocal) {
+                    Icon(
+                        imageVector = if (audio.rutaLocal.isEmpty()) Icons.Default.Attachment else Icons.Default.EditNote,
+                        contentDescription = "Vincular archivo local",
+                        tint = if (audio.rutaLocal.isEmpty()) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.tertiary
+                    )
+                }
                 IconButton(onClick = onTransmit) {
                     Icon(Icons.Default.PlayArrow, contentDescription = "Transmitir", tint = MaterialTheme.colorScheme.primary)
                 }
@@ -242,7 +291,7 @@ fun AudioItem(audio: AudioResource, onDelete: () -> Unit, onTransmit: () -> Unit
 @Composable
 fun AddAudioDialog(
     onDismiss: () -> Unit,
-    onConfirm: (List<Uri>, String, String, String, String?) -> Unit
+    onConfirm: (List<Uri>, String, String, String, String?, Boolean) -> Unit
 ) {
     val context = LocalContext.current
     var selectedUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
@@ -250,6 +299,7 @@ fun AddAudioDialog(
     var categoria by remember { mutableStateOf("") }
     var deporte by remember { mutableStateOf("FUTBOL") }
     var customId by remember { mutableStateOf<String?>(null) }
+    var soloLocal by remember { mutableStateOf(false) }
 
     val sugerenciasFX = mapOf(
         "FUTBOL" to listOf(
@@ -305,7 +355,7 @@ fun AddAudioDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Preparar Subida") },
+        title = { Text("Preparar Registro de Audio") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -341,6 +391,15 @@ fun AddAudioDialog(
                     Spacer(modifier = Modifier.width(16.dp))
                     RadioButton(selected = tipo == "MUSICA", onClick = { tipo = "MUSICA"; customId = null; categoria = "" })
                     Text("Música")
+                }
+
+                // Opción para vincular localmente sin subir a la nube
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = soloLocal, onCheckedChange = { soloLocal = it })
+                    Column {
+                        Text("Vincular Localmente (Sin Nube)", style = MaterialTheme.typography.bodyMedium)
+                        Text("El audio solo sonará si el archivo está en este dispositivo.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
 
                 if (tipo == "FX" && selectedUris.size <= 1) {
@@ -391,9 +450,9 @@ fun AddAudioDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(selectedUris, tipo, categoria, deporte, customId) },
+                onClick = { onConfirm(selectedUris, tipo, categoria, deporte, customId, soloLocal) },
                 enabled = selectedUris.isNotEmpty() && categoria.isNotBlank()
-            ) { Text("Subir Todo") }
+            ) { Text(if(soloLocal) "Vincular Todo" else "Subir Todo") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancelar") }
