@@ -62,9 +62,16 @@ fun BotoneraTab(
     // Determinar si hay audios locales disponibles (vienen de la carpeta vinculada con content://)
     val tieneMusicaLocal = musicaAudios.any { it.url.startsWith("content://") }
 
+    val tieneFXLocal = fxAudios.any { it.url.startsWith("content://") }
+
+
     // Estado para el selector LOCAL/NUBE.
     // Por defecto elige LOCAL si hay archivos disponibles, si no, elige NUBE.
-    var origenMusicaSeleccionado by remember(tieneMusicaLocal) {
+    var origenMusicaSeleccionado by remember(tieneFXLocal) {
+        mutableStateOf(if (tieneFXLocal) "LOCAL" else "NUBE")
+    }
+
+    var origenFXSeleccionado by remember(tieneMusicaLocal) {
         mutableStateOf(if (tieneMusicaLocal) "LOCAL" else "NUBE")
     }
 
@@ -310,6 +317,35 @@ fun BotoneraTab(
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.ExtraBold
         )
+
+        // Selector LOCAL / NUBE (Chips)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Botón Explorar (Solo aparece si está en LOCAL)
+            if (origenFXSeleccionado == "LOCAL") {
+                IconButton(onClick = { pickFolderLauncher.launch(null) }) {
+                    Icon(Icons.Default.Folder, "Explorar otra", tint = MaterialTheme.colorScheme.secondary)
+                }
+            }
+
+            FilterChip(
+                selected = origenFXSeleccionado == "LOCAL",
+                onClick = { origenFXSeleccionado = "LOCAL" },
+                label = { Text("LOCAL", style = MaterialTheme.typography.labelSmall) },
+                leadingIcon = if (origenFXSeleccionado == "LOCAL") {
+                    { Icon(Icons.Default.Folder, null, modifier = Modifier.size(10.dp)) }
+                } else null
+            )
+            Spacer(Modifier.width(4.dp))
+            FilterChip(
+                selected = origenFXSeleccionado == "NUBE",
+                onClick = { origenFXSeleccionado = "NUBE" },
+                label = { Text("NUBE", style = MaterialTheme.typography.labelSmall) },
+                leadingIcon = if (origenFXSeleccionado == "NUBE") {
+                    { Icon(Icons.Default.Cloud, null, modifier = Modifier.size(10.dp)) }
+                } else null
+            )
+
+        }
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
